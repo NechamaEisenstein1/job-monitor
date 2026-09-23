@@ -37,6 +37,10 @@ Without SMTP settings, digests are written to `outbox/` as HTML.
   with `create-user`). Passwords are scrypt-hashed; sessions are random tokens in an HttpOnly,
   SameSite=Lax cookie (only the SHA-256 is stored). State-changing requests also need
   `X-Requested-With: fetch`. 8 failed logins in 15 minutes lock the account for that window.
+* **Designated admins**: addresses in `ADMIN_EMAILS` (`.env`, comma-separated) become admins
+  as soon as the address is verified - on Google sign-in, on the verification link, or at the
+  next login; `python -m backend.cli ensure-admins` promotes existing accounts. An unverified
+  sign-up with that address is never promoted.
 * **Email verification**: self-registered users get a single-use link (48 h). Until they
   click it the account works, but **no alerts are emailed and outreach is blocked** - both
   would otherwise let anyone point our emails at an address they don't own. Google accounts
@@ -72,9 +76,13 @@ job is kept. Safeguards:
 
 ## Matching rules (config/matching.yaml)
 
-* **Role type** is classified from the title: `software`, `qa`, `embedded`, `hardware`,
-  `other`. Only `roles.eligible_types` (software) can be eligible; everything is still stored.
-  The Jobs page shows software by default - choose "כל התפקידים" to see the rest.
+* **Junior = 0-2 years**: the years a posting requires are parsed from its text ("3 שנות
+  ניסיון", "ניסיון של עד שנה", "3-4 שנים", "ללא ניסיון", "3+ years"; lines marked "יתרון" are
+  ignored). More than `experience.junior_max_years` (2) is never junior, whatever the keywords.
+* **Role type** (from the title): software, data/AI, DevOps, cyber, QA, embedded, hardware,
+  product/project, IT - all technology roles are eligible; non-tech (sales, customer service,
+  admin, finance, HR, logistics) is `other`: stored, never shown by default. Junior jobs are
+  highlighted and pinned first.
 * **Relevance** (default sort): junior roles first, then software > QA > embedded > hardware,
   then junior score (`ranking`).
 * **Government tenders**: `government.keywords` (מכרז, משרד ממשלתי, ...) mark a job with a badge,
