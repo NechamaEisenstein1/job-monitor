@@ -1,21 +1,23 @@
 """FastAPI application. Run with:  uvicorn backend.main:app --reload"""
 from __future__ import annotations
 
-from pathlib import Path
+from datetime import date
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from backend.api import account_routes, admin_routes, routes
+from backend.api.seo import PageRenderer, classify, robots_txt, sitemap_xml
 from backend.bootstrap import build_email_sender, google_oauth
 from backend.config.settings import PROJECT_ROOT, Settings, load_matching_config, load_sources_config
 from backend.infrastructure.db.session import make_engine, make_session_factory
 from backend.observability import configure_logging
 
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+SITE_UPDATED = date(2026, 9, 24)  # <lastmod> of the public pages; bump when their content changes
 
 # Same-origin app: scripts/styles/API all come from our own host. Inline style attributes are
 # used by the UI (bar widths), hence 'unsafe-inline' for styles only.
@@ -54,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         if request.url.path.startswith("/api/"):
             response.headers.setdefault("Cache-Control", "no-store")  # never cache personal data
+            response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
         return response
 
     @app.get("/healthz", include_in_schema=False)
@@ -70,16 +73,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin_routes.router)
     app.include_router(routes.router)
 
+    @app.get("/robots.txt", include_in_schema=False)
+    def robots() -> PlainTextResponse:
+        return PlainTextResponse(robots_txt(settings))
+
+    @app.get("/sitemap.xml", include_in_schema=False)
+    def sitemap() -> Response:
+        return Response(sitemap_xml(settings, SITE_UPDATED), media_type="application/xml")
+
     # Serve the built dashboard (npm run build) from the same origin, if present.
     if FRONTEND_DIST.exists():
         app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+        pages = PageRenderer(FRONTEND_DIST / "index.html", settings)
 
         @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
-        def spa(path: str) -> FileResponse:
+        def spa(path: str) -> Response:
             candidate = (FRONTEND_DIST / path).resolve()
             if path and candidate.is_file() and FRONTEND_DIST.resolve() in candidate.parents:
-                return FileResponse(candidate)
-            return FileResponse(Path(FRONTEND_DIST / "index.html"))
+                return FileResponse(candidate)  # favicon.svg etc.
+            kind = classify("/" + path)
+            # Unknown paths are real 404s (the app shows its own "not found"), never soft-404s.
+            response = HTMLResponse(pages.render("/" + path), status_code=404 if kind == "unknown" else 200)
+            if kind != "public":
+                response.headers["X-Robots-Tag"] = "noindex, nofollow"
+            return response
 
     return app
 

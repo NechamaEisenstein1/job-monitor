@@ -180,6 +180,7 @@ export interface User {
 export interface AuthConfig {
   signup_enabled: boolean;
   google_enabled: boolean;
+  contact_email: string;
 }
 
 export interface RegisterInput {
