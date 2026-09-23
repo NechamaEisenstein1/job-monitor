@@ -323,6 +323,8 @@ export const he = {
     secondary: "משני",
     location_not_matched: "המיקום אינו באזורים המבוקשים",
     junior_score_below_threshold: "ציון ג'וניור מתחת לסף",
+    experience: "ניסיון נדרש (שנים)",
+    experience_required: "נדרש ניסיון רב מדי לג'וניור",
     role: "סוג תפקיד",
     role_not_eligible: "סוג התפקיד אינו פיתוח תוכנה",
     government_tender: "מכרז ממשלתי",

@@ -8,6 +8,7 @@ from backend.domain.models import Job, JobEvaluation
 from backend.domain.services.classification import (
     GovernmentTenderDetector, RankingPolicy, RoleClassifier, keyword_pattern,
 )
+from backend.domain.services.experience import required_years
 from backend.domain.services.normalization import comparison_key
 
 
@@ -52,6 +53,7 @@ class JobEvaluationService:
         role_classifier: RoleClassifier,
         tender_detector: GovernmentTenderDetector,
         ranking: RankingPolicy,
+        junior_max_years: float = 2,
     ):
         self._groups = [
             ("strong_positive", scoring.strong_positive, keywords.strong_positive),
@@ -65,6 +67,7 @@ class JobEvaluationService:
         self._roles = role_classifier
         self._tenders = tender_detector
         self._ranking = ranking
+        self._max_years = junior_max_years
 
     @classmethod
     def from_config(cls, cfg: MatchingConfig, threshold: float | None = None) -> "JobEvaluationService":
@@ -73,6 +76,7 @@ class JobEvaluationService:
             cfg.thresholds.junior_score if threshold is None else threshold,
             LocationMatcher(cfg.locations), RoleClassifier(cfg.roles),
             GovernmentTenderDetector(cfg.government), RankingPolicy(cfg.ranking),
+            cfg.experience.junior_max_years,
         )
 
     def junior_score(self, job: Job) -> tuple[float, list[str]]:
@@ -86,6 +90,24 @@ class JobEvaluationService:
                     rules.append(f"{group}:{kw}")
         return round(min(1.0, max(0.0, score)), 4), rules
 
+    def _seniority(self, job: Job, score: float, matched: list[str]) -> tuple[bool, float, str | None, str | None]:
+        """-> (is_junior, adjusted score, matched rule, rejection).
+
+        Stated experience decides first: above the ceiling is never junior; at or below
+        it is junior unless a senior/lead keyword says otherwise. Without a stated
+        requirement the keyword score decides. The score is kept consistent with the
+        verdict so the UI never shows a junior job with a failing score."""
+        years = required_years("\n".join([job.title, job.description, job.requirements]))
+        senior_keyword = any(r.startswith("strong_negative:") for r in matched)
+        if years is not None and years > self._max_years:
+            return False, min(score, round(self._threshold - 0.1, 4)), None, \
+                f"experience_required ({years:g} > {self._max_years:g} years)"
+        if years is not None and not senior_keyword:
+            return True, max(score, self._threshold), f"experience:{years:g}y", None
+        if score >= self._threshold:
+            return True, score, None, None
+        return False, score, None, f"junior_score_below_threshold ({score} < {self._threshold})"
+
     def evaluate(self, job: Job, scrape_run_id: str, now: datetime) -> JobEvaluation:
         if job.id is None:
             raise ValueError("Only persisted jobs can be evaluated")
@@ -98,9 +120,11 @@ class JobEvaluationService:
         else:
             rejections.append("location_not_matched")
 
-        is_junior = score >= self._threshold
-        if not is_junior:
-            rejections.append(f"junior_score_below_threshold ({score} < {self._threshold})")
+        is_junior, score, rule, rejection = self._seniority(job, score, matched)
+        if rule:
+            matched.append(rule)
+        if rejection:
+            rejections.append(rejection)
 
         role_type = self._roles.classify(job)
         matched.append(f"role:{role_type}")

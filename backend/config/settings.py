@@ -72,6 +72,13 @@ class JuniorScoring:
 
 
 @dataclass(frozen=True)
+class ExperienceConfig:
+    # Junior = at most this many years required ("no experience" counts as 0).
+    # A posting that requires more is never junior, whatever its keywords say.
+    junior_max_years: float = 2
+
+
+@dataclass(frozen=True)
 class Thresholds:
     junior_score: float
     match_title_fuzzy: float
@@ -136,6 +143,7 @@ class MatchingConfig:
     locations: LocationsConfig
     junior_keywords: JuniorKeywords
     junior_scoring: JuniorScoring
+    experience: ExperienceConfig
     thresholds: Thresholds
     retention: RetentionConfig
     email: EmailConfig
@@ -153,6 +161,7 @@ class MatchingConfig:
             locations=LocationsConfig(**raw["locations"]),
             junior_keywords=JuniorKeywords(**raw["keywords"]["junior"]),
             junior_scoring=JuniorScoring(**raw["junior_scoring"]),
+            experience=ExperienceConfig(**raw.get("experience", {})),
             thresholds=Thresholds(**raw["thresholds"]),
             retention=RetentionConfig(**raw.get("retention", {})),
             email=EmailConfig(**raw["email"]),

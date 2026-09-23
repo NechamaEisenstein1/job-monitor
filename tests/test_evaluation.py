@@ -1,3 +1,5 @@
+import pytest
+
 from dataclasses import replace
 
 from backend.domain.services.evaluation import JobEvaluationService
@@ -40,7 +42,7 @@ def test_both_rejection_reasons(cfg):
 
 
 def test_boundary_score_is_eligible(cfg):
-    job = make_job(title="Entry Level Developer")  # base 0.5 + medium 0.15 = 0.65
+    job = make_job(title="מפתח/ת בוגר/ת")  # base 0.5 + medium ("בוגר") 0.15 = 0.65, no experience stated
     ev = service(cfg, threshold=0.65).evaluate(job, "run", NOW)
     assert ev.junior_score == 0.65 and ev.is_eligible
     assert not service(cfg, threshold=0.66).evaluate(job, "run", NOW).is_eligible
@@ -112,3 +114,40 @@ def test_rank_puts_junior_first_then_software(cfg):
     rank = lambda title: s.evaluate(make_job(title=title), "run", NOW).rank_score  # noqa: E731
     junior_qa, senior_dev, junior_dev = rank("Junior QA Engineer"), rank("Senior Developer"), rank("Junior Developer")
     assert junior_dev > junior_qa > senior_dev
+
+
+# ------------------------------------------------------------------ experience (junior = 0-2 years)
+
+@pytest.mark.parametrize("requirements, junior", [
+    ("ניסיון של עד שנה בפיתוח עם ANGULAR", True),          # Yael #25688
+    ("ניסיון של שנתיים לפחות", True),
+    ("ללא ניסיון", True),
+    ("ניסיון של 3 שנים לפחות", False),
+    ("3-4 שנות ניסיון - חובה", False),
+    ("ניסיון של ארבע שנים לפחות", False),
+    ("4+ years of experience", False),
+    ("ניסיון של 5 שנים - יתרון", False),                    # advantage only -> keyword score decides (0.5)
+])
+def test_experience_decides_junior(cfg, requirements, junior):
+    ev = service(cfg).evaluate(make_job(title="מפתח/ת תוכנה", requirements=requirements), "run", NOW)
+    assert ev.is_junior is junior, (requirements, ev.matched_rules, ev.rejection_reasons)
+
+
+def test_experience_overrides_junior_keywords(cfg):
+    # "junior" in the title does not make a 3-year requirement junior.
+    ev = service(cfg).evaluate(make_job(title="Junior Developer", requirements="3 שנות ניסיון"), "run", NOW)
+    assert not ev.is_junior and any(r.startswith("experience_required") for r in ev.rejection_reasons)
+    assert ev.junior_score < cfg.thresholds.junior_score  # the score agrees with the verdict
+
+
+def test_low_experience_with_senior_keyword_is_not_junior(cfg):
+    ev = service(cfg).evaluate(make_job(title="ראש צוות פיתוח", requirements="ניסיון של שנתיים"), "run", NOW)
+    assert not ev.is_junior
+
+
+def test_yael_25688_is_junior_now(cfg):
+    job = make_job(title="מפתח/ת FULLSTACK ובודק/ת אוטומציה", location='ירושלים יו"ש',
+                   requirements="השכלה רלוונטית\nניסיון של עד שנה בפיתוח עם ANGULAR ו- .NET CORE\n"
+                                "היכרות / ניסיון בבדיקות אוטומציה- יתרון משמעותי")
+    ev = service(cfg).evaluate(job, "run", NOW)
+    assert ev.is_junior and ev.location_matched
