@@ -41,6 +41,12 @@ keywords:
       - "ארכיטקט"
       - "ראש צוות"
       - "ר\"צ"
+      - "ר”צ"
+      - "ר״צ"
+      - "ראש/ת צוות"
+      - "ניהול צוות"
+      - "מנוסה"
+      - "מנוסה/ת"
       - "טים ליד"
       - "מוביל/ה טכנולוגי"
       - "מנהל/ת פיתוח"
@@ -84,6 +90,14 @@ junior_scoring:
   strong_positive: 0.3
   medium_positive: 0.15
   strong_negative: -0.5
+
+# Required years of experience are read from each posting ("3 שנות ניסיון", "עד שנה",
+# "ללא ניסיון", "3+ years" ...; lines marked "יתרון" are ignored). This decides junior
+# before any keyword does: > junior_max_years is never junior, <= is always junior
+# (unless a senior/lead keyword is present). Postings that state nothing fall back to
+# the keyword score below.
+experience:
+  junior_max_years: 2
 
 thresholds:
   junior_score: 0.6
