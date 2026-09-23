@@ -22,14 +22,14 @@ export function JobTable({ jobs }: { jobs: JobListItem[] }) {
         </thead>
         <tbody className="divide-y divide-slate-100">
           {jobs.map((job) => (
-            <tr key={job.id} className="hover:bg-slate-50">
-              <td className={`${td} max-w-xs`}>
+            <tr key={job.id} className={job.is_junior ? "bg-emerald-50 hover:bg-emerald-100/70" : "hover:bg-slate-50"}>
+              <td className={`${td} max-w-xs ${job.is_junior ? "border-s-4 border-emerald-500" : ""}`}>
                 <Link to={`/jobs/${job.id}`} className="font-medium text-slate-900 hover:text-sky-700 hover:underline" dir="auto">
                   {job.title}
                 </Link>
                 <div className="mt-1 flex flex-wrap gap-1">
-                  {job.is_government_tender && <TenderBadge />}
                   {job.is_junior && <JuniorBadge />}
+                  {job.is_government_tender && <TenderBadge />}
                   <RoleBadge role={job.role_type} />
                 </div>
               </td>

@@ -56,21 +56,41 @@ keywords:
       - "חמש שנות ניסיון"
 
 # Role classification - by TITLE only (descriptions mention "בדיקות"/"פיתוח" in passing
-# far too often). Types are tried in the order listed; the first hit wins. "other" comes
-# first as an explicit exclusion list (e.g. "מפתח/ת הדרכה" is a training role, not software).
-# A title that names no role is "other".
+# far too often). "other" is an explicit exclusion list and wins outright (e.g.
+# "מפתח/ת הדרכה" is a training role). Among the tech types, the role word that appears
+# FIRST in the title decides ("מפתח/ת Fullstack ובודק/ת אוטומציה" -> software); ties go to the
+# longer (more specific) phrase, then to the order below. A title that names no role is "other".
 roles:
   types:
-    other: ["הדרכה", "פיתוח עסקי", "business development", "מכירות", "sales", "פיתוח ארגוני", "גיוס"]
-    qa: ["qa", "בודק", "בודקת", "בדיקות", "tester", "test engineer", "אוטומציה", "automation", "validation", "ולידציה"]
-    embedded: ["embedded", "אמבדד", "firmware", "קושחה", "real-time", "real time", "rt/embedded", "bsp"]
-    hardware: ["hardware", "חומרה", "chip", "chips", "שבבים", "שבב", "asic", "fpga", "vlsi", "rf", "אלקטרוניקה", "verification"]
+    other: ["הדרכה", "פיתוח עסקי", "business development", "פיתוח ארגוני", "מכירות", "sales", "שיווק",
+            "marketing", "שירות לקוחות", "נציג/ת שירות", "נציג שירות", "customer service", "מזכיר",
+            "אדמיניסטרציה", "אדמיניסטרטיבי", "פקיד", "רכש", "גיוס", "משאבי אנוש", "חשב/ת", "חשבות", "הנהלת חשבונות",
+            "כספים", "נהג", "מחסן", "לוגיסטיקה", "קבלה", "אחזקה"]
     software: ["developer", "מפתח", "מפתחת", "מתכנת", "מתכנתת", "תוכניתן", "תכניתן", "programmer",
                "software", "תוכנה", "פיתוח", "full stack", "fullstack", "backend", "back end", "back-end",
                "frontend", "front end", "front-end", "java", "python", ".net", "c#", "node", "react", "angular",
-               "android", "ios", "data engineer", "ai engineer", "ml engineer", "machine learning engineer"]
-  # Jobs of these types can be eligible; everything is still stored and shown on request.
-  eligible_types: ["software"]
+               "android", "ios", "cobol", "mainframe", "mf", "architect", "ארכיטקט", "rpa", "low-code", "outsystems", "salesforce developer"]
+    data: ["data", "דאטה", "נתונים", "bi", "dba", "big data", "machine learning", "ml", "ai", "בינה מלאכותית",
+           "data scientist", "מדען/ית נתונים", "אנליסט", "analyst", "sql", "nosql"]
+    devops: ["devops", "דבופס", "sre", "cloud", "ענן", "kubernetes", "platform engineer"]
+    cyber: ["סייבר", "cyber", "cybersecurity", "אבטחת מידע", "security", "soc", "siem", "הגנת", "threat", "מודיעין סייבר"]
+    qa: ["מפתח/ת אוטומציה", "מפתח אוטומציה", "automation developer", "automation engineer", "qa", "בודק", "בודקת", "בדיקות", "tester", "test engineer", "אוטומציה", "automation", "validation", "ולידציה"]
+    embedded: ["embedded", "אמבדד", "firmware", "קושחה", "real-time", "real time", "rt/embedded", "bsp"]
+    hardware: ["hardware", "חומרה", "chip", "chips", "שבבים", "שבב", "asic", "fpga", "vlsi", "rf", "אלקטרוניקה",
+               "verification", "אימות", "בורד", "board", "אלקטרו-אופטי", "אלקטרואופטי"]
+    product: ["מנהל/ת מוצר", "מנהל מוצר", "product manager", "product owner", "מוצר", "project manager",
+              "ניהול פרויקט", "פרויקט", "project", "מנהל/ת פרויקט", 'מנהל\ת פרויקט', "מנהל פרויקט", "פרויקטים", "pmo", "scrum",
+              "ux", "ui", "חוויית משתמש", "אפיון", "טרנספורמציה דיגיטלית", "דיגיטל"]
+    it: ["system", "סיסטם", "it", "helpdesk", "help desk", "הלפדסק", "תמיכה טכנית", "תמיכה אפליקטיבית",
+         "טכנאי", "מחשוב", "תשתיות", "רשתות", "network", "תקשורת", "pc", "מיישם", "מיישמ", "יישום", "sap",
+         "erp", "crm", "priority", "פריוריטי", "מערכות מידע", "מנתח/ת מערכות", "מנתח מערכות", "ניתוח מערכות",
+         "system analyst", "אינטגרציה", "integration", "servicenow", "sharepoint", "dynamics",
+         "תמיכה", "תומכ", "support", "hd", "הטמעה", "הטמעת", "מהנדס/ת מערכת", "מהנדס מערכת",
+         "system engineer", "שילובים", "operations", "תומך", "רשת", "מטמיע", "מתחזק/ת אתרים", "ממוחשב", "google workspace"]
+  # Generic types: chosen only when no specific type matches ("מיישם/ת הגנת סייבר" -> cyber).
+  fallback_types: ["it"]
+  # Every tech type can be eligible; "other" (non-tech) is stored but never shown by default.
+  eligible_types: ["software", "data", "devops", "cyber", "qa", "embedded", "hardware", "product", "it"]
 
 # Postings for government bodies / public tenders get a badge and priority in alerts.
 government:
@@ -80,7 +100,7 @@ government:
 # Relevance order (the default Jobs sort): junior roles first, then by role type, then score.
 ranking:
   junior_bonus: 1000
-  role_priority: ["software", "qa", "embedded", "hardware", "other"]
+  role_priority: ["software", "data", "devops", "cyber", "qa", "embedded", "hardware", "product", "it", "other"]
   role_step: 100
 
 # How keyword hits turn into junior_score (clamped to 0..1).

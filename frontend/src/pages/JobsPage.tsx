@@ -10,9 +10,9 @@ import { api, PAGE_SIZE } from "../services/api";
 import type { JobFilterValues } from "../types/api";
 import { he } from "../i18n/he";
 
-// Non-software roles are stored but hidden by default; pick "כל התפקידים" to see them.
+// Non-tech roles are stored but hidden by default; pick "הכל" to see them.
 const DEFAULTS: JobFilterValues = {
-  q: "", location: "", eligible: "", status: "", source: "", role_type: "software", government: "",
+  q: "", location: "", eligible: "", status: "", source: "", role_type: "tech", government: "",
   sort: "relevance", page: 1,
 };
 
