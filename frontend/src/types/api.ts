@@ -171,6 +171,21 @@ export interface User {
   alerts_enabled: boolean;
   created_at: string;
   last_login_at: string | null;
+  email_verified: boolean;
+  has_password: boolean;
+  google_linked: boolean;
+}
+
+export interface AuthConfig {
+  signup_enabled: boolean;
+  google_enabled: boolean;
+}
+
+export interface RegisterInput {
+  email: string;
+  display_name: string;
+  password: string;
+  experience_level: ExperienceLevel;
 }
 
 export interface RecruiterInput {

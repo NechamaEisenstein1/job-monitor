@@ -193,6 +193,15 @@ class Settings:
     public_base_url: str = "http://localhost:8000"
     # True in production (HTTPS): the session cookie is then sent over HTTPS only.
     cookie_secure: bool = False
+    # Anyone may create an account (set ALLOW_SIGNUP=false for invite-only).
+    allow_signup: bool = True
+    # Google sign-in is enabled when both are set (Google Cloud console -> OAuth client).
+    google_client_id: str = ""
+    google_client_secret: str = ""
+
+    @property
+    def google_enabled(self) -> bool:
+        return bool(self.google_client_id and self.google_client_secret)
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -216,6 +225,9 @@ class Settings:
             log_level=os.environ.get("LOG_LEVEL", "INFO"),
             public_base_url=os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000"),
             cookie_secure=os.environ.get("COOKIE_SECURE", "false").lower() == "true",
+            allow_signup=os.environ.get("ALLOW_SIGNUP", "true").lower() == "true",
+            google_client_id=os.environ.get("GOOGLE_CLIENT_ID", ""),
+            google_client_secret=os.environ.get("GOOGLE_CLIENT_SECRET", ""),
         )
 
 

@@ -1,7 +1,7 @@
 import { errorLabel, he } from "../i18n/he";
 import type {
-  AdminStats, ExperienceLevel, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
-  OutreachResult, Recruiter, RecruiterInput, RunDetail, ScrapeRun, SourceHealth, Stats, User,
+  AdminStats, AuthConfig, ExperienceLevel, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
+  OutreachResult, Recruiter, RecruiterInput, RegisterInput, RunDetail, ScrapeRun, SourceHealth, Stats, User,
 } from "../types/api";
 
 export class ApiError extends Error {
@@ -33,7 +33,7 @@ async function request<T>(method: string, path: string, options: { params?: Para
     credentials: "same-origin",
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
-  if (response.status === 401 && path !== "/auth/login" && path !== "/auth/me") onUnauthorized();
+  if (response.status === 401 && !path.startsWith("/auth/")) onUnauthorized();
   if (!response.ok) {
     const detail = await response.json().then((d) => (typeof d?.detail === "string" ? d.detail : undefined)).catch(() => undefined);
     const message = detail ? errorLabel(detail)
@@ -53,6 +53,9 @@ export const PAGE_SIZE = 25;
 export const api = {
   // auth
   me: () => get<User>("/auth/me"),
+  authConfig: () => get<AuthConfig>("/auth/config"),
+  register: (r: RegisterInput) => post<User>("/auth/register", r),
+  resendVerification: () => post<void>("/auth/verify/resend"),
   login: (email: string, password: string) => post<User>("/auth/login", { email, password }),
   logout: () => post<void>("/auth/logout"),
   changePassword: (current_password: string, new_password: string) =>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Card, PageHeader } from "../components/Layout";
@@ -61,6 +61,7 @@ function ProfileCard() {
       await api.changePassword(current, next);
       setCurrent("");
       setNext("");
+      setUser({ ...user, has_password: true });
       setPwStatus({ ok: m.passwordChanged });
     } catch (err) {
       setPwStatus({ error: (err as Error).message });
@@ -89,12 +90,14 @@ function ProfileCard() {
         </div>
       </form>
       <details className="mt-4 border-t border-slate-100 pt-3">
-        <summary className="cursor-pointer text-sm font-medium text-slate-700">{m.password}</summary>
+        <summary className="cursor-pointer text-sm font-medium text-slate-700">{user.has_password ? m.password : m.setPassword}</summary>
         <form onSubmit={changePassword} className="mt-3 space-y-3">
-          <Field label={m.currentPassword}>
-            <input className={control} type="password" autoComplete="current-password" value={current}
-                   onChange={(e) => setCurrent(e.target.value)} required />
-          </Field>
+          {user.has_password && (
+            <Field label={m.currentPassword}>
+              <input className={control} type="password" autoComplete="current-password" value={current}
+                     onChange={(e) => setCurrent(e.target.value)} required />
+            </Field>
+          )}
           <Field label={m.newPassword}>
             <input className={control} type="password" autoComplete="new-password" minLength={10} value={next}
                    onChange={(e) => setNext(e.target.value)} required />
@@ -192,6 +195,7 @@ function RecruitersCard({ recruiters, reload }: { recruiters: Recruiter[]; reloa
 // ------------------------------------------------------------------ matches + outreach
 
 function OutreachButton({ job, recruiterCount }: { job: JobListItem; recruiterCount: number }) {
+  const user = useUser();
   const [stage, setStage] = useState<"idle" | "confirm" | "sending" | "done">("idle");
   const [results, setResults] = useState<OutreachResult[]>([]);
   const [error, setError] = useState<string>();
@@ -231,8 +235,8 @@ function OutreachButton({ job, recruiterCount }: { job: JobListItem; recruiterCo
   }
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button className={secondary} disabled={recruiterCount === 0} onClick={() => setStage("confirm")}
-              title={recruiterCount === 0 ? he.errors.no_recruiters : undefined}>
+      <button className={secondary} disabled={recruiterCount === 0 || !user.email_verified} onClick={() => setStage("confirm")}
+              title={!user.email_verified ? he.errors.email_not_verified : recruiterCount === 0 ? he.errors.no_recruiters : undefined}>
         ✉ {m.askRecruiters}
       </button>
       {error && <span role="alert" className="text-sm text-rose-700">{error}</span>}
@@ -286,11 +290,29 @@ function MatchesCard({ recruiterCount }: { recruiterCount: number }) {
   );
 }
 
+function Notice() {
+  const params = new URLSearchParams(window.location.search);
+  const verified = params.get("verified");
+  const text = verified === "1" ? he.auth.verifiedOk : verified === "0" ? he.auth.verifiedFailed
+    : params.get("welcome") ? he.auth.welcome : null;
+  if (!text) return null;
+  const tone = verified === "0" ? "bg-rose-50 text-rose-800" : "bg-emerald-50 text-emerald-800";
+  return <p role="status" className={`mb-4 rounded-md px-4 py-2 text-sm ${tone}`}>{text}</p>;
+}
+
 export function MyAreaPage() {
   const recruiters = useApi(api.recruiters, "recruiters");
+  const { setUser } = useAuth();
+
+  useEffect(() => {
+    // After the verification link the server redirects here; refresh the user's status.
+    if (new URLSearchParams(window.location.search).has("verified")) api.me().then(setUser).catch(() => undefined);
+  }, [setUser]);
+
   return (
     <>
       <PageHeader title={m.title} subtitle={m.subtitle} />
+      <Notice />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2">
           <MatchesCard recruiterCount={recruiters.data?.length ?? 0} />

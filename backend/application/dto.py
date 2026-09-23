@@ -176,6 +176,14 @@ class UserDto(Dto):
     alerts_enabled: bool
     created_at: UtcDatetime
     last_login_at: UtcDatetime | None
+    email_verified: bool
+    has_password: bool
+    google_linked: bool
+
+
+class AuthConfigDto(Dto):
+    signup_enabled: bool
+    google_enabled: bool
 
 
 class RecruiterDto(Dto):

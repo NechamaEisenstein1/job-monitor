@@ -56,6 +56,8 @@ class OutreachService:
             job = self._jobs.get(job_id)
         except LookupError as exc:
             raise AccountError("not_found") from exc
+        if not user.email_verified:
+            raise AccountError("email_not_verified")  # Reply-To must be an address the user owns
         recruiters = self._recruiters.list_for_user(user.id)
         if not recruiters:
             raise AccountError("no_recruiters")

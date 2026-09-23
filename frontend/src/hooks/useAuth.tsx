@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { api, setUnauthorizedHandler } from "../services/api";
-import type { User } from "../types/api";
+import type { RegisterInput, User } from "../types/api";
 
 interface AuthState {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
 }
@@ -26,12 +27,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(await api.login(email, password));
   }, []);
 
+  const register = useCallback(async (input: RegisterInput) => {
+    setUser(await api.register(input));
+  }, []);
+
   const logout = useCallback(async () => {
     await api.logout().catch(() => undefined);
     setUser(null);
   }, []);
 
-  const value = useMemo(() => ({ user, loading, login, logout, setUser }), [user, loading, login, logout]);
+  const value = useMemo(() => ({ user, loading, login, register, logout, setUser }), [user, loading, login, register, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

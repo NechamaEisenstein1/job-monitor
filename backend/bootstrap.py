@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from backend.application.services.notification import NotificationService
 from backend.application.services.scraper_executor import ScraperExecutor
-from backend.application.use_cases.accounts import AccountService, RecruiterService
+from backend.application.use_cases.accounts import AccountService, EmailVerificationService, RecruiterService
 from backend.application.use_cases.outreach import OutreachService
 from backend.application.use_cases.run_pipeline import RunPipeline
 from backend.application.use_cases.user_alerts import UserAlertService
@@ -26,9 +26,10 @@ from backend.infrastructure.repositories.sql import (
     SqlUnitOfWork,
 )
 from backend.infrastructure.repositories.users import (
-    SqlAlertRepository, SqlAnalyticsRepository, SqlOutreachRepository, SqlRecruiterRepository,
-    SqlSessionRepository, SqlUserRepository,
+    SqlAlertRepository, SqlAnalyticsRepository, SqlEmailTokenRepository, SqlOutreachRepository,
+    SqlRecruiterRepository, SqlSessionRepository, SqlUserRepository,
 )
+from backend.infrastructure.oauth.google import GoogleOAuth
 from backend.infrastructure.scrapers.http import RetryingHttpClient, RetryPolicy
 from backend.infrastructure.scrapers.registry import build_scrapers
 
@@ -118,3 +119,15 @@ async def pipeline_from_settings(settings: Settings) -> AsyncIterator[RunPipelin
                 clock=utcnow,
                 user_alerts=user_alert_service(alerts_session, settings, cfg, sender),
             )
+
+
+def verification_service(session: Session, settings: Settings, sender: EmailSender) -> EmailVerificationService:
+    return EmailVerificationService(SqlUserRepository(session), SqlEmailTokenRepository(session), sender,
+                                    settings.public_base_url, utcnow)
+
+
+def google_oauth(settings: Settings) -> GoogleOAuth | None:
+    if not settings.google_enabled:
+        return None
+    return GoogleOAuth(settings.google_client_id, settings.google_client_secret,
+                       f"{settings.public_base_url.rstrip('/')}/api/auth/google/callback")

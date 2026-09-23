@@ -159,13 +159,26 @@ class UserRow(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(320), unique=True)
     display_name: Mapped[str] = mapped_column(String(200))
-    password_hash: Mapped[str] = mapped_column(String(300))
+    password_hash: Mapped[str | None] = mapped_column(String(300))  # None = Google-only account
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     experience_level: Mapped[str] = mapped_column(String(16), default="junior")
     alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
+    google_sub: Mapped[str | None] = mapped_column(String(64), unique=True)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class EmailTokenRow(Base):
+    """Single-use email links (verification). Only the SHA-256 of the token is stored."""
+    __tablename__ = "email_tokens"
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    purpose: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
 
 
 class UserSessionRow(Base):

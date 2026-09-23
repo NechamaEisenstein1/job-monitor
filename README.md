@@ -13,7 +13,7 @@ pip install -r requirements-dev.txt
 cp .env.example .env              # set RECIPIENT_EMAIL; SMTP optional
 
 alembic upgrade head              # schema comes from migrations only
-python -m backend.cli create-user --email you@example.com --name "Your Name" --admin   # first admin
+python -m backend.cli create-user --email you@example.com --name "Your Name" --admin   # first admin (others can sign up)
 python -m backend.cli probe       # hit every live source, print a report, write nothing
 python -m backend.cli run         # one full run against the live sources (~3 min)
 
@@ -32,10 +32,19 @@ Without SMTP settings, digests are written to `outbox/` as HTML.
 
 ## Users, alerts and outreach
 
-* **Accounts**: no open sign-up. Admins create users (Admin page, or `create-user` CLI).
-  Passwords are scrypt-hashed; sessions are random tokens in an HttpOnly, SameSite=Lax cookie
-  (only the SHA-256 is stored). State-changing requests also need `X-Requested-With: fetch`.
-  8 failed logins in 15 minutes lock the account for that window.
+* **Accounts**: sign up with email + password (name, junior/experienced) or **Continue with
+  Google**; `ALLOW_SIGNUP=false` makes it invite-only (admins create users on the Admin page or
+  with `create-user`). Passwords are scrypt-hashed; sessions are random tokens in an HttpOnly,
+  SameSite=Lax cookie (only the SHA-256 is stored). State-changing requests also need
+  `X-Requested-With: fetch`. 8 failed logins in 15 minutes lock the account for that window.
+* **Email verification**: self-registered users get a single-use link (48 h). Until they
+  click it the account works, but **no alerts are emailed and outreach is blocked** - both
+  would otherwise let anyone point our emails at an address they don't own. Google accounts
+  are verified by Google; admin-created accounts are trusted.
+* **Google sign-in**: OAuth 2.0 authorization code + PKCE, `state` checked against an
+  HttpOnly cookie. A Google login links to an existing account with the same email **only**
+  if Google reports the email as verified. Google-only users can add a password later.
+  Setup: see `GOOGLE_CLIENT_ID` in `.env.example`.
 * **Personal area** (`/me`): profile (junior / experienced), alerts on/off, a private recruiter
   list (name, email, company), and the jobs matching the profile - best first.
 * **Alerts**: after each run every user with alerts on gets one email listing new matching

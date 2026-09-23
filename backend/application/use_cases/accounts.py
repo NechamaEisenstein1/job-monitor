@@ -8,9 +8,13 @@ from datetime import datetime, timedelta
 
 from backend.domain.enums import ExperienceLevel
 from backend.domain.models import Recruiter, User
+from backend.infrastructure.email.renderer import render_verification
+from backend.infrastructure.email.senders import EmailSender
 from backend.infrastructure.repositories.users import (
-    SqlAnalyticsRepository, SqlRecruiterRepository, SqlSessionRepository, SqlUserRepository,
+    SqlAnalyticsRepository, SqlEmailTokenRepository, SqlRecruiterRepository, SqlSessionRepository,
+    SqlUserRepository,
 )
+from backend.infrastructure.oauth.google import GoogleProfile
 from backend.infrastructure.security import hash_password, new_session_token, token_hash, verify_password
 
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -64,17 +68,59 @@ class AccountService:
         user = self._users.by_email(email or "")
         if user and self._analytics.count("login_failed", now - FAILED_LOGIN_WINDOW, user.id) >= MAX_FAILED_LOGINS:
             raise AccountError("too_many_attempts")
-        # Always run one scrypt so unknown emails take as long as wrong passwords.
-        valid = verify_password(password or "", user.password_hash if user else _DUMMY_HASH)
-        if not user or not valid or not user.is_active:
+        # Always run one scrypt so unknown emails (and Google-only accounts, which have no
+        # password) take as long as wrong passwords.
+        valid = verify_password(password or "", (user.password_hash if user else None) or _DUMMY_HASH)
+        if not user or not user.password_hash or not valid or not user.is_active:
             self._analytics.record("login_failed", user.id if user else None, None, now)
             raise AccountError("invalid_credentials")
+        return user, self._start_session(user, "login")
+
+    def login_with_google(self, profile: GoogleProfile, *, allow_signup: bool) -> tuple[User, str, bool]:
+        """Sign in by Google identity -> (user, session token, account was just created).
+        Links to an existing account only when Google confirms the email is verified
+        (otherwise anyone could claim an address they don't own)."""
+        created = False
+        user = self._users.by_google_sub(profile.sub)
+        if user is None:
+            existing = self._users.by_email(profile.email)
+            if existing is not None:
+                if not profile.email_verified:
+                    raise AccountError("google_email_unverified")
+                existing.google_sub = profile.sub
+                existing.email_verified = True
+                user = self._users.save(existing)
+            elif not allow_signup:
+                raise AccountError("signup_disabled")
+            else:
+                user = self._users.save(User(
+                    id=None, email=_email(profile.email), display_name=_text(profile.name, "invalid_name"),
+                    password_hash=None, is_admin=False, is_active=True, experience_level=ExperienceLevel.JUNIOR,
+                    alerts_enabled=True, created_at=self._clock(), google_sub=profile.sub,
+                    email_verified=profile.email_verified))
+                created = True
+                self._analytics.record("signup", user.id, None, self._clock())
+        if not user.is_active:
+            raise AccountError("invalid_credentials")
+        return user, self._start_session(user, "login_google"), created
+
+    def register(self, email: str, display_name: str, password: str, level: ExperienceLevel,
+                 *, allow_signup: bool) -> tuple[User, str]:
+        """Self sign-up. The account works at once; alerts/outreach wait for email verification."""
+        if not allow_signup:
+            raise AccountError("signup_disabled")
+        user = self.create_user(email, display_name, password, level=level, email_verified=False)
+        self._analytics.record("signup", user.id, None, self._clock())
+        return user, self._start_session(user, "login")
+
+    def _start_session(self, user: User, event: str) -> str:
+        now = self._clock()
         token = new_session_token()
         self._sessions.add(token_hash(token), user.id, now, now + self._session_ttl)
         user.last_login_at = now
         self._users.save(user)
-        self._analytics.record("login", user.id, None, now)
-        return user, token
+        self._analytics.record(event, user.id, None, now)
+        return token
 
     def logout(self, token: str) -> None:
         self._sessions.delete(token_hash(token))
@@ -89,10 +135,12 @@ class AccountService:
     # ------------------------------------------------------------- accounts
 
     def create_user(self, email: str, display_name: str, password: str, *, is_admin: bool = False,
-                    level: ExperienceLevel = ExperienceLevel.JUNIOR) -> User:
+                    level: ExperienceLevel = ExperienceLevel.JUNIOR, email_verified: bool = True) -> User:
+        """Admin/CLI-created accounts are trusted (verified); self sign-up passes False."""
         user = User(id=None, email=_email(email), display_name=_text(display_name, "invalid_name"),
                     password_hash=hash_password(_password(password)), is_admin=is_admin, is_active=True,
-                    experience_level=level, alerts_enabled=True, created_at=self._clock())
+                    experience_level=level, alerts_enabled=True, created_at=self._clock(),
+                    email_verified=email_verified)
         return self._users.save(user)
 
     def update_profile(self, user: User, *, display_name: str, level: ExperienceLevel, alerts_enabled: bool) -> User:
@@ -102,7 +150,8 @@ class AccountService:
         return self._users.save(user)
 
     def change_password(self, user: User, current: str, new: str) -> None:
-        if not verify_password(current or "", user.password_hash):
+        # Google-only accounts may add a password without a current one.
+        if user.password_hash and not verify_password(current or "", user.password_hash):
             raise AccountError("invalid_credentials")
         user.password_hash = hash_password(_password(new))
         self._users.save(user)
@@ -163,3 +212,40 @@ class RecruiterService:
     def delete(self, user: User, recruiter_id: int) -> None:
         if not self._repo.delete(user.id, recruiter_id):
             raise AccountError("not_found")
+
+
+VERIFY_PURPOSE = "verify_email"
+VERIFY_TTL = timedelta(hours=48)
+RESEND_COOLDOWN = timedelta(minutes=1)
+
+
+class EmailVerificationService:
+    """Proves a user owns their address before we email it alerts or use it as Reply-To."""
+
+    def __init__(self, users: SqlUserRepository, tokens: SqlEmailTokenRepository, sender: EmailSender,
+                 base_url: str, clock: Callable[[], datetime]):
+        self._users = users
+        self._tokens = tokens
+        self._sender = sender
+        self._base_url = base_url.rstrip("/")
+        self._clock = clock
+
+    def send(self, user: User) -> None:
+        if user.email_verified:
+            return
+        now = self._clock()
+        last = self._tokens.last_issued(user.id, VERIFY_PURPOSE)
+        if last and now - last < RESEND_COOLDOWN:
+            raise AccountError("verification_recently_sent")
+        token = new_session_token()
+        self._tokens.add(token_hash(token), user.id, VERIFY_PURPOSE, now, now + VERIFY_TTL)
+        link = f"{self._base_url}/api/auth/verify?token={token}"
+        self._sender.send(user.email, render_verification(user.display_name, link))
+
+    def verify(self, token: str) -> User | None:
+        user_id = self._tokens.consume(token_hash(token or ""), VERIFY_PURPOSE, self._clock())
+        user = self._users.get(user_id) if user_id else None
+        if user is None:
+            return None
+        user.email_verified = True
+        return self._users.save(user)

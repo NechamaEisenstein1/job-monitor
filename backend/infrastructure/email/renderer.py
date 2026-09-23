@@ -95,3 +95,18 @@ def render_outreach(*, recruiter_name: str, sender_name: str, sender_email: str,
     text = "\n\n".join(paragraphs)
     html = _page(subject, "".join(f"<p>{escape(p).replace(chr(10), '<br>')}</p>" for p in paragraphs))
     return RenderedEmail(subject=subject, html=html, text=text, reply_to=sender_email)
+
+
+def render_verification(display_name: str, link: str) -> RenderedEmail:
+    subject = "אימות כתובת המייל - מוניטור משרות"
+    paragraphs = [
+        f"שלום {display_name},",
+        "כדי לקבל התראות על משרות ולשלוח פניות למגייסים, יש לאמת את כתובת המייל:",
+        link,
+        "הקישור בתוקף ל-48 שעות. אם לא נרשמת - אפשר להתעלם מהמייל.",
+    ]
+    button = (f"<p><a href='{escape(link)}' style='background:#0f172a;color:#fff;padding:10px 16px;"
+              f"border-radius:6px;text-decoration:none'>אימות כתובת המייל</a></p>")
+    html = _page(subject, f"<p>{escape(paragraphs[0])}</p><p>{escape(paragraphs[1])}</p>{button}"
+                          f"<p style='color:#64748b;font-size:12px'>{escape(paragraphs[3])}</p>")
+    return RenderedEmail(subject=subject, html=html, text=chr(10).join(paragraphs))
