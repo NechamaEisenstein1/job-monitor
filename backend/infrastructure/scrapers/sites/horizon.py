@@ -32,6 +32,7 @@ class HorizonScraper(SiteScraper):
         for row in document.select(".job-container"):
             link = row.select_one(".job-link a")
             if link is None:
+                self.skip()
                 continue
             area = next((AREAS.get(m.group(1)) for c in row.get("class", []) if (m := _AREA.match(c))), None)
             jobs.append(self.job(

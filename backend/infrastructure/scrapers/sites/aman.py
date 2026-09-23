@@ -36,6 +36,7 @@ class AmanScraper(SiteScraper):
         for card in document.select(".aman-job-card"):
             link = card.select_one(".aman-job-card__title-link")
             if link is None:
+                self.skip()
                 continue
             tags = [t.get_text(strip=True) for t in card.select(".aman-job-card__tag")]
             job_no = next((m.group(1) for t in tags if (m := _JOB_NO.search(t))), None)

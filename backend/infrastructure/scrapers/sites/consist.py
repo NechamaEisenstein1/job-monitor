@@ -31,6 +31,7 @@ class ConsistScraper(SiteScraper):
         for item in document.select(".job-item"):
             body = item.select_one("span.job-description[data-jobid]")
             if body is None:
+                self.skip()
                 continue
             job_id = body["data-jobid"]
             description, requirements = split_requirements(text_of(body.select_one(".text") or body))

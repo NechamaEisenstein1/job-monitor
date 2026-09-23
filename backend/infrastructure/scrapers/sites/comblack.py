@@ -26,6 +26,7 @@ class ComblackScraper(SiteScraper):
         for block in document.select(".misratestall"):
             link = block.select_one("h2 a")
             if link is None:
+                self.skip()
                 continue
             match = _POSITION_ID.search(link["href"])
             area = block.select_one(".eizorspan a")

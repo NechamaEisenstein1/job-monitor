@@ -109,7 +109,7 @@ class RunPipeline:
             id=None, run_id=ctx.run.id, site=result.site, status=result.status,
             started_at=result.started_at, finished_at=result.finished_at,
             jobs_fetched=len(result.raw_jobs), jobs_parsed=0, jobs_invalid=0,
-            error=result.error, warning=None,
+            error=result.error, warning=result.warning,
         )
         invalid_reasons: dict[str, int] = {}
         for raw in result.raw_jobs:
@@ -125,11 +125,11 @@ class RunPipeline:
 
         if invalid_reasons:
             summary = ", ".join(f"{k}={v}" for k, v in sorted(invalid_reasons.items()))
-            scraper_run.warning = f"{scraper_run.jobs_invalid} invalid record(s): {summary}"
+            scraper_run.warning = "; ".join(filter(None, [scraper_run.warning, f"{scraper_run.jobs_invalid} invalid record(s): {summary}"]))
             log_event("jobs_invalid", logging.WARNING, site=result.site, count=scraper_run.jobs_invalid,
                       reasons=invalid_reasons)
         if result.status == ScrapeStatus.ZERO_RESULTS:
-            scraper_run.warning = "scraper returned zero jobs"
+            scraper_run.warning = "; ".join(filter(None, [scraper_run.warning, "scraper returned zero jobs"]))
         return self._uow.scraper_runs.save(scraper_run)
 
     def _process_job(self, incoming: NormalizedJob, ctx: _RunContext) -> None:

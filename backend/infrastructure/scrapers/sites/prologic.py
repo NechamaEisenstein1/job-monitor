@@ -35,6 +35,7 @@ class PrologicScraper(SiteScraper):
             link = block.select_one("a[href]")
             cms_id = block.select_one("input[name=cmsId]")
             if link is None or cms_id is None:
+                self.skip()
                 continue
             description, requirements = split_requirements(text_of(block.select_one(".allJobsDescription")))
             jobs.append(self.job(

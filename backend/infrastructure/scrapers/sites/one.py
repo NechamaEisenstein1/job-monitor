@@ -42,6 +42,7 @@ class OneScraper(SiteScraper):
         for item in document.select(".accordion_item[data-id]"):
             title = item.select_one(".job_title")
             if title is None:
+                self.skip()
                 continue
             tags = {img.get("alt", ""): li.get_text(" ", strip=True)
                     for li in item.select(".career-tag-list li") if (img := li.find("img"))}
