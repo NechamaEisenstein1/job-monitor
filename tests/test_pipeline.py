@@ -13,7 +13,7 @@ from backend.application.use_cases.run_pipeline import RunPipeline
 from backend.domain.enums import JobChange, JobSourceStatus, JobStatus, RunStatus
 from backend.domain.models import RawJob
 from backend.domain.services.evaluation import JobEvaluationService
-from backend.infrastructure.db.orm import JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow
+from backend.infrastructure.db.orm import JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, ScraperRunRow
 from backend.infrastructure.repositories.sql import SqlNotificationRepository, SqlUnitOfWork
 from backend.infrastructure.scrapers.base import BaseScraper, ScrapeTimeoutError
 
@@ -125,22 +125,48 @@ def test_rerun_unchanged_creates_no_change_and_content_update_is_detected(harnes
     assert len({r1.id, r2.id, r3.id, r4.id}) == 4  # every run gets a fresh UUID
 
 
-def test_failed_scraper_never_archives(harness):
+def test_failed_scraper_never_removes_jobs(harness):
     harness(FakeScraper("Matrix", [job("1")]))
     for day in range(1, 6):
-        run = harness(FakeScraper("Matrix", error=ScrapeTimeoutError("slow")), days_later=90 + day)
+        run = harness(FakeScraper("Matrix", error=ScrapeTimeoutError("slow")), days_later=day)
         assert run.status == RunStatus.FAILED
     [source] = harness.query(select(JobSourceRow))
     assert source.status == JobSourceStatus.ACTIVE.value
 
 
-def test_absence_archives_after_enough_successful_runs(harness):
-    harness(FakeScraper("Matrix", [job("1"), job("2", title="QA Tester")]))
-    for day in (61, 62, 63):
-        harness(FakeScraper("Matrix", [job("2", title="QA Tester")]), days_later=day)
-    rows = {r.id: r for r in harness.query(select(JobRow))}
-    assert rows[1].status == JobStatus.ARCHIVED.value
-    assert rows[2].status == JobStatus.ACTIVE.value
+def test_daily_refresh_removes_jobs_no_longer_listed(harness):
+    harness(FakeScraper("Matrix", [job("1"), job("2", title="QA Tester"), job("3", title="Data Analyst")]))
+    harness(FakeScraper("Matrix", [job("2", title="QA Tester"), job("3", title="Data Analyst")]), days_later=1)
+    titles = {r.title for r in harness.query(select(JobRow))}
+    assert titles == {"QA Tester", "Data Analyst"}
+    # ...together with its history and evaluations; only the latest evaluation per job remains.
+    assert {c.job_id for c in harness.query(select(JobChangeRow))} == {2, 3}
+    evals = harness.query(select(JobEvaluationRow))
+    assert sorted(e.job_id for e in evals) == [2, 3]
+
+
+def test_job_listed_by_two_agencies_survives_one_delisting(harness):
+    other = job("7", title="Office Manager", location="Haifa")
+    harness(FakeScraper("Matrix", [job("1"), other]), FakeScraper("HMS", [job("H1")]))
+    # Matrix drops its posting of the shared job; HMS still lists it.
+    harness(FakeScraper("Matrix", [other]), FakeScraper("HMS", [job("H1")]), days_later=1)
+    shared = next(r for r in harness.query(select(JobRow)) if r.title == "Junior Developer")
+    assert shared.status == JobStatus.ACTIVE.value
+    assert [s.recruitment_company for s in harness.query(select(JobSourceRow)) if s.job_id == shared.id] == ["HMS"]
+
+
+def test_empty_site_is_not_a_delisting(harness):
+    harness(FakeScraper("Matrix", [job("1")]))
+    harness(FakeScraper("Matrix", []), days_later=1)  # zero results = suspicious, not "all gone"
+    assert len(harness.query(select(JobRow))) == 1
+
+
+def test_implausible_mass_removal_is_skipped_and_reported(harness):
+    harness(FakeScraper("Matrix", [job(str(i), title=f"Role {i}") for i in range(10)]))
+    run = harness(FakeScraper("Matrix", [job("0", title="Role 0")]), days_later=1)  # 9 of 10 vanished
+    assert len(harness.query(select(JobRow))) == 10
+    [scraper_run] = [s for s in harness.query(select(ScraperRunRow)) if s.run_id == run.id]
+    assert "pruning skipped" in scraper_run.warning
 
 
 def test_one_failing_scraper_gives_partial_run_and_others_persist(harness):

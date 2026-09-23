@@ -48,6 +48,19 @@ Without SMTP settings, digests are written to `outbox/` as HTML.
   alerts and outreach sent, jobs by source and role, recent runs. No IPs or user agents
   are stored; page paths are stored with ids collapsed (`/jobs/:id`).
 
+## Daily refresh (config/matching.yaml -> retention)
+
+The database holds only jobs the sites still publish. Each run upserts what it found, then
+deletes postings a site no longer lists - with their history, evaluations, alert and
+outreach records - and deletes jobs left with no posting. Only the latest evaluation per
+job is kept. Safeguards:
+
+* Only sites that scraped **successfully** in this run are pruned (a failed or empty
+  scrape proves nothing; those jobs wait for the site's next good run).
+* If one run would remove more than `retention.max_prune_ratio` (50%) of a site's
+  postings, that site is not pruned and the run page shows a warning.
+* A job listed by two agencies survives while either still lists it.
+
 ## Matching rules (config/matching.yaml)
 
 * **Role type** is classified from the title: `software`, `qa`, `embedded`, `hardware`,
@@ -77,7 +90,7 @@ Without SMTP settings, digests are written to `outbox/` as HTML.
 ```
 backend/
   domain/            models, enums, pure services (normalization, identity, matching,
-                     evaluation, change detection, archive, run status)
+                     evaluation, change detection, retention, run status)
   application/       run_pipeline (orchestration), queries (read side), notification,
                      scraper executor, ports (repository interfaces), dto
   infrastructure/    db (ORM + Alembic migrations), repositories, scrapers (+ shared retry
@@ -150,7 +163,7 @@ fix the selectors in its module, and re-run the parser tests.
 * **Email idempotency**: claim a `pending` row (unique key) → send → mark `sent`; failed sends
   delete the claim so a later run retries; a claim abandoned by a crash is taken over after
   `email.claim_timeout_minutes`. No email is sent when there are no eligible changes.
-* `ZERO_RESULTS` counts as unsuccessful for run status and never proves absence for archiving.
+* `ZERO_RESULTS` counts as unsuccessful for run status and never proves a site delisted anything.
 * `/api/sources` and `/api/activity` were added to feed the Sources page and Recent activity.
 * **An agency's second posting never merges into a job that already holds one of its postings**
   (different ids from one agency = different openings). Without this, boilerplate-heavy titles

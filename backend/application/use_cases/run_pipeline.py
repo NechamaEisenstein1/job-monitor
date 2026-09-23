@@ -2,7 +2,7 @@
 
 ScrapeRun -> scrapers -> RawJob -> normalize+validate -> source identity -> lookup source
 -> cross-source match -> canonical job -> persist Job+JobSource (+content_hash)
--> detect change -> evaluate eligibility -> archive unseen sources -> email -> finish run.
+-> detect change -> evaluate eligibility -> remove postings the sites no longer list -> email -> finish run.
 
 Filtering decides eligibility only. Every valid job is persisted."""
 from __future__ import annotations
@@ -22,7 +22,7 @@ from backend.domain.enums import JobSourceStatus, ScrapeStatus
 from backend.domain.models import (
     Job, JobChangeRecord, JobEvaluation, JobSource, NormalizedJob, ScrapeRun, ScraperRun,
 )
-from backend.domain.services.archive import ArchiveService
+from backend.domain.services.retention import RetentionPolicy, derive_job_status
 from backend.domain.services.change_detection import detect_change
 from backend.domain.services.evaluation import JobEvaluationService
 from backend.domain.services.matching import JobMatcher
@@ -67,7 +67,7 @@ class RunPipeline:
         self._clock = clock
         self._identity = SourceIdentityResolver()
         self._matcher = JobMatcher(config.thresholds.match_title_fuzzy)
-        self._archive = ArchiveService(config.archive)
+        self._retention = RetentionPolicy(config.retention)
 
     async def run(self, scheduled_date: date | None = None) -> ScrapeRun:
         now = self._clock()
@@ -89,8 +89,9 @@ class RunPipeline:
             self._uow.commit()  # each site's work is durable even if a later step fails
 
         self._evaluate_touched_jobs(ctx)
-        archived_job_ids = self._archive_unseen_sources(ctx)
-        self._refresh_job_status(set(ctx.current_run_jobs) | archived_job_ids)
+        self._uow.evaluations.delete_superseded(run.id)
+        still_listed = self._prune_unseen(ctx)
+        self._refresh_job_status(set(ctx.current_run_jobs) | still_listed)
         self._uow.commit()
 
         self._send_digest(ctx)
@@ -208,31 +209,38 @@ class RunPipeline:
             self._uow.evaluations.add(evaluation)
             ctx.evaluations[job_id] = evaluation
 
-    def _archive_unseen_sources(self, ctx: _RunContext) -> set[int]:
-        """Only sites that scraped successfully in this run can prove absence."""
-        now = self._clock()
+    def _prune_unseen(self, ctx: _RunContext) -> set[int]:
+        """Daily refresh: delete postings a site no longer lists, then jobs left with no
+        posting at all. Returns the ids of jobs that lost a posting but are still listed
+        elsewhere (their status/last_seen must be refreshed)."""
         affected: set[int] = set()
         for scraper_run in ctx.scraper_runs:
-            if scraper_run.status != ScrapeStatus.SUCCESS:
+            unseen = self._uow.sources.list_unseen_in_run(scraper_run.site, ctx.run.id)
+            decision = self._retention.decide(
+                site_succeeded=scraper_run.status == ScrapeStatus.SUCCESS,
+                unseen=len(unseen), total=self._uow.sources.count_for_company(scraper_run.site))
+            if not decision.prune:
+                if decision.reason and decision.reason != "site_failed":
+                    scraper_run.warning = "; ".join(filter(None, [scraper_run.warning, f"pruning skipped: {decision.reason}"]))
+                    self._uow.scraper_runs.save(scraper_run)
+                    log_event("prune_skipped", logging.WARNING, site=scraper_run.site, reason=decision.reason)
                 continue
-            for source in self._uow.sources.list_unseen_in_run(scraper_run.site, ctx.run.id):
-                successful = self._uow.scraper_runs.count_successful_since(scraper_run.site, source.last_seen_at)
-                new_status = self._archive.source_status(source.status, source.last_seen_at, now, successful)
-                if new_status == source.status:
-                    continue
-                source.status = new_status
-                self._uow.sources.save(source)
-                affected.add(source.job_id)
-                if new_status == JobSourceStatus.ARCHIVED:
-                    log_event("job_archived", job_id=source.job_id, job_source_id=source.id)
-        return affected
+            self._uow.sources.delete_many([s.id for s in unseen])
+            affected |= {s.job_id for s in unseen}
+            log_event("postings_removed", site=scraper_run.site, count=len(unseen))
+
+        orphaned = [job_id for job_id in affected if not self._uow.sources.list_for_job(job_id)]
+        self._uow.jobs.delete_many(orphaned)
+        if orphaned:
+            log_event("jobs_removed", count=len(orphaned))
+        return affected - set(orphaned)
 
     def _refresh_job_status(self, job_ids: set[int]) -> None:
         """Job.status and Job.last_seen_at are derived from the job's sources."""
         for job_id in job_ids:
             sources = self._uow.sources.list_for_job(job_id)
             job = self._uow.jobs.get(job_id)
-            job.status = self._archive.job_status(s.status for s in sources)
+            job.status = derive_job_status(s.status for s in sources)
             job.last_seen_at = max((s.last_seen_at for s in sources), default=job.last_seen_at)
             self._uow.jobs.save(job)
 
