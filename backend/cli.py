@@ -5,6 +5,7 @@
     python -m backend.cli create-user --email E --name N [--admin] [--experienced]
                                                        create an account (password is prompted)
     python -m backend.cli ensure-admins                grant admin to verified accounts in ADMIN_EMAILS
+    python -m backend.cli copy-data --source URL       copy all data from URL into DATABASE_URL (must be empty)
 """
 from __future__ import annotations
 
@@ -103,6 +104,24 @@ def _ensure_admins() -> int:
     return 0
 
 
+def _copy_data(source: str) -> int:
+    from backend.infrastructure.db.copy import TargetNotEmptyError, copy_database
+
+    target = Settings.from_env().database_url
+    if source.rstrip("/") == target.rstrip("/"):
+        print("Source and target are the same database.")
+        return 1
+    print(f"Copying {source.split('@')[-1]}  ->  {target.split('@')[-1]}")  # never print credentials
+    try:
+        copied = copy_database(source, target)
+    except TargetNotEmptyError as exc:
+        print(f"Refusing to copy: {exc}")
+        return 1
+    for table, count in copied.items():
+        print(f"  {table:22} {count:6}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="job-monitor")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -116,6 +135,8 @@ def main() -> int:
     create.add_argument("--admin", action="store_true")
     create.add_argument("--experienced", action="store_true", help="experienced profile (default: junior)")
     sub.add_parser("ensure-admins", help="grant admin to verified accounts listed in ADMIN_EMAILS")
+    copy = sub.add_parser("copy-data", help="copy all data from --source into DATABASE_URL (target must be empty)")
+    copy.add_argument("--source", required=True, help="e.g. sqlite:///job_monitor.db")
     args = parser.parse_args()
 
     if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
@@ -130,6 +151,8 @@ def main() -> int:
         return _create_user(args.email, args.name, args.admin, args.experienced)
     if args.command == "ensure-admins":
         return _ensure_admins()
+    if args.command == "copy-data":
+        return _copy_data(args.source)
     return 2
 
 
