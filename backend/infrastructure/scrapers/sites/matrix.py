@@ -39,6 +39,7 @@ class MatrixScraper(SiteScraper):
             # Archive pages use <a class="job-title">, category pages <h2 class="job-title"><a>.
             link = item.select_one("a.job-title, .job-title a")
             if link is None:
+                self.skip()
                 continue
             body = "\n".join(text_of(p) for p in item.find_all("p", recursive=False) if not p.get("class"))
             more = text_of(item.select_one(".job-more-content"))

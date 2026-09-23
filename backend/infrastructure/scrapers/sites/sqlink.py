@@ -41,6 +41,7 @@ class SqlinkScraper(SiteScraper):
         for item in document.select(".positionItem"):
             link = item.select_one(".article > a[href]")
             if link is None:
+                self.skip()
                 continue
             number = item.select_one("section.description.number")
             match = _JOB_NUMBER.search(number.get_text(" ", strip=True)) if number else None

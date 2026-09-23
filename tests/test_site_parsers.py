@@ -45,7 +45,7 @@ def assert_valid(jobs, company: str, *, min_count: int = 2, location: bool = Tru
         job = normalize_raw_job(raw)
         assert validate_job(job) == [], (company, raw)
         assert job.recruitment_company == company
-        assert job.source_job_id and job.source_job_id.isdigit(), raw.source_job_id
+        assert job.source_job_id and job.source_job_id.removeprefix("korn-").isdigit(), raw.source_job_id
         assert job.title and "\n" not in job.title
         if location:
             assert job.location, raw
@@ -110,8 +110,28 @@ def test_consist():
     assert jobs[0].source_url == f"https://www.consist.co.il/jobs/?job={jobs[0].source_job_id}"
 
 
-def test_yael():
-    assert_valid(YaelScraper(None).parse_listing(html("yael")), "Yael")
+def test_yael_includes_koren_tech_jobs():
+    scraper = YaelScraper(None)
+    jobs = scraper.parse_listing(html("yael"))
+    assert_valid(jobs, "Yael", min_count=3)
+    koren = [j for j in jobs if j.source_job_id.startswith("korn-")]
+    assert koren and "/jobs/korn_order/" in koren[0].source_url
+    assert not koren[0].title.startswith("(")  # "(16887) ..." reference stripped
+    assert scraper.skipped == 0
+
+
+def test_unreadable_listing_is_counted_not_silently_dropped():
+    from backend.application.services.scraper_executor import ScraperExecutor
+    from tests.conftest import NOW
+
+    class Broken(YaelScraper):
+        async def fetch_jobs(self):
+            doc = html("yael")
+            doc.select_one("[data-copy]").decompose()  # one listing loses its link
+            return self.parse_listing(doc)
+
+    result = asyncio.run(ScraperExecutor(1, lambda: NOW).execute(Broken(None)))
+    assert result.warning and "1 listing" in result.warning
 
 
 def test_gav_api_and_detail():

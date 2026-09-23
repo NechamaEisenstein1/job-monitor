@@ -29,6 +29,12 @@ class SiteScraper(BaseScraper):
     def __init__(self, http: RetryingHttpClient, options: dict[str, Any] | None = None):
         self._http = http
         self._options = options or {}
+        # Listings found on the page but not understood. Reported as a run warning so a
+        # layout change never drops jobs silently (reset by the executor before each fetch).
+        self.skipped = 0
+
+    def skip(self) -> None:
+        self.skipped += 1
 
     @property
     def site_name(self) -> str:

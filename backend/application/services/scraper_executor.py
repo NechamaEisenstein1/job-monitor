@@ -22,6 +22,7 @@ class ScraperResult:
     finished_at: datetime
     raw_jobs: list[RawJob] = field(default_factory=list)
     error: str | None = None
+    warning: str | None = None
 
 
 class ScraperExecutor:
@@ -37,7 +38,9 @@ class ScraperExecutor:
             started = self._clock()
             log_event("scraper_started", site=scraper.site_name)
             raw_jobs: list[RawJob] = []
-            error = None
+            error = warning = None
+            if hasattr(scraper, "skipped"):
+                scraper.skipped = 0
             try:
                 raw_jobs = await scraper.fetch_jobs()
                 status = ScrapeStatus.SUCCESS if raw_jobs else ScrapeStatus.ZERO_RESULTS
@@ -46,9 +49,12 @@ class ScraperExecutor:
             except Exception as exc:  # noqa: BLE001 - unexpected scraper bug
                 status, error = ScrapeStatus.PARSE_ERROR, f"{type(exc).__name__}: {exc}"
 
+            if skipped := getattr(scraper, "skipped", 0):
+                warning = f"{skipped} listing(s) on the page could not be read - check the parser"
+                log_event("listings_skipped", logging.WARNING, site=scraper.site_name, count=skipped)
             if error:
                 log_event("scraper_failed", logging.WARNING, site=scraper.site_name, status=status.value, error=error)
             else:
                 log_event("jobs_fetched", site=scraper.site_name, count=len(raw_jobs))
                 log_event("scraper_finished", site=scraper.site_name, status=status.value)
-            return ScraperResult(scraper.site_name, status, started, self._clock(), raw_jobs, error)
+            return ScraperResult(scraper.site_name, status, started, self._clock(), raw_jobs, error, warning)
