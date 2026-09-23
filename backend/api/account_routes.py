@@ -1,25 +1,31 @@
 """Login/logout, the personal area (profile, recruiters, matches, outreach), page-view tracking."""
 from __future__ import annotations
 
+import logging
+import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from backend.api.deps import SESSION_COOKIE, CurrentUser, DbSession, csrf_protect
-from backend.application.dto import JobListDto, OutreachResultDto, RecruiterDto, UserDto
+from backend.application.dto import AuthConfigDto, JobListDto, OutreachResultDto, RecruiterDto, UserDto
 from backend.application.use_cases.accounts import AccountError, RecruiterInput
-from backend.bootstrap import account_service, outreach_service, recruiter_service, utcnow
+from backend.bootstrap import account_service, outreach_service, recruiter_service, utcnow, verification_service
 from backend.domain.enums import ExperienceLevel
 from backend.domain.models import User
 from backend.domain.services.user_matching import recruiters_at
 from backend.infrastructure.repositories.read_models import SqlReadRepository
 from backend.infrastructure.repositories.sql import SqlJobRepository
+from backend.infrastructure.oauth.google import OAuthError, PkcePair
 from backend.infrastructure.repositories.users import DuplicateError, SqlAnalyticsRepository
+from backend.observability import log_event
 
 router = APIRouter(prefix="/api", dependencies=[Depends(csrf_protect)])
 
-_ERROR_STATUS = {"invalid_credentials": 401, "too_many_attempts": 429, "not_found": 404}
+_ERROR_STATUS = {"invalid_credentials": 401, "too_many_attempts": 429, "not_found": 404,
+                 "signup_disabled": 403, "email_not_verified": 403, "verification_recently_sent": 429}
 
 
 def _fail(exc: AccountError) -> HTTPException:
@@ -29,10 +35,26 @@ def _fail(exc: AccountError) -> HTTPException:
 def user_dto(user: User) -> UserDto:
     return UserDto(id=user.id, email=user.email, display_name=user.display_name, is_admin=user.is_admin,
                    is_active=user.is_active, experience_level=user.experience_level.value,
-                   alerts_enabled=user.alerts_enabled, created_at=user.created_at, last_login_at=user.last_login_at)
+                   alerts_enabled=user.alerts_enabled, created_at=user.created_at, last_login_at=user.last_login_at,
+                   email_verified=user.email_verified, has_password=bool(user.password_hash),
+                   google_linked=bool(user.google_sub))
+
+
+def _set_session_cookie(request: Request, response: Response, token: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE, token, httponly=True, samesite="lax", secure=request.app.state.settings.cookie_secure,
+        max_age=request.app.state.cfg.users.session_days * 86400, path="/",
+    )
 
 
 # ------------------------------------------------------------------ auth
+
+@router.get("/auth/config", response_model=AuthConfigDto)
+def auth_config(request: Request) -> AuthConfigDto:
+    """What the login screen should offer."""
+    settings = request.app.state.settings
+    return AuthConfigDto(signup_enabled=settings.allow_signup, google_enabled=request.app.state.google is not None)
+
 
 class LoginIn(BaseModel):
     email: str = Field(max_length=320)
@@ -45,11 +67,94 @@ def login(body: LoginIn, request: Request, response: Response, session: DbSessio
         user, token = account_service(session, request.app.state.cfg).login(body.email, body.password)
     except AccountError as exc:
         raise _fail(exc) from exc
-    response.set_cookie(
-        SESSION_COOKIE, token, httponly=True, samesite="lax", secure=request.app.state.settings.cookie_secure,
-        max_age=request.app.state.cfg.users.session_days * 86400, path="/",
-    )
+    _set_session_cookie(request, response, token)
     return user_dto(user)
+
+
+class RegisterIn(BaseModel):
+    email: str = Field(max_length=320)
+    display_name: str = Field(max_length=200)
+    password: str = Field(max_length=200)
+    experience_level: ExperienceLevel = ExperienceLevel.JUNIOR
+
+
+@router.post("/auth/register", response_model=UserDto, status_code=201)
+def register(body: RegisterIn, request: Request, response: Response, session: DbSession) -> UserDto:
+    try:
+        user, token = account_service(session, request.app.state.cfg).register(
+            body.email, body.display_name, body.password, body.experience_level,
+            allow_signup=request.app.state.settings.allow_signup)
+    except AccountError as exc:
+        raise _fail(exc) from exc
+    except DuplicateError as exc:
+        raise HTTPException(status_code=409, detail="duplicate_email") from exc
+    _set_session_cookie(request, response, token)
+    try:
+        verification_service(session, request.app.state.settings, request.app.state.sender).send(user)
+    except Exception as exc:  # noqa: BLE001 - the account exists; the user can resend from the personal area
+        log_event("verification_email_failed", logging.ERROR, user_id=user.id, error=type(exc).__name__)
+    return user_dto(user)
+
+
+@router.post("/auth/verify/resend", status_code=204)
+def resend_verification(user: CurrentUser, request: Request, session: DbSession) -> None:
+    try:
+        verification_service(session, request.app.state.settings, request.app.state.sender).send(user)
+    except AccountError as exc:
+        raise _fail(exc) from exc
+
+
+@router.get("/auth/verify", include_in_schema=False)
+def verify_email(request: Request, session: DbSession, token: Annotated[str, Query(max_length=100)] = "") -> RedirectResponse:
+    user = verification_service(session, request.app.state.settings, request.app.state.sender).verify(token)
+    return RedirectResponse(f"/me?verified={'1' if user else '0'}", status_code=303)
+
+
+# ------------------------------------------------------------------ Google sign-in
+
+OAUTH_COOKIE = "jm_oauth"
+OAUTH_COOKIE_PATH = "/api/auth/google"
+
+
+@router.get("/auth/google/start", include_in_schema=False)
+def google_start(request: Request) -> RedirectResponse:
+    google = request.app.state.google
+    if google is None:
+        raise HTTPException(status_code=404, detail="google_disabled")
+    state, pkce = secrets.token_urlsafe(24), PkcePair.new()
+    response = RedirectResponse(google.authorization_url(state, pkce), status_code=303)
+    # state (anti-CSRF) and the PKCE verifier live only in this short, HttpOnly cookie.
+    response.set_cookie(OAUTH_COOKIE, f"{state}.{pkce.verifier}", httponly=True, samesite="lax",
+                        secure=request.app.state.settings.cookie_secure, max_age=600, path=OAUTH_COOKIE_PATH)
+    return response
+
+
+@router.get("/auth/google/callback", include_in_schema=False)
+def google_callback(request: Request, session: DbSession, code: str = "", state: str = "",
+                    error: str = "") -> RedirectResponse:
+    google = request.app.state.google
+    stored_state, _, verifier = (request.cookies.get(OAUTH_COOKIE) or "").partition(".")
+
+    def done(target: str) -> RedirectResponse:
+        response = RedirectResponse(target, status_code=303)
+        response.delete_cookie(OAUTH_COOKIE, path=OAUTH_COOKIE_PATH)
+        return response
+
+    if google is None or error or not code or not stored_state or not secrets.compare_digest(stored_state, state):
+        return done("/?auth_error=google_failed")
+    try:
+        profile = google.fetch_profile(code, verifier)
+        _, token, created = account_service(session, request.app.state.cfg).login_with_google(
+            profile, allow_signup=request.app.state.settings.allow_signup)
+    except OAuthError as exc:
+        log_event("google_login_failed", logging.WARNING, error=str(exc)[:200])
+        return done("/?auth_error=google_failed")
+    except AccountError as exc:
+        return done(f"/?auth_error={exc.code}")
+    # New accounts land in the personal area to pick junior/experienced and add recruiters.
+    response = done("/me?welcome=1" if created else "/")
+    _set_session_cookie(request, response, token)
+    return response
 
 
 @router.post("/auth/logout", status_code=204)

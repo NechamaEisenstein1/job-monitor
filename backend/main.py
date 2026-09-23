@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.api import account_routes, admin_routes, routes
-from backend.bootstrap import build_email_sender
+from backend.bootstrap import build_email_sender, google_oauth
 from backend.config.settings import PROJECT_ROOT, Settings, load_matching_config, load_sources_config
 from backend.infrastructure.db.session import make_engine, make_session_factory
 from backend.observability import configure_logging
@@ -25,6 +25,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.cfg = load_matching_config(settings.config_dir)
     app.state.sender = build_email_sender(settings)
+    app.state.google = google_oauth(settings)  # None unless GOOGLE_CLIENT_ID/SECRET are set
     app.state.session_factory = make_session_factory(make_engine(settings.database_url))
     app.state.sources = load_sources_config(settings.config_dir)
     # Only the Vite dev server (npm run dev) is a separate origin; production is same-origin.

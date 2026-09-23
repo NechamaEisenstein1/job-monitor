@@ -299,13 +299,16 @@ class User:
     id: int | None
     email: str
     display_name: str
-    password_hash: str
+    password_hash: str | None  # None for accounts that only sign in with Google
     is_admin: bool
     is_active: bool
     experience_level: ExperienceLevel
     alerts_enabled: bool
     created_at: datetime
     last_login_at: datetime | None = None
+    google_sub: str | None = None
+    # Alerts and recruiter outreach are sent only for verified addresses.
+    email_verified: bool = False
 
 
 @dataclass

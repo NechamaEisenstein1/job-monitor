@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from backend.domain.enums import ExperienceLevel, OutreachStatus
 from backend.domain.models import Recruiter, User
 from backend.infrastructure.db.orm import (
-    AnalyticsEventRow, OutreachMessageRow, RecruiterRow, UserJobAlertRow, UserRow, UserSessionRow,
+    AnalyticsEventRow, EmailTokenRow, OutreachMessageRow, RecruiterRow, UserJobAlertRow, UserRow, UserSessionRow,
 )
 from backend.infrastructure.repositories.mapping import to_domain, to_values
 
@@ -34,11 +34,16 @@ class SqlUserRepository:
         row = self._s.scalars(select(UserRow).where(func.lower(UserRow.email) == email.strip().lower())).first()
         return to_domain(row, User, _USER_ENUMS) if row else None
 
+    def by_google_sub(self, sub: str) -> User | None:
+        row = self._s.scalars(select(UserRow).where(UserRow.google_sub == sub)).first()
+        return to_domain(row, User, _USER_ENUMS) if row else None
+
     def list(self) -> list[User]:
         return [to_domain(r, User, _USER_ENUMS) for r in self._s.scalars(select(UserRow).order_by(UserRow.id))]
 
     def list_alert_recipients(self) -> list[User]:
-        rows = self._s.scalars(select(UserRow).where(UserRow.is_active.is_(True), UserRow.alerts_enabled.is_(True)))
+        rows = self._s.scalars(select(UserRow).where(
+            UserRow.is_active.is_(True), UserRow.alerts_enabled.is_(True), UserRow.email_verified.is_(True)))
         return [to_domain(r, User, _USER_ENUMS) for r in rows]
 
     def save(self, user: User) -> User:
@@ -81,6 +86,32 @@ class SqlSessionRepository:
     def delete_for_user(self, user_id: int) -> None:
         self._s.execute(delete(UserSessionRow).where(UserSessionRow.user_id == user_id))
         self._s.commit()
+
+
+class SqlEmailTokenRepository:
+    def __init__(self, session: Session):
+        self._s = session
+
+    def add(self, token_hash: str, user_id: int, purpose: str, now: datetime, expires_at: datetime) -> None:
+        # One live token per purpose: issuing a new link invalidates older ones.
+        self._s.execute(delete(EmailTokenRow).where(EmailTokenRow.user_id == user_id, EmailTokenRow.purpose == purpose))
+        self._s.add(EmailTokenRow(token_hash=token_hash, user_id=user_id, purpose=purpose,
+                                  created_at=now, expires_at=expires_at))
+        self._s.commit()
+
+    def consume(self, token_hash: str, purpose: str, now: datetime) -> int | None:
+        """Single use: returns the user id and deletes the token, or None if invalid/expired."""
+        row = self._s.get(EmailTokenRow, token_hash)
+        if row is None or row.purpose != purpose:
+            return None
+        user_id, valid = row.user_id, row.expires_at > now
+        self._s.delete(row)
+        self._s.commit()
+        return user_id if valid else None
+
+    def last_issued(self, user_id: int, purpose: str) -> datetime | None:
+        return self._s.scalar(select(func.max(EmailTokenRow.created_at)).where(
+            EmailTokenRow.user_id == user_id, EmailTokenRow.purpose == purpose))
 
 
 class SqlRecruiterRepository:

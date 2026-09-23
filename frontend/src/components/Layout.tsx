@@ -4,6 +4,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useUser, useAuth } from "../hooks/useAuth";
 import { he } from "../i18n/he";
 import { api } from "../services/api";
+import { VerifyBanner } from "./VerifyBanner";
 
 const NAV = [
   { to: "/", label: he.nav.dashboard, end: true },
@@ -53,6 +54,7 @@ export function Layout() {
           </div>
         </div>
       </header>
+      <VerifyBanner />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         <Outlet />
       </main>
