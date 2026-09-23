@@ -35,3 +35,27 @@ def test_relevance_sort_and_role_filter(world):
     assert ranks[0] == (True, "software")
     only_qa = client.get("/api/jobs", params={"role_type": "qa"}).json()["items"]
     assert only_qa and all(i["role_type"] == "qa" for i in only_qa)
+
+
+def test_provider_postgres_urls_use_the_installed_driver():
+    from backend.config.settings import normalize_database_url
+    assert normalize_database_url("postgres://u:p@h/db") == "postgresql+psycopg://u:p@h/db"
+    assert normalize_database_url("postgresql://u:p@h/db?sslmode=require") == "postgresql+psycopg://u:p@h/db?sslmode=require"
+    assert normalize_database_url("sqlite:///x.db") == "sqlite:///x.db"
+
+
+def test_https_base_url_makes_cookies_secure(monkeypatch):
+    from backend.config.settings import Settings
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://jobs.example.com/")
+    monkeypatch.delenv("COOKIE_SECURE", raising=False)
+    settings = Settings.from_env()
+    assert settings.cookie_secure and settings.public_base_url == "https://jobs.example.com"
+
+
+def test_security_headers_and_healthz(world):
+    client = world.client()
+    health = client.get("/healthz")
+    assert health.status_code == 200 and health.json() == {"status": "ok"}
+    for header in ("X-Content-Type-Options", "X-Frame-Options", "Content-Security-Policy"):
+        assert header in health.headers
+    assert client.get("/api/auth/config").headers["Cache-Control"] == "no-store"

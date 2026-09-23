@@ -197,6 +197,15 @@ class SmtpSettings:
     use_tls: bool
 
 
+def normalize_database_url(url: str) -> str:
+    """Hosting providers hand out postgres:// or postgresql:// URLs, which SQLAlchemy maps to
+    the psycopg2 driver. This project ships psycopg 3, so name that driver explicitly."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 @dataclass(frozen=True)
 class Settings:
     database_url: str
@@ -232,14 +241,17 @@ class Settings:
                 sender=os.environ.get("SMTP_FROM", os.environ.get("SMTP_USER", "")),
                 use_tls=os.environ.get("SMTP_USE_TLS", "true").lower() == "true",
             )
+        public_base_url = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
         return cls(
-            database_url=os.environ.get("DATABASE_URL", f"sqlite:///{PROJECT_ROOT / 'job_monitor.db'}"),
+            database_url=normalize_database_url(
+                os.environ.get("DATABASE_URL", f"sqlite:///{PROJECT_ROOT / 'job_monitor.db'}")),
             config_dir=Path(os.environ.get("CONFIG_DIR", PROJECT_ROOT / "config")),
             email_outbox_dir=Path(os.environ.get("EMAIL_OUTBOX_DIR", PROJECT_ROOT / "outbox")),
             smtp=smtp,
             log_level=os.environ.get("LOG_LEVEL", "INFO"),
-            public_base_url=os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000"),
-            cookie_secure=os.environ.get("COOKIE_SECURE", "false").lower() == "true",
+            public_base_url=public_base_url,
+            # Secure cookies whenever the site is served over HTTPS, unless explicitly overridden.
+            cookie_secure=os.environ.get("COOKIE_SECURE", str(public_base_url.startswith("https://"))).lower() == "true",
             allow_signup=os.environ.get("ALLOW_SIGNUP", "true").lower() == "true",
             google_client_id=os.environ.get("GOOGLE_CLIENT_ID", ""),
             google_client_secret=os.environ.get("GOOGLE_CLIENT_SECRET", ""),
