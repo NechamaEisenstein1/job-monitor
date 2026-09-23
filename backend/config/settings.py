@@ -222,6 +222,10 @@ class Settings:
     # Google sign-in is enabled when both are set (Google Cloud console -> OAuth client).
     google_client_id: str = ""
     google_client_secret: str = ""
+    # Google Search Console "HTML tag" verification code (the content="..." value only).
+    google_site_verification: str = ""
+    # Public contact address shown on the privacy page (data/deletion requests).
+    contact_email: str = ""
 
     @property
     def google_enabled(self) -> bool:
@@ -255,6 +259,8 @@ class Settings:
             allow_signup=os.environ.get("ALLOW_SIGNUP", "true").lower() == "true",
             google_client_id=os.environ.get("GOOGLE_CLIENT_ID", ""),
             google_client_secret=os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+            google_site_verification=os.environ.get("GOOGLE_SITE_VERIFICATION", ""),
+            contact_email=os.environ.get("CONTACT_EMAIL", ""),
         )
 
 

@@ -184,6 +184,7 @@ class UserDto(Dto):
 class AuthConfigDto(Dto):
     signup_enabled: bool
     google_enabled: bool
+    contact_email: str
 
 
 class RecruiterDto(Dto):

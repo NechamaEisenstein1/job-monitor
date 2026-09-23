@@ -53,7 +53,8 @@ def _set_session_cookie(request: Request, response: Response, token: str) -> Non
 def auth_config(request: Request) -> AuthConfigDto:
     """What the login screen should offer."""
     settings = request.app.state.settings
-    return AuthConfigDto(signup_enabled=settings.allow_signup, google_enabled=request.app.state.google is not None)
+    return AuthConfigDto(signup_enabled=settings.allow_signup, google_enabled=request.app.state.google is not None,
+                         contact_email=settings.contact_email)
 
 
 class LoginIn(BaseModel):
@@ -141,16 +142,16 @@ def google_callback(request: Request, session: DbSession, code: str = "", state:
         return response
 
     if google is None or error or not code or not stored_state or not secrets.compare_digest(stored_state, state):
-        return done("/?auth_error=google_failed")
+        return done("/login?auth_error=google_failed")
     try:
         profile = google.fetch_profile(code, verifier)
         _, token, created = account_service(session, request.app.state.cfg).login_with_google(
             profile, allow_signup=request.app.state.settings.allow_signup)
     except OAuthError as exc:
         log_event("google_login_failed", logging.WARNING, error=str(exc)[:200])
-        return done("/?auth_error=google_failed")
+        return done("/login?auth_error=google_failed")
     except AccountError as exc:
-        return done(f"/?auth_error={exc.code}")
+        return done(f"/login?auth_error={exc.code}")
     # New accounts land in the personal area to pick junior/experienced and add recruiters.
     response = done("/me?welcome=1" if created else "/")
     _set_session_cookie(request, response, token)

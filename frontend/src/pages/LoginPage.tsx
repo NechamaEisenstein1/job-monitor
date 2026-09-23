@@ -39,7 +39,8 @@ function GoogleButton() {
 export function LoginPage() {
   const { login, register } = useAuth();
   const config = useApi(api.authConfig, "auth-config");
-  const [tab, setTab] = useState<"login" | "register">("login");
+  const [tab, setTab] = useState<"login" | "register">(
+    new URLSearchParams(window.location.search).get("mode") === "register" ? "register" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -58,7 +59,9 @@ export function LoginPage() {
     try {
       if (registering) await register({ email, password, display_name: name, experience_level: level });
       else await login(email, password);
-      window.history.replaceState(null, "", window.location.pathname); // drop ?auth_error
+      // Drop ?auth_error / ?mode but keep ?next, which the router uses after login.
+      const next = new URLSearchParams(window.location.search).get("next");
+      window.history.replaceState(null, "", window.location.pathname + (next ? `?next=${encodeURIComponent(next)}` : ""));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -73,7 +76,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <div>
-          <p className="text-sm font-semibold text-slate-500">{he.appName}</p>
+          <a href="/" className="text-sm font-semibold text-slate-500 hover:text-slate-800">{he.appName}</a>
           <h1 className="mt-1 text-xl font-semibold">{registering ? a.registerTitle : a.title}</h1>
           <p className="mt-1 text-sm text-slate-500">{registering ? a.registerSubtitle : a.subtitle}</p>
         </div>
@@ -124,6 +127,11 @@ export function LoginPage() {
           {registering ? (busy ? a.registering : a.registerSubmit) : (busy ? a.submitting : a.submit)}
         </button>
         {config.data && !signupEnabled && <p className="text-center text-xs text-slate-500">{a.noSignup}</p>}
+        <p className="text-center text-xs text-slate-400">
+          <a href="/privacy" className="hover:text-slate-700">{he.site.privacy}</a>
+          {" · "}
+          <a href="/terms" className="hover:text-slate-700">{he.site.terms}</a>
+        </p>
       </form>
     </div>
   );

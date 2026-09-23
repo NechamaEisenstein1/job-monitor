@@ -133,7 +133,7 @@ def test_google_links_existing_account_only_when_email_verified(world):
 
     unverified = replace(PROFILE, sub="g-999", email="senior@example.com", email_verified=False)
     _, refused = google_login(world, unverified)
-    assert refused.headers["location"] == "/?auth_error=google_email_unverified"
+    assert refused.headers["location"] == "/login?auth_error=google_email_unverified"
 
 
 def test_google_state_mismatch_is_rejected(world):
@@ -141,14 +141,14 @@ def test_google_state_mismatch_is_rejected(world):
     client = world.client()
     client.get("/api/auth/google/start", follow_redirects=False)
     forged = client.get("/api/auth/google/callback", params={"code": "abc", "state": "attacker"}, follow_redirects=False)
-    assert forged.headers["location"] == "/?auth_error=google_failed"
+    assert forged.headers["location"] == "/login?auth_error=google_failed"
     assert world.app.state.google.seen == []  # never exchanged the code
     assert client.get("/api/auth/me").status_code == 401
 
 
 def test_google_errors_do_not_log_in(world):
     client, callback = google_login(world, PROFILE, fail=True)
-    assert callback.headers["location"] == "/?auth_error=google_failed"
+    assert callback.headers["location"] == "/login?auth_error=google_failed"
     assert client.get("/api/auth/me").status_code == 401
 
 
@@ -163,7 +163,7 @@ def test_google_only_account_cannot_password_login_but_can_set_password(world):
 def test_google_sign_up_respects_disabled_signup(world, allow):
     world.app.state.settings = replace(world.app.state.settings, allow_signup=allow)
     _, callback = google_login(world, PROFILE)
-    assert callback.headers["location"] == "/?auth_error=signup_disabled"
+    assert callback.headers["location"] == "/login?auth_error=signup_disabled"
 
 
 # ------------------------------------------------------------------ designated admin email
