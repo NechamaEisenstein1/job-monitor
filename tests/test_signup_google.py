@@ -164,3 +164,37 @@ def test_google_sign_up_respects_disabled_signup(world, allow):
     world.app.state.settings = replace(world.app.state.settings, allow_signup=allow)
     _, callback = google_login(world, PROFILE)
     assert callback.headers["location"] == "/?auth_error=signup_disabled"
+
+
+# ------------------------------------------------------------------ designated admin email
+
+@pytest.fixture
+def admin_email(world):
+    users = replace(world.app.state.cfg.users, admin_emails="Owner@Example.com, other@example.com")
+    world.app.state.cfg = replace(world.app.state.cfg, users=users)
+    return "owner@example.com"
+
+
+def test_designated_email_becomes_admin_only_after_verification(world, admin_email, monkeypatch):
+    monkeypatch.setenv("ADMIN_EMAILS", admin_email)  # the verification service reads config from disk
+    client = world.client()
+    register(client, email=admin_email)
+    assert client.get("/api/auth/me").json()["is_admin"] is False  # unverified: anyone could type that email
+    client.get(verification_link(world, admin_email))
+    assert client.get("/api/auth/me").json()["is_admin"] is True
+
+
+def test_designated_email_via_verified_google_is_admin_at_once(world, admin_email):
+    client, _ = google_login(world, replace(PROFILE, email=admin_email))
+    assert client.get("/api/auth/me").json()["is_admin"] is True
+
+
+def test_other_emails_are_not_promoted(world, admin_email):
+    client, _ = google_login(world, PROFILE)
+    assert client.get("/api/auth/me").json()["is_admin"] is False
+
+
+def test_existing_verified_account_is_promoted_on_next_login(world):
+    users = replace(world.app.state.cfg.users, admin_emails="junior@example.com")
+    world.app.state.cfg = replace(world.app.state.cfg, users=users)
+    assert world.client("junior@example.com").get("/api/auth/me").json()["is_admin"] is True

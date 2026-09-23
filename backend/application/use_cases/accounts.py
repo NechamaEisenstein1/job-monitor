@@ -52,14 +52,25 @@ def _text(value: str, code: str, max_len: int = 200) -> str:
     return value
 
 
+def promote_designated_admin(user: User, admin_emails: frozenset[str]) -> bool:
+    """Admin for a designated address - only once the address is verified, otherwise anyone
+    could sign up with that email and become admin. Returns True if the user was promoted."""
+    if user.is_admin or not user.email_verified or user.email.lower() not in admin_emails:
+        return False
+    user.is_admin = True
+    return True
+
+
 class AccountService:
     def __init__(self, users: SqlUserRepository, sessions: SqlSessionRepository,
-                 analytics: SqlAnalyticsRepository, clock: Callable[[], datetime], session_days: int):
+                 analytics: SqlAnalyticsRepository, clock: Callable[[], datetime], session_days: int,
+                 admin_emails: frozenset[str] = frozenset()):
         self._users = users
         self._sessions = sessions
         self._analytics = analytics
         self._clock = clock
         self._session_ttl = timedelta(days=session_days)
+        self._admin_emails = admin_emails
 
     # ------------------------------------------------------------- sessions
 
@@ -114,6 +125,7 @@ class AccountService:
         return user, self._start_session(user, "login")
 
     def _start_session(self, user: User, event: str) -> str:
+        promote_designated_admin(user, self._admin_emails)
         now = self._clock()
         token = new_session_token()
         self._sessions.add(token_hash(token), user.id, now, now + self._session_ttl)
@@ -155,6 +167,14 @@ class AccountService:
             raise AccountError("invalid_credentials")
         user.password_hash = hash_password(_password(new))
         self._users.save(user)
+
+    def promote_designated_admins(self) -> list[User]:
+        """Grant admin to existing verified accounts listed in users.admin_emails."""
+        promoted = []
+        for user in self._users.list():
+            if promote_designated_admin(user, self._admin_emails):
+                promoted.append(self._users.save(user))
+        return promoted
 
     def admin_update(self, user_id: int, *, is_active: bool | None = None, is_admin: bool | None = None,
                      new_password: str | None = None, acting_admin: User) -> User:
@@ -223,7 +243,8 @@ class EmailVerificationService:
     """Proves a user owns their address before we email it alerts or use it as Reply-To."""
 
     def __init__(self, users: SqlUserRepository, tokens: SqlEmailTokenRepository, sender: EmailSender,
-                 base_url: str, clock: Callable[[], datetime]):
+                 base_url: str, clock: Callable[[], datetime], admin_emails: frozenset[str] = frozenset()):
+        self._admin_emails = admin_emails
         self._users = users
         self._tokens = tokens
         self._sender = sender
@@ -248,4 +269,5 @@ class EmailVerificationService:
         if user is None:
             return None
         user.email_verified = True
+        promote_designated_admin(user, self._admin_emails)
         return self._users.save(user)

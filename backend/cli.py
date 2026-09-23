@@ -4,6 +4,7 @@
     python -m backend.cli probe [--source NAME ...]    fetch live sources, print a report, write nothing
     python -m backend.cli create-user --email E --name N [--admin] [--experienced]
                                                        create an account (password is prompted)
+    python -m backend.cli ensure-admins                grant admin to verified accounts in ADMIN_EMAILS
 """
 from __future__ import annotations
 
@@ -87,6 +88,21 @@ def _create_user(email: str, name: str, admin: bool, experienced: bool) -> int:
     return 0
 
 
+def _ensure_admins() -> int:
+    settings = Settings.from_env()
+    cfg = load_matching_config(settings.config_dir)
+    if not cfg.users.admin_email_set:
+        print("ADMIN_EMAILS is empty - set it in .env (comma-separated).")
+        return 1
+    with make_session_factory(make_engine(settings.database_url))() as session:
+        promoted = account_service(session, cfg).promote_designated_admins()
+    print(f"Promoted {len(promoted)} account(s)")
+    for user in promoted:
+        print(f"  - {user.email}")
+    print("Addresses without a verified account are promoted automatically when they sign in.")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="job-monitor")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -99,6 +115,7 @@ def main() -> int:
     create.add_argument("--name", required=True)
     create.add_argument("--admin", action="store_true")
     create.add_argument("--experienced", action="store_true", help="experienced profile (default: junior)")
+    sub.add_parser("ensure-admins", help="grant admin to verified accounts listed in ADMIN_EMAILS")
     args = parser.parse_args()
 
     if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
@@ -111,6 +128,8 @@ def main() -> int:
         return 0 if asyncio.run(_probe(args.source)) else 1
     if args.command == "create-user":
         return _create_user(args.email, args.name, args.admin, args.experienced)
+    if args.command == "ensure-admins":
+        return _ensure_admins()
     return 2
 
 

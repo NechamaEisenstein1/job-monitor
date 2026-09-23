@@ -136,6 +136,11 @@ class UsersConfig:
     alert_subject: str = "משרות שמתאימות לך - {date}"
     outreach_daily_limit: int = 30
     session_days: int = 14
+    admin_emails: str = ""
+
+    @property
+    def admin_email_set(self) -> frozenset[str]:
+        return frozenset(e.strip().lower() for e in self.admin_emails.split(",") if e.strip())
 
 
 @dataclass(frozen=True)

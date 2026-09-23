@@ -80,7 +80,8 @@ def user_alert_service(session: Session, settings: Settings, cfg: MatchingConfig
 
 def account_service(session: Session, cfg: MatchingConfig) -> AccountService:
     return AccountService(SqlUserRepository(session), SqlSessionRepository(session),
-                          SqlAnalyticsRepository(session), utcnow, cfg.users.session_days)
+                          SqlAnalyticsRepository(session), utcnow, cfg.users.session_days,
+                          admin_emails=cfg.users.admin_email_set)
 
 
 def recruiter_service(session: Session) -> RecruiterService:
@@ -122,8 +123,9 @@ async def pipeline_from_settings(settings: Settings) -> AsyncIterator[RunPipelin
 
 
 def verification_service(session: Session, settings: Settings, sender: EmailSender) -> EmailVerificationService:
+    admins = load_matching_config(settings.config_dir).users.admin_email_set
     return EmailVerificationService(SqlUserRepository(session), SqlEmailTokenRepository(session), sender,
-                                    settings.public_base_url, utcnow)
+                                    settings.public_base_url, utcnow, admin_emails=admins)
 
 
 def google_oauth(settings: Settings) -> GoogleOAuth | None:

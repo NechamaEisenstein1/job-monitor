@@ -147,6 +147,10 @@ users:
   # Hard cap on personalised recruiter emails a user can send per day (anti-abuse).
   outreach_daily_limit: 30
   session_days: 14
+  # Comma-separated addresses that become admins once the address is VERIFIED
+  # (Google sign-in, the verification link, or an admin-created account). Set it in
+  # .env - never commit real addresses (the repository is public).
+  admin_emails: "${ADMIN_EMAILS}"
 
 scraper:
   timeout_seconds: 30
