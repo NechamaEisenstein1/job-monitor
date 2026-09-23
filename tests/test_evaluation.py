@@ -84,22 +84,35 @@ def test_role_classification_title_first(cfg):
         "מפתח/ת אוטומציה": "qa",
         "מהנדס/ת Embedded Real-Time": "embedded",
         "מהנדס/ת אימות שבבים": "hardware",
-        "טכנאי/ת PC": "other",
+        "טכנאי/ת PC": "it",
+        "מפתח/ת FULLSTACK ובודק/ת אוטומציה": "software",   # the role named first decides
+        "מיישם/ת הגנת סייבר": "cyber",                     # generic "it" words are a fallback
+        "מנהל/ת מוצר AI": "product",
+        "DevOps Engineer": "devops",
+        "Data Engineer": "data",
+        "נציג/ת שירות לקוחות": "other",
+        "Sales Engineer": "other",
     }
     for title, expected in cases.items():
         assert s.evaluate(make_job(title=title), "run", NOW).role_type == expected, title
     # Title only: a description that mentions development does not make a role "software".
     assert s.evaluate(make_job(title="מנתח/ת מערכות", description="עבודה מול צוות פיתוח ובדיקות"),
-                      "run", NOW).role_type == "other"
+                      "run", NOW).role_type == "it"
     # Explicit exclusions win over "מפתח"; "פיתוח" alone counts.
     assert s.evaluate(make_job(title="מפתח/ת הדרכה"), "run", NOW).role_type == "other"
     assert s.evaluate(make_job(title="מהנדס/ת לפיתוח מערכות"), "run", NOW).role_type == "software"
 
 
-def test_non_software_role_is_not_eligible_but_still_evaluated(cfg):
-    ev = service(cfg).evaluate(make_job(title="Junior QA Engineer"), "run", NOW)
+def test_non_tech_role_is_not_eligible_but_still_evaluated(cfg):
+    ev = service(cfg).evaluate(make_job(title="נציג/ת שירות לקוחות - ללא ניסיון"), "run", NOW)
     assert ev.is_junior and ev.location_matched and not ev.is_eligible
-    assert ev.rejection_reasons == ["role_not_eligible (qa)"]
+    assert ev.rejection_reasons == ["role_not_eligible (other)"]
+
+
+def test_every_tech_role_is_eligible(cfg):
+    for title in ["Junior QA Engineer", "Junior Data Analyst", "Junior DevOps", "מנהל/ת מוצר - ללא ניסיון",
+                  "טכנאי/ת מחשבים ללא ניסיון", "מהנדס/ת חומרה junior", "Junior Cyber Analyst"]:
+        assert service(cfg).evaluate(make_job(title=title), "run", NOW).is_eligible, title
 
 
 def test_government_tender_detection(cfg):

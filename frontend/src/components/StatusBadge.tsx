@@ -65,6 +65,14 @@ export function RoleBadge({ role }: { role: string | null | undefined }) {
   return <Badge tone={role === "software" ? "blue" : "slate"}>{he.roles[role] ?? role}</Badge>;
 }
 
+/** Junior / entry-level: filled and bright - these jobs are the point of the product. */
 export function JuniorBadge() {
-  return <Badge tone="green">{he.junior}</Badge>;
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-emerald-500 px-2 py-0.5 text-xs font-semibold text-white">
+      <span aria-hidden>★</span>{he.junior}
+    </span>
+  );
 }
+
+/** Row/card highlight for junior jobs (used with the relevance sort, which pins them first). */
+export const JUNIOR_HIGHLIGHT = "bg-emerald-50 border-s-4 border-emerald-500";

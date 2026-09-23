@@ -66,7 +66,9 @@ export function JobFilters({ value, sources, onChange }: {
         {f.roleType}
         <select className={control} value={value.role_type}
                 onChange={(e) => onChange({ role_type: e.target.value as JobFilterValues["role_type"] })}>
-          {Object.entries(he.roles).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+          <option value="tech">{f.allTech}</option>
+          {Object.entries(he.roles).filter(([code]) => code !== "other").map(([code, name]) =>
+            <option key={code} value={code}>{name}</option>)}
           <option value="all">{f.allRoles}</option>
         </select>
       </label>

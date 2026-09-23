@@ -91,17 +91,16 @@ def test_failed_alert_is_retried_next_run(world):
     assert "Junior Backend Developer" in world.sender.to("late@example.com")[0].text
 
 
-def test_non_software_junior_job_is_not_alerted(world):
-    before = len(world.sender.to("junior@example.com"))
-    world.run_day("day2")  # the only new junior job is "Junior Data Analyst" - not a software role
-    assert len(world.sender.to("junior@example.com")) == before
+def test_new_tech_junior_job_is_alerted(world):
+    world.run_day("day2")  # day 2 adds "Junior Data Analyst" in Jerusalem, 0-1 years - a tech (data) role
+    assert "Junior Data Analyst" in world.sender.to("junior@example.com")[-1].text
 
 
 def test_matches_list_known_recruiters(world):
     dana = world.client("junior@example.com")
     recruiter(dana, company="HMS")
     items = dana.get("/api/me/matches").json()["items"]
-    assert items and all(i["is_junior"] and i["role_type"] == "software" for i in items)
+    assert items and all(i["is_junior"] and i["role_type"] != "other" for i in items)
     assert any(i["known_recruiters"] == ["רותי"] for i in items if "HMS" in i["recruitment_companies"])
 
 

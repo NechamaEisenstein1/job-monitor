@@ -111,6 +111,7 @@ class ScraperConfig:
 class RolesConfig:
     types: dict[str, list[str]]
     eligible_types: list[str]
+    fallback_types: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

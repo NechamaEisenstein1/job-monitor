@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Card, PageHeader } from "../components/Layout";
 import { Pagination } from "../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
-import { JuniorBadge, RoleBadge, TenderBadge } from "../components/StatusBadge";
+import { JUNIOR_HIGHLIGHT, JuniorBadge, RoleBadge, TenderBadge } from "../components/StatusBadge";
 import { useApi } from "../hooks/useApi";
 import { useAuth, useUser } from "../hooks/useAuth";
 import { he } from "../i18n/he";
@@ -265,11 +265,12 @@ function MatchesCard({ recruiterCount }: { recruiterCount: number }) {
           <>
             <ul className="divide-y divide-slate-100">
               {matches.data.items.map((job) => (
-                <li key={job.id} className={`space-y-2 px-4 py-3 ${job.is_government_tender ? "border-s-4 border-amber-400 bg-amber-50/40" : ""}`}>
+                <li key={job.id} className={`space-y-2 px-4 py-3 ${job.is_junior ? JUNIOR_HIGHLIGHT
+                  : job.is_government_tender ? "border-s-4 border-amber-400 bg-amber-50/40" : ""}`}>
                   <div className="flex flex-wrap items-center gap-2">
                     <Link to={`/jobs/${job.id}`} className="font-medium text-slate-900 hover:underline" dir="auto">{job.title}</Link>
-                    {job.is_government_tender && <TenderBadge />}
                     {job.is_junior && <JuniorBadge />}
+                    {job.is_government_tender && <TenderBadge />}
                     <RoleBadge role={job.role_type} />
                   </div>
                   <div className="flex flex-wrap gap-x-3 text-xs text-slate-500">

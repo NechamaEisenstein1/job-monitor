@@ -20,7 +20,8 @@ sources:
   - name: "Tigbur"
     type: site
     site: tigbur
-    # Tigbur is a general staffing firm; collect only its IT categories.
+    # Tigbur is a general staffing firm; collect only its technology/engineering categories
+    # (the title classifier then drops any non-tech job that slips through).
     categories:
       - "הנדסת תוכנה /מחשבים"
       - "תשתיות IT"
@@ -30,6 +31,14 @@ sources:
       - "אינטרנט"
       - "תקשורת"
       - "בכירים טכנולוגי"
+      - "טכנאות"
+      - "מהנדסים"
+      - "הנדסאים"
+      - "הנדסה"
+      - "אלקטרוניקה"
+      - "הנדסת אלקטרוניקה"
+      - "סטודנטים"
+      - "אוניברסיטה/טכניון"
 
   - name: "Aman"
     type: site

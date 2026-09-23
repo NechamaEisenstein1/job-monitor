@@ -11,7 +11,8 @@ export type ScrapeStatus =
   | "config_error";
 export type ChangeType = "new" | "content_updated" | "new_source" | "source_url_updated";
 export type JobSort = "relevance" | "newest" | "updated" | "score";
-export type RoleType = "software" | "qa" | "embedded" | "hardware" | "other";
+export type RoleType =
+  | "software" | "data" | "devops" | "cyber" | "qa" | "embedded" | "hardware" | "product" | "it" | "other";
 export type ExperienceLevel = "junior" | "experienced";
 
 export interface Evaluation {
@@ -155,7 +156,7 @@ export interface JobFilterValues {
   eligible: "" | "true" | "false";
   status: "" | JobStatus;
   source: string;
-  role_type: RoleType | "all";
+  role_type: RoleType | "tech" | "all";
   government: "" | "true";
   sort: JobSort;
   page: number;

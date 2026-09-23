@@ -8,8 +8,10 @@ def test_api_endpoints_over_demo_fixtures(world):
     client = world.client("junior@example.com")
 
     jobs = client.get("/api/jobs", params={"eligible": "true", "sort": "score"}).json()
-    # Junior Backend Developer + Full Stack; QA and Help Desk are not software roles.
-    assert jobs["total"] == 2 and all(j["is_eligible"] for j in jobs["items"])
+    # All tech roles count: Backend, Full Stack, QA ("עד שנתיים"), Help Desk ("Entry level").
+    assert jobs["total"] == 4 and all(j["is_eligible"] for j in jobs["items"])
+    tech = client.get("/api/jobs", params={"role_type": "tech"}).json()
+    assert tech["total"] == 6 and all(j["role_type"] != "other" for j in tech["items"])
     assert jobs["items"][0]["last_seen_at"].endswith("+00:00")
 
     job_id = next(j["id"] for j in client.get("/api/jobs").json()["items"] if j["source_count"] == 2)

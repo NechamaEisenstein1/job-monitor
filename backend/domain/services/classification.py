@@ -20,20 +20,31 @@ class RoleClassifier:
         # Order matters: the first type whose keyword hits wins.
         self._types = [(name, [keyword_pattern(k) for k in words]) for name, words in cfg.types.items()]
         self._eligible = set(cfg.eligible_types)
+        self._fallback = set(cfg.fallback_types)
 
     def classify(self, job: Job) -> str:
         # Title only: descriptions mention "בדיקות" / "פיתוח" in passing far too often
         # (a live sample put 431 analysts and cyber roles under "qa" via descriptions).
         return self._first_type(job.title.casefold()) or OTHER
 
+    def _first_type(self, text: str) -> str | None:
+        """"other" (explicit non-tech exclusions) wins outright; then the specific tech type
+        whose keyword appears earliest in the text (ties -> config order); the generic
+        fallback types (e.g. "it") only when nothing specific matched."""
+        best: tuple[int, int, int, int, str] | None = None
+        for order, (name, patterns) in enumerate(self._types):
+            hits = [(m.start(), -len(m.group())) for p in patterns if (m := p.search(text))]
+            if not hits:
+                continue
+            if name == OTHER:
+                return OTHER
+            start, neg_length = min(hits)  # earliest, then longest ("מפתח/ת אוטומציה" beats "מפתח")
+            candidate = (int(name in self._fallback), start, neg_length, order, name)
+            best = min(best, candidate) if best else candidate
+        return best[4] if best else None
+
     def is_eligible_type(self, role_type: str) -> bool:
         return role_type in self._eligible
-
-    def _first_type(self, text: str) -> str | None:
-        for name, patterns in self._types:
-            if any(p.search(text) for p in patterns):
-                return name
-        return None
 
 
 class GovernmentTenderDetector:
