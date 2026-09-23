@@ -1,0 +1,239 @@
+"""SQLAlchemy repositories. Persistence only."""
+from __future__ import annotations
+
+from datetime import date, datetime
+
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from backend.domain.enums import (
+    JobChange, JobSourceStatus, JobStatus, RunStatus, ScrapeStatus,
+)
+from backend.domain.models import (
+    Job, JobChangeRecord, JobEvaluation, JobSource, ScrapeRun, ScraperRun, SourceIdentity,
+)
+from backend.infrastructure.db.orm import (
+    JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, ScrapeRunRow, ScraperRunRow,
+    SentNotificationRow,
+)
+from backend.infrastructure.repositories.mapping import to_domain, to_values
+
+_JOB_ENUMS = {"status": JobStatus}
+_SOURCE_ENUMS = {"status": JobSourceStatus}
+
+
+def _upsert(session: Session, row_cls: type, obj) -> None:  # noqa: ANN001
+    """Insert when obj.id is None, otherwise update in place; sets obj.id."""
+    values = to_values(obj)
+    if obj.id is None:
+        row = row_cls(**values)
+        session.add(row)
+        session.flush()
+        obj.id = row.id
+    else:
+        row = session.get(row_cls, obj.id)
+        for key, value in values.items():
+            setattr(row, key, value)
+        session.flush()
+
+
+class SqlJobRepository:
+    def __init__(self, session: Session):
+        self._s = session
+
+    def get(self, job_id: int) -> Job:
+        row = self._s.get(JobRow, job_id)
+        if row is None:
+            raise LookupError(f"job {job_id} not found")
+        return to_domain(row, Job, _JOB_ENUMS)
+
+    def save(self, job: Job) -> Job:
+        _upsert(self._s, JobRow, job)
+        return job
+
+    def list_matchable(self) -> list[Job]:
+        rows = self._s.scalars(select(JobRow).where(JobRow.status != JobStatus.ARCHIVED.value).order_by(JobRow.id))
+        return [to_domain(r, Job, _JOB_ENUMS) for r in rows]
+
+
+class SqlJobSourceRepository:
+    def __init__(self, session: Session):
+        self._s = session
+
+    def find_by_identity(self, identity: SourceIdentity) -> JobSource | None:
+        stmt = select(JobSourceRow).where(JobSourceRow.recruitment_company == identity.recruitment_company)
+        if identity.uses_source_job_id:
+            stmt = stmt.where(JobSourceRow.source_job_id == identity.source_job_id)
+        else:
+            stmt = stmt.where(JobSourceRow.source_job_id.is_(None),
+                              JobSourceRow.source_url_fingerprint == identity.source_url_fingerprint)
+        row = self._s.scalars(stmt).first()
+        return to_domain(row, JobSource, _SOURCE_ENUMS) if row else None
+
+    def save(self, source: JobSource) -> JobSource:
+        _upsert(self._s, JobSourceRow, source)
+        return source
+
+    def list_for_job(self, job_id: int) -> list[JobSource]:
+        rows = self._s.scalars(select(JobSourceRow).where(JobSourceRow.job_id == job_id).order_by(JobSourceRow.id))
+        return [to_domain(r, JobSource, _SOURCE_ENUMS) for r in rows]
+
+    def job_ids_for_company(self, recruitment_company: str) -> set[int]:
+        return set(self._s.scalars(
+            select(JobSourceRow.job_id).where(JobSourceRow.recruitment_company == recruitment_company)
+        ))
+
+    def list_unseen_in_run(self, recruitment_company: str, run_id: str) -> list[JobSource]:
+        rows = self._s.scalars(
+            select(JobSourceRow).where(
+                JobSourceRow.recruitment_company == recruitment_company,
+                JobSourceRow.last_scrape_run_id != run_id,
+                JobSourceRow.status != JobSourceStatus.ARCHIVED.value,
+            )
+        )
+        return [to_domain(r, JobSource, _SOURCE_ENUMS) for r in rows]
+
+
+class SqlScrapeRunRepository:
+    def __init__(self, session: Session):
+        self._s = session
+
+    def save(self, run: ScrapeRun) -> ScrapeRun:
+        row = self._s.get(ScrapeRunRow, run.id)
+        values = to_values(run, exclude=())
+        if row is None:
+            self._s.add(ScrapeRunRow(**values))
+        else:
+            for key, value in values.items():
+                setattr(row, key, value)
+        self._s.flush()
+        return run
+
+    def get(self, run_id: str) -> ScrapeRun:
+        return to_domain(self._s.get(ScrapeRunRow, run_id), ScrapeRun, {"status": RunStatus})
+
+
+class SqlScraperRunRepository:
+    def __init__(self, session: Session):
+        self._s = session
+
+    def save(self, scraper_run: ScraperRun) -> ScraperRun:
+        _upsert(self._s, ScraperRunRow, scraper_run)
+        return scraper_run
+
+    def count_successful_since(self, site: str, since: datetime) -> int:
+        return self._s.scalar(
+            select(func.count()).select_from(ScraperRunRow).where(
+                ScraperRunRow.site == site,
+                ScraperRunRow.status == ScrapeStatus.SUCCESS.value,
+                ScraperRunRow.started_at > since,
+            )
+        ) or 0
+
+
+class SqlJobEvaluationRepository:
+    def __init__(self, session: Session):
+        self._s = session
+
+    def add(self, evaluation: JobEvaluation) -> None:
+        self._s.add(JobEvaluationRow(**to_values(evaluation, exclude=())))
+        self._s.flush()
+
+    def list_for_run(self, run_id: str) -> list[JobEvaluation]:
+        rows = self._s.scalars(select(JobEvaluationRow).where(JobEvaluationRow.scrape_run_id == run_id))
+        return [to_domain(r, JobEvaluation) for r in rows]
+
+    def latest_for_job(self, job_id: int) -> JobEvaluation | None:
+        row = self._s.scalars(
+            select(JobEvaluationRow).where(JobEvaluationRow.job_id == job_id)
+            .order_by(JobEvaluationRow.created_at.desc(), JobEvaluationRow.id.desc()).limit(1)
+        ).first()
+        return to_domain(row, JobEvaluation) if row else None
+
+
+class SqlJobChangeRepository:
+    def __init__(self, session: Session):
+        self._s = session
+
+    def add(self, change: JobChangeRecord) -> None:
+        _upsert(self._s, JobChangeRow, change)
+
+    def list_for_run(self, run_id: str) -> list[JobChangeRecord]:
+        rows = self._s.scalars(
+            select(JobChangeRow).where(JobChangeRow.scrape_run_id == run_id).order_by(JobChangeRow.id)
+        )
+        return [to_domain(r, JobChangeRecord, {"change_type": JobChange}) for r in rows]
+
+
+class SqlNotificationRepository:
+    """Idempotency via a unique (type, date, recipient) row.
+
+    try_claim inserts a 'pending' row - the unique constraint makes concurrent
+    senders race-safe. mark_sent flips it to 'sent'; release deletes it so a
+    failed send can be retried. Each call commits on its own."""
+
+    def __init__(self, session: Session):
+        self._s = session
+
+    def _key(self, notification_type: str, scheduled_date: date, recipient: str):  # noqa: ANN202
+        return (SentNotificationRow.notification_type == notification_type,
+                SentNotificationRow.scheduled_date == scheduled_date,
+                SentNotificationRow.recipient == recipient)
+
+    def try_claim(self, notification_type: str, scheduled_date: date, recipient: str,
+                  run_id: str | None, now: datetime, stale_before: datetime) -> bool:
+        for _ in range(2):
+            try:
+                self._s.add(SentNotificationRow(
+                    notification_type=notification_type, scheduled_date=scheduled_date,
+                    recipient=recipient, status="pending", scrape_run_id=run_id,
+                    claimed_at=now, sent_at=None,
+                ))
+                self._s.commit()
+                return True
+            except IntegrityError:
+                self._s.rollback()
+                # Take over only a claim abandoned by a crashed sender.
+                result = self._s.execute(
+                    delete(SentNotificationRow).where(
+                        *self._key(notification_type, scheduled_date, recipient),
+                        SentNotificationRow.status == "pending",
+                        SentNotificationRow.claimed_at < stale_before,
+                    )
+                )
+                self._s.commit()
+                if result.rowcount == 0:
+                    return False
+        return False
+
+    def mark_sent(self, notification_type: str, scheduled_date: date, recipient: str, now: datetime) -> None:
+        self._s.execute(
+            update(SentNotificationRow)
+            .where(*self._key(notification_type, scheduled_date, recipient))
+            .values(status="sent", sent_at=now)
+        )
+        self._s.commit()
+
+    def release(self, notification_type: str, scheduled_date: date, recipient: str) -> None:
+        self._s.execute(
+            delete(SentNotificationRow).where(
+                *self._key(notification_type, scheduled_date, recipient),
+                SentNotificationRow.status == "pending",
+            )
+        )
+        self._s.commit()
+
+
+class SqlUnitOfWork:
+    def __init__(self, session: Session):
+        self.session = session
+        self.jobs = SqlJobRepository(session)
+        self.sources = SqlJobSourceRepository(session)
+        self.runs = SqlScrapeRunRepository(session)
+        self.scraper_runs = SqlScraperRunRepository(session)
+        self.evaluations = SqlJobEvaluationRepository(session)
+        self.changes = SqlJobChangeRepository(session)
+
+    def commit(self) -> None:
+        self.session.commit()

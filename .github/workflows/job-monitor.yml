@@ -1,0 +1,85 @@
+name: Job Monitor
+
+on:
+  schedule:
+    # GitHub cron is UTC-only. 07:00 Israel is 04:00 UTC in summer (IDT, +3) and
+    # 05:00 UTC in winter (IST, +2); both fire and the `gate` job keeps the right one.
+    - cron: "0 4 * * *"
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: job-monitor
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          # Decide by which trigger fired, not the clock, so a delayed start still counts.
+          offset=$(TZ=Asia/Jerusalem date +%z)          # +0300 in summer, +0200 in winter
+          if [ -z "$SCHEDULE" ]; then run=true          # manual workflow_dispatch
+          elif [ "$SCHEDULE" = "0 4 * * *" ] && [ "$offset" = "+0300" ]; then run=true
+          elif [ "$SCHEDULE" = "0 5 * * *" ] && [ "$offset" = "+0200" ]; then run=true
+          else run=false; fi
+          echo "Israel offset $offset, trigger '${SCHEDULE:-manual}' -> run=$run"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  scrape:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Production state lives in PostgreSQL - never in workflow artifacts.
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}   # links in alert emails
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Refuse to run without PostgreSQL
+        run: |
+          case "$DATABASE_URL" in
+            postgresql*) ;;
+            *) echo "DATABASE_URL secret must point at PostgreSQL"; exit 1 ;;
+          esac
+      - name: Run migrations
+        run: alembic upgrade head
+      - name: Run Job Monitor
+        run: python -m backend.cli run | tee run.log
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-log-${{ github.run_id }}
+          path: run.log
+          retention-days: 14

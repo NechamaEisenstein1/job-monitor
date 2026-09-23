@@ -1,0 +1,85 @@
+# Live recruitment sources. `name` is the recruitment company recorded on every job
+# and must match the site scraper's company (see backend/infrastructure/scrapers/sites/).
+#
+# Types:
+#   site      - a per-site scraper module (`site:` key below)
+#   json_api  - GET a JSON endpoint, map fields with `field_map` (no code needed)
+#   fixture   - local JSON file (tests / offline demos only)
+#
+# All paths used were checked against each site's robots.txt (2026-09).
+# Set `enabled: false` to pause a source; `note` is shown on the Sources page.
+sources:
+  - name: "Matrix"
+    type: site
+    site: matrix
+
+  - name: "HMS"
+    type: site
+    site: hms
+
+  - name: "Tigbur"
+    type: site
+    site: tigbur
+    # Tigbur is a general staffing firm; collect only its IT categories.
+    categories:
+      - "הנדסת תוכנה /מחשבים"
+      - "תשתיות IT"
+      - "מע` מידע"
+      - "מחשבים"
+      - "אבטחת איכות"
+      - "אינטרנט"
+      - "תקשורת"
+      - "בכירים טכנולוגי"
+
+  - name: "Aman"
+    type: site
+    site: aman
+
+  - name: "Horizon"
+    type: site
+    site: horizon
+
+  - name: "Comblack"
+    type: site
+    site: comblack
+
+  - name: "Consist"
+    type: site
+    site: consist
+
+  - name: "Yael"
+    type: site
+    site: yael
+
+  - name: "GAV Systems"
+    type: site
+    site: gav
+
+  - name: "Ness"
+    type: site
+    site: ness
+
+  - name: "ProLogic"
+    type: site
+    site: prologic
+
+  - name: "SQLink"
+    type: site
+    site: sqlink
+
+  - name: "One"
+    type: site
+    site: one
+    note: "כולל את משרות טלדור (לוח המשרות של קבוצת One)."
+
+  - name: "Malam Team"
+    type: site
+    site: malamteam
+    enabled: false
+    note: "האתר חסום לגישה אוטומטית (Cloudflare, HTTP 403). נדרש פיד או API רשמי."
+
+  - name: "Log-On"
+    type: site
+    site: logon
+    enabled: false
+    note: "האתר logon.co.il חוסם גישה אוטומטית (HTTP 418), ובאתר log-on.com אין לוח משרות."

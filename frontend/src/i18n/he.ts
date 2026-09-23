@@ -1,0 +1,334 @@
+// All user-facing text. Backend codes (statuses, rule ids) are translated here for
+// display only - the backend stays the source of truth for their meaning.
+
+export const he = {
+  appName: "מוניטור משרות",
+  nav: { dashboard: "לוח בקרה", jobs: "משרות", runs: "ריצות", sources: "מקורות", myArea: "האזור שלי", admin: "ניהול" },
+
+  auth: {
+    title: "כניסה",
+    subtitle: "התחברו כדי לראות משרות ולנהל את האזור האישי",
+    email: "אימייל",
+    password: "סיסמה",
+    submit: "כניסה",
+    submitting: "מתחבר…",
+    logout: "יציאה",
+    noSignup: "אין לכם משתמש? פנו למנהל/ת המערכת.",
+  },
+
+  roles: {
+    software: "פיתוח תוכנה",
+    qa: "QA ואוטומציה",
+    embedded: "Embedded",
+    hardware: "חומרה ושבבים",
+    other: "אחר",
+  } as Record<string, string>,
+  tender: "מכרז ממשלתי",
+  junior: "ג'וניור",
+
+  errors: {
+    invalid_credentials: "אימייל או סיסמה שגויים",
+    too_many_attempts: "יותר מדי ניסיונות כושלים. נסו שוב בעוד 15 דקות.",
+    invalid_email: "כתובת אימייל לא תקינה",
+    password_too_short: "הסיסמה חייבת להכיל לפחות 10 תווים",
+    invalid_name: "יש להזין שם",
+    invalid_company: "יש להזין חברה",
+    duplicate_recruiter: "כבר שמרת מגייס/ת עם האימייל הזה",
+    duplicate_email: "כבר קיים משתמש עם האימייל הזה",
+    no_recruiters: "עדיין לא שמרת מגייסים. הוסיפו מגייס/ת באזור האישי.",
+    cannot_demote_self: "אי אפשר להסיר הרשאות מעצמך",
+    not_found: "לא נמצא",
+    admin_only: "למנהלים בלבד",
+  } as Record<string, string>,
+
+  myArea: {
+    title: "האזור שלי",
+    subtitle: "הפרופיל, אנשי הקשר והמשרות שמתאימות לך",
+    profile: "פרופיל והתראות",
+    displayName: "שם לתצוגה",
+    level: "רמת ניסיון",
+    levels: { junior: "ג'וניור / ללא ניסיון", experienced: "בעל/ת ניסיון" } as Record<string, string>,
+    alerts: "שלחו לי מייל כשנמצאת משרה מתאימה",
+    save: "שמירה",
+    saved: "נשמר",
+    password: "שינוי סיסמה",
+    currentPassword: "סיסמה נוכחית",
+    newPassword: "סיסמה חדשה (10 תווים לפחות)",
+    changePassword: "עדכון סיסמה",
+    passwordChanged: "הסיסמה עודכנה",
+    recruiters: "המגייסים שלי",
+    recruitersHint: "רשימה פרטית - רק את/ה רואה אותה.",
+    recruiterName: "שם",
+    recruiterEmail: "אימייל",
+    recruiterCompany: "חברה",
+    add: "הוספה",
+    edit: "עריכה",
+    remove: "מחיקה",
+    cancel: "ביטול",
+    confirmRemove: (name: string) => `למחוק את ${name}?`,
+    noRecruiters: "עדיין לא נשמרו מגייסים",
+    matches: "משרות שמתאימות לך",
+    matchesHint: "לפי המיקום, סוג התפקיד ורמת הניסיון שלך. מכרזים ממשלתיים מסומנים.",
+    tendersOnly: "מכרזים ממשלתיים בלבד",
+    noMatches: "אין כרגע משרות שמתאימות לפרופיל",
+    knownRecruiters: (names: string) => `מכירים שם: ${names}`,
+    askRecruiters: "שלח בקשת סיוע למגייסים",
+    confirmAsk: (n: number) => `יישלח מייל אישי נפרד לכל אחד מ-${n} המגייסים ששמרת. להמשיך?`,
+    send: "שליחה",
+    sending: "שולח…",
+    outreachStatus: {
+      sent: "נשלח",
+      failed: "נכשל",
+      skipped: "דולג",
+      not_sent: "טרם נשלח",
+    } as Record<string, string>,
+    outreachDetail: { already_sent: "כבר נשלח בעבר", daily_limit: "הגעת למכסה היומית" } as Record<string, string>,
+  },
+
+  admin: {
+    title: "ניהול",
+    subtitle: "כניסות, תנועה ומצב המערכת",
+    cards: {
+      users: "משתמשים",
+      active7d: "פעילים (7 ימים)",
+      logins7d: "כניסות (7 ימים)",
+      failed7d: "כניסות כושלות (7 ימים)",
+      views7d: "צפיות בדפים (7 ימים)",
+      alerts7d: "התראות שנשלחו (7 ימים)",
+      outreach7d: "פניות למגייסים (7 ימים)",
+      tenders: "מכרזים פעילים",
+    },
+    dailyViews: "צפיות בדפים ביום (14 ימים)",
+    topPages: "הדפים הנצפים ביותר (7 ימים)",
+    bySource: "משרות פעילות לפי מקור",
+    byRole: "משרות פעילות לפי סוג תפקיד",
+    users: "משתמשים",
+    newUser: "משתמש/ת חדש/ה",
+    create: "יצירה",
+    isAdmin: "מנהל/ת",
+    active: "פעיל/ה",
+    lastLogin: "כניסה אחרונה",
+    deactivate: "השבתה",
+    activate: "הפעלה",
+    resetPassword: "איפוס סיסמה",
+    newPasswordPrompt: "סיסמה חדשה (10 תווים לפחות):",
+    tableView: "הצגה כטבלה",
+    day: "יום",
+    views: "צפיות",
+    logins: "כניסות",
+    failed: "כושלות",
+  },
+
+  common: {
+    loading: "טוען…",
+    retry: "נסה שוב",
+    loadError: "טעינת הנתונים נכשלה",
+    notFound: "לא נמצא",
+    requestFailed: (status: number) => `הבקשה נכשלה (${status})`,
+    none: "—",
+    pageNotFound: "הדף לא נמצא",
+  },
+
+  dashboard: {
+    title: "לוח בקרה",
+    lastRun: (rel: string) => `ריצה אחרונה ${rel}`,
+    cards: {
+      activeJobs: "משרות פעילות",
+      newJobs: "חדשות (ריצה אחרונה)",
+      updatedJobs: "עודכנו (ריצה אחרונה)",
+      eligible: "מתאימות",
+      lastRun: "ריצה אחרונה",
+      scrapersOk: "סורקים תקינים",
+    },
+    recentActivity: "פעילות אחרונה",
+    allJobs: "כל המשרות",
+    noActivity: "אין פעילות עדיין",
+    noActivityHint: "הריצו את הסריקה: python -m backend.cli run",
+    runHealth: "תקינות ריצה",
+    noRuns: "אין ריצות עדיין",
+  },
+
+  jobs: {
+    title: "משרות",
+    count: (n: number) => `${n.toLocaleString("he-IL")} משרות תואמות`,
+    empty: "אין משרות שתואמות לסינון",
+    emptyHint: "נסו לנקות אחד מהמסננים.",
+    columns: {
+      title: "תפקיד",
+      client: "לקוח",
+      location: "מיקום",
+      score: "ציון ג'וניור",
+      status: "סטטוס",
+      sources: "מקורות",
+      lastSeen: "נראתה לאחרונה",
+      updated: "עודכנה",
+    },
+  },
+
+  filters: {
+    search: "חיפוש",
+    searchPlaceholder: "תפקיד, לקוח, תיאור…",
+    location: "מיקום",
+    locationPlaceholder: "הכל",
+    eligibility: "התאמה",
+    status: "סטטוס",
+    source: "מקור",
+    sort: "מיון",
+    all: "הכל",
+    eligible: "מתאימות",
+    notEligible: "לא מתאימות",
+    sortRelevance: "רלוונטיות (ג'וניור קודם)",
+    sortNewest: "החדשות ביותר",
+    roleType: "סוג תפקיד",
+    allRoles: "כל התפקידים",
+    tendersOnly: "מכרזים בלבד",
+    sortUpdated: "עודכנו לאחרונה",
+    sortScore: "ציון ג'וניור",
+  },
+
+  pagination: {
+    range: (from: number, to: number, total: number) => `${from}–${to} מתוך ${total.toLocaleString("he-IL")}`,
+    previous: "הקודם",
+    next: "הבא",
+  },
+
+  job: {
+    back: "חזרה למשרות",
+    subtitle: (first: string, updated: string, seen: string) =>
+      `נראתה לראשונה ${first} · עודכנה ${updated} · נראתה לאחרונה ${seen}`,
+    client: "לקוח",
+    location: "מיקום",
+    employmentType: "היקף משרה",
+    status: "סטטוס",
+    score: "ציון ג'וניור",
+    eligibility: "התאמה",
+    description: "תיאור המשרה",
+    requirements: "דרישות",
+    notProvided: "המקור לא פרסם מידע זה.",
+    sources: "מקורות",
+    history: "היסטוריה",
+    noHistory: "לא נרשמו שינויים",
+    openOriginal: "למשרה המקורית ↖",
+    firstSeen: "נראתה לראשונה",
+    lastSeen: "נראתה לאחרונה",
+    via: (company: string) => `דרך ${company}`,
+  },
+
+  runs: {
+    title: "ריצות",
+    subtitle: "כל הרצות צינור הסריקה",
+    empty: "אין ריצות עדיין",
+    columns: {
+      date: "תאריך",
+      started: "התחלה",
+      finished: "סיום",
+      duration: "משך",
+      status: "סטטוס",
+      sites: "אתרים",
+      jobsFound: "משרות שנמצאו",
+      eligible: "מתאימות",
+    },
+    back: "חזרה לריצות",
+    runTitle: (date: string) => `ריצה · ${date}`,
+    overallStatus: "סטטוס כללי",
+    successRatio: "שיעור הצלחה",
+    duration: "משך",
+    foundValid: "נמצאו / תקינות",
+    touched: "משרות שעודכנו",
+    eligible: "מתאימות",
+    started: "התחלה",
+    scrapers: "סורקים",
+    viewDetails: "לפרטי הריצה ←",
+    failedSources: (names: string) => `מקורות שנכשלו: ${names}`,
+  },
+
+  scrapers: {
+    site: "אתר",
+    status: "סטטוס",
+    fetched: "נמשכו",
+    parsed: "תקינות",
+    invalid: "פסולות",
+    duration: "משך",
+    notes: "אזהרה / שגיאה",
+  },
+
+  sources: {
+    title: "מקורות",
+    subtitle: "מקורות הגיוס המוגדרים (config/sources.yaml)",
+    empty: "לא הוגדרו מקורות",
+    emptyHint: "הוסיפו מקורות לקובץ config/sources.yaml",
+    columns: {
+      source: "מקור",
+      lastStatus: "סטטוס אחרון",
+      lastRun: "ריצה אחרונה",
+      lastSuccess: "סריקה מוצלחת אחרונה",
+      fetched: "משרות שנמשכו",
+      active: "פרסומים פעילים",
+      lastError: "שגיאה אחרונה",
+    },
+    disabled: "מושבת",
+    neverRun: "טרם רץ",
+  },
+
+  status: {
+    active: "פעילה",
+    not_seen_recently: "לא נראתה לאחרונה",
+    archived: "בארכיון",
+    success: "הצלחה",
+    partial: "חלקית",
+    failed: "נכשלה",
+    timeout: "חריגת זמן",
+    network_error: "שגיאת רשת",
+    parse_error: "שגיאת פענוח",
+    zero_results: "אפס תוצאות",
+    config_error: "שגיאת הגדרה",
+    new: "חדשה",
+    content_updated: "תוכן עודכן",
+    new_source: "מקור נוסף",
+    source_url_updated: "קישור עודכן",
+  } as Record<string, string>,
+
+  eligibility: { eligible: "מתאימה", notEligible: "לא מתאימה", notEvaluated: "לא הוערכה" },
+
+  rules: {
+    strong_positive: "חיובי חזק",
+    medium_positive: "חיובי",
+    strong_negative: "שלילי חזק",
+    location: "מיקום",
+    location_in_text: "מיקום מהטקסט",
+    primary: "ראשי",
+    secondary: "משני",
+    location_not_matched: "המיקום אינו באזורים המבוקשים",
+    junior_score_below_threshold: "ציון ג'וניור מתחת לסף",
+    role: "סוג תפקיד",
+    role_not_eligible: "סוג התפקיד אינו פיתוח תוכנה",
+    government_tender: "מכרז ממשלתי",
+  } as Record<string, string>,
+
+  relative: {
+    justNow: "הרגע",
+    minutes: (n: number) => `לפני ${n} דק׳`,
+    hours: (n: number) => `לפני ${n} שע׳`,
+    days: (n: number) => `לפני ${n} ימים`,
+  },
+};
+
+/** "strong_positive:junior" -> "חיובי חזק: junior"; "location:primary:ירושלים" -> "מיקום (ראשי): ירושלים" */
+export function ruleLabel(rule: string): string {
+  const [group, a, b] = rule.split(":");
+  const name = he.rules[group] ?? group;
+  if (b !== undefined) return `${name} (${he.rules[a] ?? a}): ${b}`;
+  return a !== undefined ? `${name}: ${a}` : name;
+}
+
+/** "junior_score_below_threshold (0.35 < 0.6)" -> "ציון ג'וניור מתחת לסף (0.35 < 0.6)" */
+export function reasonLabel(reason: string): string {
+  const match = reason.match(/^([a-z_]+)(.*)$/);
+  if (!match) return reason;
+  return `${he.rules[match[1]] ?? match[1]}${match[2]}`;
+}
+
+/** Server error codes ("detail") -> Hebrew message. */
+export function errorLabel(code: string): string {
+  return he.errors[code] ?? code;
+}

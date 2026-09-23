@@ -1,0 +1,9 @@
+.venv
+.git
+**/__pycache__
+.pytest_cache
+job_monitor.db
+outbox
+frontend/node_modules
+frontend/dist
+.env

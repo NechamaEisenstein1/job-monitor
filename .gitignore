@@ -1,0 +1,18 @@
+# secrets & local settings
+.env
+.claude/
+
+# local data (scraped jobs, users, sessions) - never commit
+*.db
+*.db-journal
+outbox/
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# frontend
+frontend/node_modules/
+frontend/dist/

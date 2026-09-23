@@ -1,0 +1,32 @@
+[
+  {
+    "source_job_id": null,
+    "source_url": "https://hms.example.com/jobs/555?utm_source=facebook",
+    "title": "Junior Backend Developer (Python)",
+    "client_company": "Intel Ltd",
+    "location": "Jerusalem",
+    "employment_type": "Full-time",
+    "description": "Backend development in Python for an enterprise team. Junior position.",
+    "requirements": "Degree in CS\nPython"
+  },
+  {
+    "source_job_id": "H-7",
+    "source_url": "https://hms.example.com/jobs/7",
+    "title": "DevOps Team Lead",
+    "client_company": "Wix",
+    "location": "Jerusalem",
+    "employment_type": "Full-time",
+    "description": "Lead the DevOps team.",
+    "requirements": "4+ years with Kubernetes"
+  },
+  {
+    "source_job_id": "H-8",
+    "source_url": "https://hms.example.com/jobs/8",
+    "title": "Help Desk Technician - Entry Level",
+    "client_company": "Hadassah",
+    "location": "בית שמש",
+    "employment_type": "Shifts",
+    "description": "First-line IT support. Entry level role with on-the-job training.",
+    "requirements": "Customer orientation"
+  }
+]

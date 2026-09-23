@@ -1,0 +1,120 @@
+run_status:
+  success_ratio: 0.9
+  partial_ratio: 0.5
+
+locations:
+  primary:
+    - "ירושלים"
+    - "Jerusalem"
+
+  secondary:
+    - "מודיעין"
+    - "בית שמש"
+
+  # Sources such as SQLink and ProLogic publish no location field; for those jobs,
+  # look for the configured locations in the title/description/requirements instead.
+  search_text_when_missing: true
+
+keywords:
+  junior:
+    strong_positive:
+      - "ללא ניסיון"
+      - "0-1 years"
+      - "junior"
+
+    medium_positive:
+      - "עד שנתיים"
+      - "entry level"
+      - "בוגר"
+      - "בוגרים"
+      - "רמה א"
+      - "דרג א"
+
+    strong_negative:
+      - "senior"
+      - "lead"
+      - "architect"
+      - "principal"
+      - "5+ years"
+      - "4+ years"
+      - "בכיר"
+      - "ארכיטקט"
+      - "ראש צוות"
+      - "ר\"צ"
+      - "טים ליד"
+      - "מוביל/ה טכנולוגי"
+      - "מנהל/ת פיתוח"
+      - "4 שנות ניסיון"
+      - "5 שנות ניסיון"
+      - "ארבע שנות ניסיון"
+      - "חמש שנות ניסיון"
+
+# Role classification - by TITLE only (descriptions mention "בדיקות"/"פיתוח" in passing
+# far too often). Types are tried in the order listed; the first hit wins. "other" comes
+# first as an explicit exclusion list (e.g. "מפתח/ת הדרכה" is a training role, not software).
+# A title that names no role is "other".
+roles:
+  types:
+    other: ["הדרכה", "פיתוח עסקי", "business development", "מכירות", "sales", "פיתוח ארגוני", "גיוס"]
+    qa: ["qa", "בודק", "בודקת", "בדיקות", "tester", "test engineer", "אוטומציה", "automation", "validation", "ולידציה"]
+    embedded: ["embedded", "אמבדד", "firmware", "קושחה", "real-time", "real time", "rt/embedded", "bsp"]
+    hardware: ["hardware", "חומרה", "chip", "chips", "שבבים", "שבב", "asic", "fpga", "vlsi", "rf", "אלקטרוניקה", "verification"]
+    software: ["developer", "מפתח", "מפתחת", "מתכנת", "מתכנתת", "תוכניתן", "תכניתן", "programmer",
+               "software", "תוכנה", "פיתוח", "full stack", "fullstack", "backend", "back end", "back-end",
+               "frontend", "front end", "front-end", "java", "python", ".net", "c#", "node", "react", "angular",
+               "android", "ios", "data engineer", "ai engineer", "ml engineer", "machine learning engineer"]
+  # Jobs of these types can be eligible; everything is still stored and shown on request.
+  eligible_types: ["software"]
+
+# Postings for government bodies / public tenders get a badge and priority in alerts.
+government:
+  keywords: ["מכרז", "משרד ממשלתי", "משרד ממשלה", "משרדי ממשלה", "ארגון ממשלתי", "גוף ממשלתי",
+             "רשות ממשלתית", "למשרד ממשלתי", "government", "ministry"]
+
+# Relevance order (the default Jobs sort): junior roles first, then by role type, then score.
+ranking:
+  junior_bonus: 1000
+  role_priority: ["software", "qa", "embedded", "hardware", "other"]
+  role_step: 100
+
+# How keyword hits turn into junior_score (clamped to 0..1).
+# Each keyword counts once, no matter how many times it appears.
+junior_scoring:
+  base: 0.5
+  strong_positive: 0.3
+  medium_positive: 0.15
+  strong_negative: -0.5
+
+thresholds:
+  junior_score: 0.6
+  match_title_fuzzy: 0.8
+
+archive:
+  not_seen_warning_days: 30
+  archive_after_days: 60
+  min_successful_site_runs_before_archive: 3
+
+schedule:
+  # The scheduled date of a run is the calendar date in this timezone.
+  timezone: "Asia/Jerusalem"
+
+email:
+  recipient: "${RECIPIENT_EMAIL}"
+  subject: "משרות חדשות - {date}"
+  notification_type: "daily_digest"
+  # A claim left in "pending" longer than this (crashed sender) may be taken over.
+  claim_timeout_minutes: 30
+
+# Per-user alerts and recruiter outreach (the multi-user personal area).
+users:
+  alert_subject: "משרות שמתאימות לך - {date}"
+  # Hard cap on personalised recruiter emails a user can send per day (anti-abuse).
+  outreach_daily_limit: 30
+  session_days: 14
+
+scraper:
+  timeout_seconds: 30
+  max_retries: 3
+  retry_backoff_seconds: 1.0
+  rate_limit_per_site: 2.0
+  max_concurrent_workers: 4

@@ -1,0 +1,52 @@
+[
+  {
+    "source_job_id": "M-101",
+    "source_url": "https://matrix.example.com/positions/101-junior-backend",
+    "title": "Junior Backend Developer",
+    "client_company": "Intel",
+    "location": "Jerusalem",
+    "employment_type": "Full-time",
+    "published_at": "2026-09-20T08:00:00Z",
+    "description": "Join a backend team building internal APIs in Python.\nGreat first role for a junior engineer.",
+    "requirements": "B.Sc in CS or equivalent\nPython, SQL"
+  },
+  {
+    "source_job_id": "M-102",
+    "source_url": "https://matrix.example.com/jobs/102",
+    "title": "Senior Data Architect",
+    "client_company": "Bank Hapoalim",
+    "location": "Tel Aviv",
+    "employment_type": "Full-time",
+    "description": "Own the data platform architecture.",
+    "requirements": "5+ years in data engineering"
+  },
+  {
+    "source_job_id": "M-103",
+    "source_url": "https://matrix.example.com/jobs/103",
+    "title": "מפתח/ת Full Stack",
+    "client_company": "Mobileye",
+    "location": "ירושלים",
+    "employment_type": "משרה מלאה",
+    "description": "פיתוח מערכות web פנימיות. מתאים גם ללא ניסיון. כולל הכשרה של חודש.",
+    "requirements": "React, Node.js"
+  },
+  {
+    "source_job_id": "M-105",
+    "source_url": "https://matrix.example.com/jobs/105",
+    "title": "Junior Data Analyst",
+    "client_company": "Teva",
+    "location": "Jerusalem",
+    "employment_type": "Full-time",
+    "description": "Reporting and dashboards. 0-1 years of experience.",
+    "requirements": "SQL, Excel"
+  },
+  {
+    "source_job_id": "M-199",
+    "source_url": "https://matrix.example.com/jobs/199",
+    "title": "",
+    "client_company": "Broken Record Ltd",
+    "location": "Jerusalem",
+    "description": "This record has no title and must be counted as invalid.",
+    "requirements": ""
+  }
+]

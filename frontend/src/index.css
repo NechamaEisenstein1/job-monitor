@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI", "Arial Hebrew", Arial, system-ui, sans-serif;
+}
+
+/* The UI is right-to-left. Data values keep their own character order (dir="auto"),
+   but short values align with the page; only paragraphs follow their own language. */
+[dir="auto"]:not(p) {
+  text-align: right;
+}
+
+/* Numbers, ids and URLs read left-to-right even inside RTL text. */
+.ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
