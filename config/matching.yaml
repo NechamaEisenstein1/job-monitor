@@ -89,10 +89,12 @@ thresholds:
   junior_score: 0.6
   match_title_fuzzy: 0.8
 
-archive:
-  not_seen_warning_days: 30
-  archive_after_days: 60
-  min_successful_site_runs_before_archive: 3
+# Daily refresh: every run keeps only the jobs the sites still publish. Postings a site
+# no longer lists are deleted (with their history) - but only for sites that scraped
+# successfully in this run, and never more than this share of a site in one run
+# (a bigger drop is far likelier a broken scraper; the run page then shows a warning).
+retention:
+  max_prune_ratio: 0.5
 
 schedule:
   # The scheduled date of a run is the calendar date in this timezone.

@@ -78,10 +78,9 @@ class Thresholds:
 
 
 @dataclass(frozen=True)
-class ArchiveConfig:
-    not_seen_warning_days: int
-    archive_after_days: int
-    min_successful_site_runs_before_archive: int
+class RetentionConfig:
+    # Skip pruning a site when one run would remove more than this share of its postings.
+    max_prune_ratio: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -138,7 +137,7 @@ class MatchingConfig:
     junior_keywords: JuniorKeywords
     junior_scoring: JuniorScoring
     thresholds: Thresholds
-    archive: ArchiveConfig
+    retention: RetentionConfig
     email: EmailConfig
     scraper: ScraperConfig
     roles: RolesConfig
@@ -155,7 +154,7 @@ class MatchingConfig:
             junior_keywords=JuniorKeywords(**raw["keywords"]["junior"]),
             junior_scoring=JuniorScoring(**raw["junior_scoring"]),
             thresholds=Thresholds(**raw["thresholds"]),
-            archive=ArchiveConfig(**raw["archive"]),
+            retention=RetentionConfig(**raw.get("retention", {})),
             email=EmailConfig(**raw["email"]),
             scraper=ScraperConfig(**raw["scraper"]),
             roles=RolesConfig(**raw["roles"]),

@@ -14,8 +14,8 @@ from backend.domain.models import (
     Job, JobChangeRecord, JobEvaluation, JobSource, ScrapeRun, ScraperRun, SourceIdentity,
 )
 from backend.infrastructure.db.orm import (
-    JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, ScrapeRunRow, ScraperRunRow,
-    SentNotificationRow,
+    JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, OutreachMessageRow, ScrapeRunRow, ScraperRunRow,
+    SentNotificationRow, UserJobAlertRow,
 )
 from backend.infrastructure.repositories.mapping import to_domain, to_values
 
@@ -52,6 +52,16 @@ class SqlJobRepository:
         _upsert(self._s, JobRow, job)
         return job
 
+    def delete_many(self, job_ids: list[int]) -> None:
+        """Remove jobs and everything that references them (history, evaluations,
+        remaining postings, per-user alert and outreach records)."""
+        if not job_ids:
+            return
+        for row_cls in (JobChangeRow, JobEvaluationRow, UserJobAlertRow, OutreachMessageRow, JobSourceRow):
+            self._s.execute(delete(row_cls).where(row_cls.job_id.in_(job_ids)))
+        self._s.execute(delete(JobRow).where(JobRow.id.in_(job_ids)))
+        self._s.flush()
+
     def list_matchable(self) -> list[Job]:
         rows = self._s.scalars(select(JobRow).where(JobRow.status != JobStatus.ARCHIVED.value).order_by(JobRow.id))
         return [to_domain(r, Job, _JOB_ENUMS) for r in rows]
@@ -83,6 +93,19 @@ class SqlJobSourceRepository:
         return set(self._s.scalars(
             select(JobSourceRow.job_id).where(JobSourceRow.recruitment_company == recruitment_company)
         ))
+
+    def count_for_company(self, recruitment_company: str) -> int:
+        return self._s.scalar(select(func.count()).select_from(JobSourceRow).where(
+            JobSourceRow.recruitment_company == recruitment_company,
+            JobSourceRow.status != JobSourceStatus.ARCHIVED.value)) or 0
+
+    def delete_many(self, source_ids: list[int]) -> None:
+        """Remove postings plus the history entries that point at them."""
+        if not source_ids:
+            return
+        self._s.execute(delete(JobChangeRow).where(JobChangeRow.job_source_id.in_(source_ids)))
+        self._s.execute(delete(JobSourceRow).where(JobSourceRow.id.in_(source_ids)))
+        self._s.flush()
 
     def list_unseen_in_run(self, recruitment_company: str, run_id: str) -> list[JobSource]:
         rows = self._s.scalars(
@@ -122,15 +145,6 @@ class SqlScraperRunRepository:
         _upsert(self._s, ScraperRunRow, scraper_run)
         return scraper_run
 
-    def count_successful_since(self, site: str, since: datetime) -> int:
-        return self._s.scalar(
-            select(func.count()).select_from(ScraperRunRow).where(
-                ScraperRunRow.site == site,
-                ScraperRunRow.status == ScrapeStatus.SUCCESS.value,
-                ScraperRunRow.started_at > since,
-            )
-        ) or 0
-
 
 class SqlJobEvaluationRepository:
     def __init__(self, session: Session):
@@ -143,6 +157,13 @@ class SqlJobEvaluationRepository:
     def list_for_run(self, run_id: str) -> list[JobEvaluation]:
         rows = self._s.scalars(select(JobEvaluationRow).where(JobEvaluationRow.scrape_run_id == run_id))
         return [to_domain(r, JobEvaluation) for r in rows]
+
+    def delete_superseded(self, run_id: str) -> None:
+        """Keep only the latest run's evaluation for each job evaluated in that run."""
+        evaluated_now = select(JobEvaluationRow.job_id).where(JobEvaluationRow.scrape_run_id == run_id)
+        self._s.execute(delete(JobEvaluationRow).where(
+            JobEvaluationRow.scrape_run_id != run_id, JobEvaluationRow.job_id.in_(evaluated_now)))
+        self._s.flush()
 
     def latest_for_job(self, job_id: int) -> JobEvaluation | None:
         row = self._s.scalars(
