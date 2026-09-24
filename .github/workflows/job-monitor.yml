@@ -47,7 +47,7 @@ jobs:
   scrape:
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60  # ~30 min with 14 sites; public repos have unlimited Actions minutes
     env:
       # Production state lives in PostgreSQL - never in workflow artifacts.
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
