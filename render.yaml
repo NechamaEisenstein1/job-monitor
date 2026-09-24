@@ -1,0 +1,45 @@
+# Render Blueprint: Render -> New -> Blueprint -> pick this repository.
+# One web service built from the Dockerfile (API + website). The database is external
+# (Neon Postgres) and the daily scrape runs in GitHub Actions - see DEPLOY.md.
+# Values marked `sync: false` are secrets: Render asks for them once and never stores
+# them in git.
+services:
+  - type: web
+    name: job-monitor
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: frankfurt          # closest Render region to Israel
+    plan: free                 # "starter" (paid) never sleeps - recommended for a real site
+    healthCheckPath: /healthz
+    autoDeploy: true           # every push to main redeploys
+    envVars:
+      - key: DATABASE_URL      # Neon connection string (postgresql://...?sslmode=require)
+        sync: false
+      - key: PUBLIC_BASE_URL   # https://job-monitor-xxxx.onrender.com (or your own domain)
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: CONTACT_EMAIL
+        sync: false
+      - key: GOOGLE_SITE_VERIFICATION
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USE_TLS
+        value: "true"
+      - key: ALLOW_SIGNUP
+        value: "true"
+      - key: LOG_LEVEL
+        value: INFO
