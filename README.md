@@ -92,6 +92,15 @@ job is kept. Safeguards:
 
 ## Production
 
+**Step-by-step deployment guide: [DEPLOY.md](DEPLOY.md)** (Render + Neon + GitHub Actions,
+Google sign-in, email, Search Console, custom domain).
+
+* **Public site / SEO**: `/`, `/login`, `/privacy`, `/terms` are public and indexable (server-rendered
+  title/description/canonical/Open Graph); everything behind login and all of `/api/` is `noindex`
+  and disallowed in `/robots.txt`; `/sitemap.xml` lists the public pages; unknown paths return 404.
+* **Existing data**: `python -m backend.cli copy-data --source sqlite:///job_monitor.db` copies the local
+  database into `DATABASE_URL` (refuses a non-empty target).
+
 * **PostgreSQL** via `DATABASE_URL=postgresql+psycopg://...`. SQLite is for local dev/tests only.
 * **GitHub Actions**: `.github/workflows/job-monitor.yml` runs daily at **07:00 Israel time**
   (two UTC crons + a gate job that handles summer/winter time), then tests, migrations, run.
