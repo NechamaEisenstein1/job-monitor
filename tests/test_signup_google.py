@@ -198,3 +198,27 @@ def test_existing_verified_account_is_promoted_on_next_login(world):
     users = replace(world.app.state.cfg.users, admin_emails="junior@example.com")
     world.app.state.cfg = replace(world.app.state.cfg, users=users)
     assert world.client("junior@example.com").get("/api/auth/me").json()["is_admin"] is True
+
+
+def test_operator_can_vouch_for_a_fresh_admin_signup(world, cfg, session_factory):
+    """No email/Google verification configured: the ADMIN_EMAILS account registered just now
+    becomes a verified admin; an old unverified sign-up with that address does not."""
+    from dataclasses import replace
+    from datetime import timedelta
+
+    from backend.bootstrap import account_service, utcnow
+
+    client = world.client()
+    assert client.post("/api/auth/register", json={
+        "email": "owner@example.com", "display_name": "Owner", "password": "long-enough-password",
+        "experience_level": "junior"}).status_code in (200, 201)
+    cfg = replace(cfg, users=replace(cfg.users, admin_emails="owner@example.com, old@example.com"))
+    with session_factory() as s:
+        service = account_service(s, cfg)
+        old = service.create_user("old@example.com", "Old", "long-enough-password", email_verified=False)
+        old.created_at = utcnow() - timedelta(days=3)
+        service._users.save(old)
+        promoted = service.vouch_designated_admins(utcnow() - timedelta(hours=24))
+    assert [u.email for u in promoted] == ["owner@example.com"]
+    me = client.get("/api/auth/me").json()
+    assert me["is_admin"] and me["email_verified"]

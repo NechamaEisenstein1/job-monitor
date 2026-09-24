@@ -5,6 +5,7 @@
     python -m backend.cli create-user --email E --name N [--admin] [--experienced]
                                                        create an account (password is prompted)
     python -m backend.cli ensure-admins                grant admin to verified accounts in ADMIN_EMAILS
+    python -m backend.cli vouch-admins [--hours 24]    make recently registered ADMIN_EMAILS accounts admins
     python -m backend.cli copy-data --source URL       copy all data from URL into DATABASE_URL (must be empty)
 """
 from __future__ import annotations
@@ -13,7 +14,7 @@ import argparse
 import asyncio
 import getpass
 import sys
-from datetime import date
+from datetime import date, timedelta
 
 from backend.application.services.scraper_executor import ScraperExecutor
 from backend.application.use_cases.accounts import AccountError
@@ -104,6 +105,24 @@ def _ensure_admins() -> int:
     return 0
 
 
+def _vouch_admins(hours: int) -> int:
+    """For CI: no addresses are printed (the Actions log of a public repo is public)."""
+    settings = Settings.from_env()
+    cfg = load_matching_config(settings.config_dir)
+    if not cfg.users.admin_email_set:
+        print("ADMIN_EMAILS is empty.")
+        return 1
+    with make_session_factory(make_engine(settings.database_url))() as session:
+        promoted = account_service(session, cfg).vouch_designated_admins(utcnow() - timedelta(hours=hours))
+    print(f"Promoted {len(promoted)} account(s) to verified admin.")
+    for user in promoted:
+        print(f"  - account #{user.id}, registered {user.created_at:%Y-%m-%d %H:%M} UTC")
+    if not promoted:
+        print(f"No matching account registered in the last {hours} h. Register on the site first, "
+              "with an address listed in ADMIN_EMAILS, then run this again.")
+    return 0 if promoted else 1
+
+
 def _copy_data(source: str) -> int:
     from backend.infrastructure.db.copy import TargetNotEmptyError, copy_database
 
@@ -135,6 +154,8 @@ def main() -> int:
     create.add_argument("--admin", action="store_true")
     create.add_argument("--experienced", action="store_true", help="experienced profile (default: junior)")
     sub.add_parser("ensure-admins", help="grant admin to verified accounts listed in ADMIN_EMAILS")
+    vouch = sub.add_parser("vouch-admins", help="make recently registered ADMIN_EMAILS accounts verified admins")
+    vouch.add_argument("--hours", type=int, default=24, help="only accounts registered in the last N hours")
     copy = sub.add_parser("copy-data", help="copy all data from --source into DATABASE_URL (target must be empty)")
     copy.add_argument("--source", required=True, help="e.g. sqlite:///job_monitor.db")
     args = parser.parse_args()
@@ -151,6 +172,8 @@ def main() -> int:
         return _create_user(args.email, args.name, args.admin, args.experienced)
     if args.command == "ensure-admins":
         return _ensure_admins()
+    if args.command == "vouch-admins":
+        return _vouch_admins(args.hours)
     if args.command == "copy-data":
         return _copy_data(args.source)
     return 2

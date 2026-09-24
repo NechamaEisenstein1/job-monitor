@@ -1,0 +1,32 @@
+name: Make me admin
+
+# One-off, run by hand (Actions -> "Make me admin" -> Run workflow) while the site has no
+# email verification or Google sign-in configured yet. Register on the site first with an
+# address listed in the ADMIN_EMAILS secret; this marks that account verified + admin.
+# Only accounts registered in the last 24 hours qualify. Nothing personal is printed.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vouch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Check secrets
+        run: |
+          case "$DATABASE_URL" in postgresql*) ;; *) echo "DATABASE_URL secret must point at PostgreSQL"; exit 1 ;; esac
+          [ -n "$ADMIN_EMAILS" ] || { echo "Add the ADMIN_EMAILS repository secret first"; exit 1; }
+      - name: Make the registered ADMIN_EMAILS account an admin
+        run: python -m backend.cli vouch-admins --hours 24
