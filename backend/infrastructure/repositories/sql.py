@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import case, delete, func, literal, select, update
+from sqlalchemy import case, delete, func, insert, literal, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -23,8 +23,17 @@ _JOB_ENUMS = {"status": JobStatus}
 _SOURCE_ENUMS = {"status": JobSourceStatus}
 
 
-def _upsert(session: Session, row_cls: type, obj) -> None:  # noqa: ANN001
-    """Insert when obj.id is None, otherwise update in place; sets obj.id."""
+def _pin(session: Session, rows) -> None:  # noqa: ANN001
+    """Keep rows alive for the session. The identity map holds rows only weakly, so a row
+    already turned into a domain object is garbage-collected and the next get() goes back
+    to the database - over a network (production), that is most of a run's time."""
+    session.info.setdefault("pinned_rows", set()).update(rows)
+
+
+def _upsert(session: Session, row_cls: type, obj):  # noqa: ANN001, ANN202
+    """Insert when obj.id is None, otherwise update in place; sets obj.id; returns the row.
+    Only inserts flush at once (the id is needed); updates are sent in one batch at the
+    next flush/commit instead of one round trip each."""
     values = to_values(obj)
     if obj.id is None:
         row = row_cls(**values)
@@ -35,7 +44,8 @@ def _upsert(session: Session, row_cls: type, obj) -> None:  # noqa: ANN001
         row = session.get(row_cls, obj.id)
         for key, value in values.items():
             setattr(row, key, value)
-        session.flush()
+    _pin(session, (row,))
+    return row
 
 
 class SqlJobRepository:
@@ -65,8 +75,9 @@ class SqlJobRepository:
     def list_matchable(self) -> list[Job]:
         # Manual postings are never merged with scraped ones: a scraped source attached to
         # one would make the daily refresh delete it when that site drops the posting.
-        rows = self._s.scalars(select(JobRow).where(
-            JobRow.status != JobStatus.ARCHIVED.value, JobRow.is_manual.is_(False)).order_by(JobRow.id))
+        rows = list(self._s.scalars(select(JobRow).where(
+            JobRow.status != JobStatus.ARCHIVED.value, JobRow.is_manual.is_(False)).order_by(JobRow.id)))
+        _pin(self._s, rows)  # the run reads and updates these jobs again: no second trip
         return [to_domain(r, Job, _JOB_ENUMS) for r in rows]
 
     def find(self, job_id: int) -> Job | None:
@@ -85,32 +96,55 @@ class SqlJobRepository:
         return [to_domain(r, Job, _JOB_ENUMS) for r in self._s.scalars(stmt.order_by(JobRow.created_at.desc()))]
 
 
+def _source_key(source_job_id: str | None, fingerprint: str) -> tuple[str, str]:
+    # Same identity rule as SourceIdentity: the site's id, else the URL fingerprint.
+    return ("id", source_job_id) if source_job_id is not None else ("url", fingerprint)
+
+
 class SqlJobSourceRepository:
+    """An agency's postings are loaded once per session (first lookup for that agency) and
+    looked up in memory afterwards: one query per site instead of one per posting."""
+
     def __init__(self, session: Session):
         self._s = session
+        self._index: dict[str, dict[tuple[str, str], JobSourceRow]] = session.info.setdefault("source_index", {})
+
+    def _company(self, company: str) -> dict[tuple[str, str], JobSourceRow]:
+        if company not in self._index:
+            rows = list(self._s.scalars(select(JobSourceRow).where(JobSourceRow.recruitment_company == company)))
+            _pin(self._s, rows)
+            self._index[company] = {_source_key(r.source_job_id, r.source_url_fingerprint): r for r in rows}
+        return self._index[company]
 
     def find_by_identity(self, identity: SourceIdentity) -> JobSource | None:
-        stmt = select(JobSourceRow).where(JobSourceRow.recruitment_company == identity.recruitment_company)
-        if identity.uses_source_job_id:
-            stmt = stmt.where(JobSourceRow.source_job_id == identity.source_job_id)
-        else:
-            stmt = stmt.where(JobSourceRow.source_job_id.is_(None),
-                              JobSourceRow.source_url_fingerprint == identity.source_url_fingerprint)
-        row = self._s.scalars(stmt).first()
+        key = _source_key(identity.source_job_id if identity.uses_source_job_id else None,
+                          identity.source_url_fingerprint)
+        row = self._company(identity.recruitment_company).get(key)
         return to_domain(row, JobSource, _SOURCE_ENUMS) if row else None
 
     def save(self, source: JobSource) -> JobSource:
-        _upsert(self._s, JobSourceRow, source)
+        row = _upsert(self._s, JobSourceRow, source)
+        if source.recruitment_company in self._index:
+            self._index[source.recruitment_company][_source_key(row.source_job_id, row.source_url_fingerprint)] = row
         return source
 
     def list_for_job(self, job_id: int) -> list[JobSource]:
         rows = self._s.scalars(select(JobSourceRow).where(JobSourceRow.job_id == job_id).order_by(JobSourceRow.id))
         return [to_domain(r, JobSource, _SOURCE_ENUMS) for r in rows]
 
+    def list_for_jobs(self, job_ids: list[int]) -> dict[int, list[JobSource]]:
+        """list_for_job for many jobs in a few queries."""
+        result: dict[int, list[JobSource]] = {job_id: [] for job_id in job_ids}
+        ids = list(result)
+        for start in range(0, len(ids), 500):
+            rows = self._s.scalars(select(JobSourceRow).where(JobSourceRow.job_id.in_(ids[start:start + 500]))
+                                   .order_by(JobSourceRow.id))
+            for row in rows:
+                result[row.job_id].append(to_domain(row, JobSource, _SOURCE_ENUMS))
+        return result
+
     def job_ids_for_company(self, recruitment_company: str) -> set[int]:
-        return set(self._s.scalars(
-            select(JobSourceRow.job_id).where(JobSourceRow.recruitment_company == recruitment_company)
-        ))
+        return {row.job_id for row in self._company(recruitment_company).values()}
 
     def count_for_company(self, recruitment_company: str) -> int:
         return self._s.scalar(select(func.count()).select_from(JobSourceRow).where(
@@ -124,6 +158,10 @@ class SqlJobSourceRepository:
         self._s.execute(delete(JobChangeRow).where(JobChangeRow.job_source_id.in_(source_ids)))
         self._s.execute(delete(JobSourceRow).where(JobSourceRow.id.in_(source_ids)))
         self._s.flush()
+        removed = set(source_ids)
+        for rows in self._index.values():
+            for key in [k for k, r in rows.items() if r.id in removed]:
+                del rows[key]
 
     def list_unseen_in_run(self, recruitment_company: str, run_id: str) -> list[JobSource]:
         rows = self._s.scalars(
@@ -171,6 +209,12 @@ class SqlJobEvaluationRepository:
     def add(self, evaluation: JobEvaluation) -> None:
         self._s.add(JobEvaluationRow(**to_values(evaluation, exclude=())))
         self._s.flush()
+
+    def add_many(self, evaluations: list[JobEvaluation]) -> None:
+        """A run's evaluations in one batched INSERT (the ORM would send them one by one
+        to read back each id, which nothing needs)."""
+        if evaluations:
+            self._s.execute(insert(JobEvaluationRow), [to_values(e, exclude=()) for e in evaluations])
 
     def list_for_run(self, run_id: str) -> list[JobEvaluation]:
         rows = self._s.scalars(select(JobEvaluationRow).where(JobEvaluationRow.scrape_run_id == run_id))
@@ -271,35 +315,51 @@ def source_posting_key():  # noqa: ANN201
 
 
 class SqlPostingHistoryRepository:
+    """Like the postings, an agency's history is loaded once per session and kept in memory."""
+
     def __init__(self, session: Session):
         self._s = session
+        self._index: dict[str, dict[str, PostingHistoryRow]] = session.info.setdefault("history_index", {})
+
+    def _company(self, company: str) -> dict[str, PostingHistoryRow]:
+        if company not in self._index:
+            rows = list(self._s.scalars(select(PostingHistoryRow).where(
+                PostingHistoryRow.recruitment_company == company)))
+            _pin(self._s, rows)
+            self._index[company] = {r.posting_key: r for r in rows}
+        return self._index[company]
 
     def find(self, company: str, key: str) -> PostingHistory | None:
-        row = self._s.scalars(select(PostingHistoryRow).where(
-            PostingHistoryRow.recruitment_company == company, PostingHistoryRow.posting_key == key)).first()
+        row = self._company(company).get(key)
         return to_domain(row, PostingHistory) if row else None
 
     def find_gone_by_title(self, company: str, title_key: str) -> PostingHistory | None:
         """The most recently removed posting of this agency with the same title."""
         if not title_key:
             return None
-        row = self._s.scalars(select(PostingHistoryRow).where(
-            PostingHistoryRow.recruitment_company == company, PostingHistoryRow.title_key == title_key,
-            PostingHistoryRow.gone_at.is_not(None)).order_by(PostingHistoryRow.gone_at.desc()).limit(1)).first()
+        gone = [r for r in self._company(company).values() if r.title_key == title_key and r.gone_at is not None]
+        row = max(gone, key=lambda r: r.gone_at, default=None)
         return to_domain(row, PostingHistory) if row else None
 
     def save(self, history: PostingHistory) -> PostingHistory:
-        _upsert(self._s, PostingHistoryRow, history)
+        row = _upsert(self._s, PostingHistoryRow, history)
+        self._company(history.recruitment_company)[row.posting_key] = row
         return history
 
     def delete(self, history_id: int) -> None:
+        for rows in self._index.values():
+            for key, row in list(rows.items()):
+                if row.id == history_id:
+                    del rows[key]
+                    self._s.delete(row)
+                    return
         self._s.execute(delete(PostingHistoryRow).where(PostingHistoryRow.id == history_id))
 
     def mark_gone(self, company: str, keys: list[str], now: datetime) -> None:
-        if keys:
-            self._s.execute(update(PostingHistoryRow).where(
-                PostingHistoryRow.recruitment_company == company, PostingHistoryRow.posting_key.in_(keys),
-            ).values(gone_at=now).execution_options(synchronize_session=False))
+        rows = self._company(company)
+        for key in keys:
+            if key in rows:
+                rows[key].gone_at = now
 
     def for_jobs(self, job_ids: list[int]) -> dict[int, list[PostingHistory]]:
         """History rows of each job's current postings."""

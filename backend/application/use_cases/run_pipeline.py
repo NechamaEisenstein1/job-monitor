@@ -230,9 +230,8 @@ class RunPipeline:
     def _evaluate_touched_jobs(self, ctx: _RunContext) -> None:
         now = self._clock()
         for job_id in ctx.current_run_jobs:
-            evaluation = self._evaluator.evaluate(self._uow.jobs.get(job_id), ctx.run.id, now)
-            self._uow.evaluations.add(evaluation)
-            ctx.evaluations[job_id] = evaluation
+            ctx.evaluations[job_id] = self._evaluator.evaluate(self._uow.jobs.get(job_id), ctx.run.id, now)
+        self._uow.evaluations.add_many(list(ctx.evaluations.values()))
 
     def _prune_unseen(self, ctx: _RunContext) -> set[int]:
         """Daily refresh: delete postings a site no longer lists, then jobs left with no
@@ -264,8 +263,9 @@ class RunPipeline:
 
     def _refresh_job_status(self, job_ids: set[int]) -> None:
         """Job.status and Job.last_seen_at are derived from the job's sources."""
+        sources_by_job = self._uow.sources.list_for_jobs(sorted(job_ids))
         for job_id in job_ids:
-            sources = self._uow.sources.list_for_job(job_id)
+            sources = sources_by_job[job_id]
             job = self._uow.jobs.get(job_id)
             job.status = derive_job_status(s.status for s in sources)
             job.last_seen_at = max((s.last_seen_at for s in sources), default=job.last_seen_at)
