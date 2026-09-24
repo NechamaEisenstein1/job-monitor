@@ -234,6 +234,28 @@ export interface OutreachResult {
   recruiter_name: string;
   status: "sent" | "failed" | "skipped" | "not_sent";
   detail: string | null;
+  sent_at: string | null;
+  sent_via: "gmail" | "site" | null;
+  opened_at: string | null;
+  open_count: number;
+}
+
+export interface OutreachLogEntry {
+  job_id: number;
+  job_title: string;
+  recruiter_name: string;
+  status: "sent" | "failed";
+  sent_at: string;
+  sent_via: "gmail" | "site" | null;
+  opened_at: string | null;
+  open_count: number;
+}
+
+export interface GmailStatus {
+  available: boolean;
+  connected: boolean;
+  email: string | null;
+  connected_at: string | null;
 }
 
 export interface NamedCount {

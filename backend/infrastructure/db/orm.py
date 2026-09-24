@@ -239,6 +239,12 @@ class OutreachMessageRow(Base):
     status: Mapped[str] = mapped_column(String(16))
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    # migration 0006: how it was sent, and read tracking (a 1x1 image in the email)
+    sent_via: Mapped[str | None] = mapped_column(String(16))  # gmail | site
+    tracking_token: Mapped[str | None] = mapped_column(String(64), unique=True)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_opened_at: Mapped[datetime | None] = mapped_column(DateTime)
+    open_count: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class AnalyticsEventRow(Base):
@@ -298,3 +304,14 @@ class PostingHistoryRow(Base):
     last_seen_at: Mapped[datetime] = mapped_column(DateTime)
     gone_at: Mapped[datetime | None] = mapped_column(DateTime)
     reposts: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class GmailConnectionRow(Base):
+    """A user's permission to send from their Gmail. Only an ENCRYPTED refresh token is kept."""
+    __tablename__ = "gmail_connections"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    google_email: Mapped[str] = mapped_column(String(320))
+    refresh_token_enc: Mapped[str] = mapped_column(Text)
+    scopes: Mapped[str] = mapped_column(String(500))
+    connected_at: Mapped[datetime] = mapped_column(DateTime)

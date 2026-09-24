@@ -269,10 +269,17 @@ class Settings:
     google_site_verification: str = ""
     # Public contact address shown on the privacy page (data/deletion requests).
     contact_email: str = ""
+    # Secret (32+ random characters) that encrypts stored Gmail refresh tokens. Without it
+    # "send from my Gmail" is off. On Render it is generated automatically (render.yaml).
+    gmail_token_key: str = ""
 
     @property
     def google_enabled(self) -> bool:
         return bool(self.google_client_id and self.google_client_secret)
+
+    @property
+    def gmail_enabled(self) -> bool:
+        return self.google_enabled and len(self.gmail_token_key) >= 32
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -304,6 +311,7 @@ class Settings:
             google_client_secret=os.environ.get("GOOGLE_CLIENT_SECRET", ""),
             google_site_verification=os.environ.get("GOOGLE_SITE_VERIFICATION", ""),
             contact_email=os.environ.get("CONTACT_EMAIL", ""),
+            gmail_token_key=os.environ.get("GMAIL_TOKEN_KEY", ""),
         )
 
 

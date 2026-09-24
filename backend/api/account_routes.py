@@ -10,7 +10,9 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from backend.api.deps import SESSION_COOKIE, CurrentUser, DbSession, csrf_protect
-from backend.application.dto import AuthConfigDto, JobListDto, OutreachResultDto, RecruiterDto, UserDto
+from backend.application.dto import (
+    AuthConfigDto, JobListDto, OutreachLogDto, OutreachResultDto, RecruiterDto, UserDto,
+)
 from backend.application.use_cases.accounts import AccountError, RecruiterInput
 from backend.bootstrap import account_service, outreach_service, recruiter_service, utcnow, verification_service
 from backend.domain.enums import ExperienceLevel
@@ -19,7 +21,7 @@ from backend.domain.services.user_matching import recruiters_at
 from backend.infrastructure.repositories.read_models import SqlReadRepository
 from backend.infrastructure.repositories.sql import SqlJobRepository
 from backend.infrastructure.oauth.google import OAuthError, PkcePair
-from backend.infrastructure.repositories.users import DuplicateError, SqlAnalyticsRepository
+from backend.infrastructure.repositories.users import DuplicateError, SqlAnalyticsRepository, SqlOutreachRepository
 from backend.observability import log_event
 
 router = APIRouter(prefix="/api", dependencies=[Depends(csrf_protect)])
@@ -276,15 +278,26 @@ def my_matches(
 JobId = Annotated[int, Path(ge=1)]
 
 
+@router.get("/me/outreach", response_model=list[OutreachLogDto])
+def outreach_log(user: CurrentUser, session: DbSession) -> list[OutreachLogDto]:
+    """Everything the user sent to recruiters, newest first, with read status."""
+    return [OutreachLogDto(job_id=row.job_id, job_title=title, recruiter_name=name, status=row.status,
+                           sent_at=row.created_at, sent_via=row.sent_via, opened_at=row.opened_at,
+                           open_count=row.open_count or 0)
+            for row, title, name in SqlOutreachRepository(session).log_for_user(user.id)]
+
+
 @router.get("/me/jobs/{job_id}/outreach", response_model=list[OutreachResultDto])
 def outreach_status(job_id: JobId, user: CurrentUser, request: Request, session: DbSession) -> list[OutreachResultDto]:
-    service = outreach_service(session, request.app.state.settings, request.app.state.cfg, request.app.state.sender)
+    state = request.app.state
+    service = outreach_service(session, state.settings, state.cfg, state.sender, state.gmail, state.cipher)
     return [OutreachResultDto(**r.__dict__) for r in service.status(user, job_id)]
 
 
 @router.post("/me/jobs/{job_id}/outreach", response_model=list[OutreachResultDto])
 def send_outreach(job_id: JobId, user: CurrentUser, request: Request, session: DbSession) -> list[OutreachResultDto]:
-    service = outreach_service(session, request.app.state.settings, request.app.state.cfg, request.app.state.sender)
+    state = request.app.state
+    service = outreach_service(session, state.settings, state.cfg, state.sender, state.gmail, state.cipher)
     try:
         return [OutreachResultDto(**r.__dict__) for r in service.send(user, job_id)]
     except AccountError as exc:

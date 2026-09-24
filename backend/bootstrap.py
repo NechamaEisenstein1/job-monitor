@@ -20,6 +20,7 @@ from backend.application.use_cases.recruiting import BillingService, ManualJobSe
 from backend.application.use_cases.user_alerts import UserAlertService
 from backend.config.settings import MatchingConfig, Settings, load_matching_config, load_sources_config
 from backend.domain.services.evaluation import JobEvaluationService
+from backend.infrastructure.oauth.gmail import GmailClient, TokenCipher
 from backend.infrastructure.repositories.billing import SqlBillingRepository
 from backend.infrastructure.db.session import make_engine, make_session_factory
 from backend.infrastructure.email.senders import EmailSender, FileEmailSender, SmtpEmailSender
@@ -28,6 +29,7 @@ from backend.infrastructure.repositories.sql import (
     SqlUnitOfWork,
 )
 from backend.infrastructure.repositories.users import (
+    SqlGmailRepository,
     SqlAlertRepository, SqlAnalyticsRepository, SqlEmailTokenRepository, SqlOutreachRepository,
     SqlRecruiterRepository, SqlSessionRepository, SqlUserRepository,
 )
@@ -102,13 +104,14 @@ def recruiter_service(session: Session) -> RecruiterService:
     return RecruiterService(SqlRecruiterRepository(session), utcnow)
 
 
-def outreach_service(session: Session, settings: Settings, cfg: MatchingConfig,
-                     sender: EmailSender) -> OutreachService:
+def outreach_service(session: Session, settings: Settings, cfg: MatchingConfig, sender: EmailSender,
+                     gmail: GmailClient | None = None, cipher: TokenCipher | None = None) -> OutreachService:
     return OutreachService(
         recruiters=SqlRecruiterRepository(session), outreach=SqlOutreachRepository(session),
         jobs=SqlJobRepository(session), sources=SqlJobSourceRepository(session),
         evaluations=SqlJobEvaluationRepository(session), sender=sender,
         daily_limit=cfg.users.outreach_daily_limit, base_url=settings.public_base_url, clock=utcnow,
+        gmail=gmail, gmail_connections=SqlGmailRepository(session), cipher=cipher,
     )
 
 
@@ -140,6 +143,17 @@ def verification_service(session: Session, settings: Settings, sender: EmailSend
     admins = load_matching_config(settings.config_dir).users.admin_email_set
     return EmailVerificationService(SqlUserRepository(session), SqlEmailTokenRepository(session), sender,
                                     settings.public_base_url, utcnow, admin_emails=admins)
+
+
+def gmail_client(settings: Settings) -> GmailClient | None:
+    if not settings.gmail_enabled:
+        return None
+    return GmailClient(settings.google_client_id, settings.google_client_secret,
+                       f"{settings.public_base_url.rstrip('/')}/api/gmail/callback")
+
+
+def token_cipher(settings: Settings) -> TokenCipher | None:
+    return TokenCipher(settings.gmail_token_key) if settings.gmail_enabled else None
 
 
 def google_oauth(settings: Settings) -> GoogleOAuth | None:

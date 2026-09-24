@@ -1,7 +1,7 @@
 import { errorLabel, he } from "../i18n/he";
 import type {
   AdminStats, AuthConfig, BillingPrices, ExperienceLevel, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
-  ManualJob, ManualJobInput, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
+  GmailStatus, ManualJob, ManualJobInput, OutreachLogEntry, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
   ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
 
@@ -86,6 +86,9 @@ export const api = {
     get<JobList>("/me/matches", { page, page_size: PAGE_SIZE, government }),
   outreachStatus: (jobId: number) => get<OutreachResult[]>(`/me/jobs/${jobId}/outreach`),
   sendOutreach: (jobId: number) => post<OutreachResult[]>(`/me/jobs/${jobId}/outreach`),
+  outreachLog: () => get<OutreachLogEntry[]>("/me/outreach"),
+  gmailStatus: () => get<GmailStatus>("/gmail/status"),
+  gmailDisconnect: () => post<void>("/gmail/disconnect"),
 
   // admin
   adminStats: () => get<AdminStats>("/admin/stats"),
