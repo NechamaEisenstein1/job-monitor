@@ -20,6 +20,7 @@ from backend.infrastructure.scrapers.sites.consist import ConsistScraper
 from backend.infrastructure.scrapers.sites.gav import GavScraper
 from backend.infrastructure.scrapers.sites.hms import HmsScraper
 from backend.infrastructure.scrapers.sites.horizon import HorizonScraper
+from backend.infrastructure.scrapers.sites.logon import LogonScraper
 from backend.infrastructure.scrapers.sites.matrix import MatrixScraper
 from backend.infrastructure.scrapers.sites.ness import NessScraper
 from backend.infrastructure.scrapers.sites.one import OneScraper
@@ -55,8 +56,8 @@ def assert_valid(jobs, company: str, *, min_count: int = 2, location: bool = Tru
 
 
 def test_every_site_scraper_is_registered_with_its_company_name():
-    assert len(SITE_SCRAPERS) == 13
-    assert len({cls.company for cls in SITE_SCRAPERS.values()}) == 13
+    assert len(SITE_SCRAPERS) == 14
+    assert len({cls.company for cls in SITE_SCRAPERS.values()}) == 14
 
 
 def test_matrix():
@@ -193,3 +194,54 @@ def test_failed_detail_page_keeps_listing_data():
     jobs = scraper.parse_listing(html("horizon_list"))
     asyncio.run(scraper._enrich(jobs, scraper._add_details))
     assert all(j.metadata.get("detail_error") == "boom" for j in jobs)
+
+
+# ------------------------------------------------------------------ Log-On (b.log-on.com)
+
+def test_logon_ajax_load_more_blocks():
+    scraper = LogonScraper(None)
+    jobs = scraper.parse_page(soup(data("logon")["html"]))
+    assert_valid(jobs, "Log-On", min_count=3)
+    assert scraper.skipped == 1  # the block without data-job-id is counted, not dropped silently
+    first = jobs[0]
+    assert first.source_job_id == "15276"
+    assert first.source_url.startswith("https://b.log-on.com/job/")
+    assert first.requirements.splitlines()[0] == "3+ שנות ניסיון"  # read by the experience parser
+    assert first.metadata["experience"] == "3+" and first.metadata["domain"]
+
+
+def test_logon_pages_until_a_short_page():
+    """100 per request; stops at the first page shorter than that."""
+    page = data("logon")
+
+    class Http:
+        def __init__(self):
+            self.pages = []
+
+        async def request(self, method, url, **kwargs):
+            self.pages.append(kwargs["params"]["page"])
+            html = page["html"] if kwargs["params"]["page"] == 0 else ""
+            count = 100 if kwargs["params"]["page"] == 0 else 0
+
+            class Response:
+                @staticmethod
+                def json():
+                    return {"html": html, "meta": {"postcount": count, "totalposts": 100}}
+            return Response()
+
+    http = Http()
+    jobs = asyncio.run(LogonScraper(http).fetch_jobs())
+    assert http.pages == [0, 1] and len(jobs) == 3
+
+
+def test_logon_unexpected_response_is_a_parse_error():
+    class Http:
+        async def request(self, method, url, **kwargs):
+            class Response:
+                @staticmethod
+                def json():
+                    return 0  # WordPress answers "0" for an unknown admin-ajax action
+            return Response()
+
+    with pytest.raises(ParseError):
+        asyncio.run(LogonScraper(Http()).fetch_jobs())

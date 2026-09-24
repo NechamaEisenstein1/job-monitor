@@ -172,8 +172,8 @@ Every path used was checked against the site's robots.txt; requests are throttle
 | ProLogic | ~50 category pages | no location field -> location read from text |
 | SQLink | category pages | no location field -> location read from text |
 | One (+ Taldor) | `/careers/` + POST `load_more_jobs` | |
+| Log-On | b.log-on.com: "Ajax Load More" endpoint (`alm_get_posts`, 100 per page) | ~760 jobs; full posting in each block |
 | Malam Team | **disabled** | Cloudflare bot challenge (403) - needs an official feed |
-| Log-On | **disabled** | logon.co.il returns 418 to automated clients |
 
 **Behind NetFree or another TLS-inspecting filter?** Certificates are verified with the OS
 trust store (`truststore`), so the filter's root CA installed in Windows is honoured.
