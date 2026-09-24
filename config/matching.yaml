@@ -152,6 +152,18 @@ users:
   # .env - never commit real addresses (the repository is public).
   admin_emails: "${ADMIN_EMAILS}"
 
+# Recruiter points and subscriptions. Prices are 0 until a payment provider exists;
+# override per deployment with the env vars (e.g. SUBSCRIPTION_PRICE_ILS on Render).
+billing:
+  points_per_manual_job: "${POINTS_PER_MANUAL_JOB:-10}"
+  max_awarded_posts_per_day: 10
+  subscription_price_ils: "${SUBSCRIPTION_PRICE_ILS:-0}"
+  subscription_price_points: "${SUBSCRIPTION_PRICE_POINTS:-100}"
+  subscription_days: 30
+  trial_days: 14
+  featured_job_points: 50
+  featured_job_days: 7
+
 scraper:
   timeout_seconds: 30
   max_retries: 3

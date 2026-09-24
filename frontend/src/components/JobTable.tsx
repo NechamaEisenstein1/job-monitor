@@ -4,7 +4,7 @@ import type { JobListItem } from "../types/api";
 import { he } from "../i18n/he";
 import { formatDate, formatRelative } from "../services/format";
 import { ScoreBadge } from "./ScoreBadge";
-import { JuniorBadge, RoleBadge, StatusBadge, TenderBadge } from "./StatusBadge";
+import { JuniorBadge, ManualBadges, RoleBadge, StatusBadge, TenderBadge } from "./StatusBadge";
 import { td, th } from "./Layout";
 
 const c = he.jobs.columns;
@@ -28,19 +28,23 @@ export function JobTable({ jobs }: { jobs: JobListItem[] }) {
                   {job.title}
                 </Link>
                 <div className="mt-1 flex flex-wrap gap-1">
+                  <ManualBadges manual={job.is_manual} featured={job.is_featured} />
                   {job.is_junior && <JuniorBadge />}
                   {job.is_government_tender && <TenderBadge />}
                   <RoleBadge role={job.role_type} />
                 </div>
               </td>
-              <td className={td} dir="auto">{job.client_company ?? he.common.none}</td>
+              <td className={td} dir="auto">
+                {job.client_company ?? he.common.none}
+                {job.tender_number && <div className="text-xs text-slate-500">{he.recruiter.tenderNumber}: <span className="ltr">{job.tender_number}</span></div>}
+              </td>
               <td className={td} dir="auto">{job.location ?? he.common.none}</td>
               <td className={td}><ScoreBadge score={job.junior_score} eligible={job.is_eligible} /></td>
               <td className={td}><StatusBadge status={job.status} /></td>
               <td className={td} title={job.recruitment_companies.join(", ")}>
                 <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
                   <span className="tabular-nums">{job.source_count}</span>
-                  <span className="text-xs text-slate-400">{job.recruitment_companies.join(", ")}</span>
+                  <span className="text-xs text-slate-400">{job.is_manual ? he.manual : job.recruitment_companies.join(", ")}</span>
                 </span>
               </td>
               <td className={`${td} whitespace-nowrap`}>{formatRelative(job.last_seen_at)}</td>

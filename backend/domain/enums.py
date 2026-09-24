@@ -44,3 +44,27 @@ class OutreachStatus(Enum):
     SENT = "sent"
     FAILED = "failed"
     SKIPPED = "skipped"
+
+
+class UserRole(Enum):
+    USER = "user"
+    RECRUITER = "recruiter"
+    ADMIN = "admin"
+
+
+class SubscriptionStatus(Enum):
+    INACTIVE = "inactive"
+    TRIAL = "trial"
+    ACTIVE = "active"
+
+
+class PointAction(Enum):
+    JOB_POSTED = "job_posted"
+    JOB_REMOVED = "job_removed"          # reverses the JOB_POSTED award
+    SUBSCRIPTION = "subscription"        # points redeemed for a subscription
+    FEATURED_JOB = "featured_job"        # points redeemed to pin a posting
+
+
+class PaymentMethod(Enum):
+    FREE = "free"      # allowed only while the configured price is 0
+    POINTS = "points"

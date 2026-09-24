@@ -187,7 +187,9 @@ def test_zero_scrapers_is_a_failed_run(harness):
 def test_schema_has_no_unique_content_hash_and_partial_source_indexes(session_factory):
     with session_factory() as s:
         insp = inspect(s.bind)
-        job_uniques = [i for i in insp.get_indexes("jobs") if i.get("unique")]
-        assert not job_uniques and not insp.get_unique_constraints("jobs")
+        unique_columns = [i["column_names"] for i in insp.get_indexes("jobs") if i.get("unique")]
+        unique_columns += [c["column_names"] for c in insp.get_unique_constraints("jobs")]
+        # content_hash is not identity; the only unique job column is a recruiter's tender number.
+        assert unique_columns == [["tender_number"]]
         names = {i["name"] for i in insp.get_indexes("job_sources") if i.get("unique")}
         assert {"uq_job_sources_company_source_job_id", "uq_job_sources_company_url_fingerprint"} <= names

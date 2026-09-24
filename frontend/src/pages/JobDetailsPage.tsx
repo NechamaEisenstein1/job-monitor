@@ -42,10 +42,12 @@ export function JobDetailsPage() {
           <Card title={he.job.requirements}><TextBlock text={j.requirements} /></Card>
         </div>
         <div className="min-w-0 space-y-6">
-          <Card title={`${he.job.sources}${sources.data ? ` (${sources.data.length})` : ""}`} flush>
-            {sources.error ? <div className="p-4"><ErrorState error={sources.error} /></div>
-              : sources.data ? <SourceList sources={sources.data} /> : <LoadingState />}
-          </Card>
+          {!j.is_manual && (
+            <Card title={`${he.job.sources}${sources.data ? ` (${sources.data.length})` : ""}`} flush>
+              {sources.error ? <div className="p-4"><ErrorState error={sources.error} /></div>
+                : sources.data ? <SourceList sources={sources.data} /> : <LoadingState />}
+            </Card>
+          )}
           <Card title={he.job.history} flush>
             {history.error ? <div className="p-4"><ErrorState error={history.error} /></div>
               : !history.data ? <LoadingState />

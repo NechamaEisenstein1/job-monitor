@@ -24,7 +24,12 @@ export function Layout() {
     api.pageView(location.pathname).catch(() => undefined); // admin traffic stats; never blocks the UI
   }, [location.pathname]);
 
-  const items = user.is_admin ? [...NAV, { to: "/admin", label: he.nav.admin }] : NAV;
+  const items = [
+    ...NAV,
+    ...(user.role !== "user" ? [{ to: "/recruiter", label: he.nav.recruiter }] : []),
+    { to: "/billing", label: he.nav.billing },
+    ...(user.is_admin ? [{ to: "/admin", label: he.nav.admin }] : []),
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">

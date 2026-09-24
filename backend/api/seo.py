@@ -38,9 +38,9 @@ PUBLIC_PAGES: dict[str, PublicPage] = {p.path: p for p in [
 # Pages that exist in the app but require login: served, never indexed.
 PRIVATE_PATTERNS = [re.compile(p) for p in (
     r"^/me/?$", r"^/jobs/?$", r"^/jobs/\d+/?$", r"^/runs/?$", r"^/runs/[0-9a-fA-F-]{36}/?$",
-    r"^/sources/?$", r"^/admin/?$",
+    r"^/sources/?$", r"^/admin/?$", r"^/recruiter/?$", r"^/billing/?$",
 )]
-DISALLOWED_PREFIXES = ["/api/", "/me", "/jobs", "/runs", "/sources", "/admin"]
+DISALLOWED_PREFIXES = ["/api/", "/me", "/jobs", "/runs", "/sources", "/admin", "/recruiter", "/billing"]
 
 _SEO_BLOCK = re.compile(r"<!--SEO-->.*?<!--/SEO-->", re.S)
 

@@ -9,7 +9,7 @@ import { useUser } from "../hooks/useAuth";
 import { he } from "../i18n/he";
 import { api } from "../services/api";
 import { formatDate, formatDateTime } from "../services/format";
-import type { ExperienceLevel, User } from "../types/api";
+import type { ExperienceLevel, User, UserRole } from "../types/api";
 
 const a = he.admin;
 const control =
@@ -70,7 +70,7 @@ function UsersCard() {
   const users = useApi(api.adminUsers, "admin-users");
   const [error, setError] = useState<string>();
 
-  async function update(u: User, change: { is_active?: boolean; new_password?: string }) {
+  async function update(u: User, change: { is_active?: boolean; role?: UserRole; new_password?: string }) {
     setError(undefined);
     try {
       await api.adminUpdateUser(u.id, change);
@@ -95,7 +95,8 @@ function UsersCard() {
             <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-slate-50">
                 <tr>
-                  {[he.myArea.displayName, he.auth.email, he.myArea.level, a.lastLogin, ""].map((h, i) => <th key={i} className={th}>{h}</th>)}
+                  {[he.myArea.displayName, he.auth.email, a.role, a.points, a.subscription, he.myArea.level, a.lastLogin, ""]
+                    .map((h, i) => <th key={i} className={th}>{h}</th>)}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -104,11 +105,15 @@ function UsersCard() {
                     <td className={td}>
                       <span className="font-medium">{u.display_name}</span>
                       <span className="ms-2 inline-flex gap-1">
-                        {u.is_admin && <Badge tone="violet">{a.isAdmin}</Badge>}
                         {!u.is_active && <Badge tone="slate">{he.sources.disabled}</Badge>}
                       </span>
                     </td>
                     <td className={td}><span className="ltr">{u.email}</span></td>
+                    <td className={td}>
+                      <Badge tone={u.role === "admin" ? "violet" : u.role === "recruiter" ? "blue" : "slate"}>{a.roles[u.role]}</Badge>
+                    </td>
+                    <td className={`${td} tabular-nums`}>{u.points_balance ?? 0}</td>
+                    <td className={td}>{he.billing.statuses[u.subscription_status ?? "inactive"]}</td>
                     <td className={td}>{he.myArea.levels[u.experience_level]}</td>
                     <td className={`${td} whitespace-nowrap`}>{formatDateTime(u.last_login_at)}</td>
                     <td className={`${td} whitespace-nowrap`}>
@@ -117,6 +122,12 @@ function UsersCard() {
                           <button className={action} onClick={() => update(u, { is_active: !u.is_active })}>
                             {u.is_active ? a.deactivate : a.activate}
                           </button>
+                          {u.role !== "admin" && (
+                            <button className={action}
+                                    onClick={() => update(u, { role: u.role === "recruiter" ? "user" : "recruiter" })}>
+                              {u.role === "recruiter" ? a.revokeRecruiter : a.makeRecruiter}
+                            </button>
+                          )}
                           <button className={action} onClick={() => resetPassword(u)}>{a.resetPassword}</button>
                         </span>
                       )}

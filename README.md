@@ -61,6 +61,29 @@ Without SMTP settings, digests are written to `outbox/` as HTML.
   alerts and outreach sent, jobs by source and role, recent runs. No IPs or user agents
   are stored; page paths are stored with ids collapsed (`/jobs/:id`).
 
+## Recruiters, points and subscriptions (config/matching.yaml -> billing)
+
+* **Roles**: `user`, `recruiter`, `admin` (one `role` column; migration 0004 turns every former
+  admin into `admin`). Admins grant/revoke the recruiter role on the Admin page
+  (`PUT /api/admin/users/{id}` with `{"role": "recruiter"}`); an admin cannot demote themself.
+* **Manual postings** (`/recruiter`, recruiters and admins): tender number (unique), ministry,
+  title, description, requirements, location. They are evaluated like scraped jobs, appear on
+  the main board for every user (badge "פורסם באתר"), are **never merged with scraped jobs and
+  never pruned** by the daily refresh.
+* **Points**: each posting earns `points_per_manual_job` (at most `max_awarded_posts_per_day`
+  awarded postings a day). Every movement is a `point_transactions` row; `users.points_balance`
+  is its running sum and changes only through conditional SQL updates, so a balance can never
+  be overdrawn by concurrent spends. Deleting a posting reverses its award (refused if the
+  points were already spent; an admin removing spam may leave a negative balance).
+* **Spending**: a subscription (`subscription_price_points`) or featuring a posting at the top
+  of the board (`featured_job_points` for `featured_job_days`).
+* **Subscriptions** (`/billing`): one checkout pipeline with two methods - `free` (accepted only
+  while `subscription_price_ils` is 0) and `points`. A one-time trial (`trial_days`). Renewing
+  early stacks the new period after the current one. A non-zero ILS price needs a payment
+  provider that does not exist yet, so a paid price refuses the free bypass instead of giving
+  the product away. Prices come from env: `SUBSCRIPTION_PRICE_ILS`, `SUBSCRIPTION_PRICE_POINTS`,
+  `POINTS_PER_MANUAL_JOB`. Nothing is gated behind a subscription yet.
+
 ## Daily refresh (config/matching.yaml -> retention)
 
 The database holds only jobs the sites still publish. Each run upserts what it found, then

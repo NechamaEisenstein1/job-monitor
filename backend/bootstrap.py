@@ -16,9 +16,11 @@ from backend.application.services.scraper_executor import ScraperExecutor
 from backend.application.use_cases.accounts import AccountService, EmailVerificationService, RecruiterService
 from backend.application.use_cases.outreach import OutreachService
 from backend.application.use_cases.run_pipeline import RunPipeline
+from backend.application.use_cases.recruiting import BillingService, ManualJobService
 from backend.application.use_cases.user_alerts import UserAlertService
 from backend.config.settings import MatchingConfig, Settings, load_matching_config, load_sources_config
 from backend.domain.services.evaluation import JobEvaluationService
+from backend.infrastructure.repositories.billing import SqlBillingRepository
 from backend.infrastructure.db.session import make_engine, make_session_factory
 from backend.infrastructure.email.senders import EmailSender, FileEmailSender, SmtpEmailSender
 from backend.infrastructure.repositories.sql import (
@@ -82,6 +84,18 @@ def account_service(session: Session, cfg: MatchingConfig) -> AccountService:
     return AccountService(SqlUserRepository(session), SqlSessionRepository(session),
                           SqlAnalyticsRepository(session), utcnow, cfg.users.session_days,
                           admin_emails=cfg.users.admin_email_set)
+
+
+def manual_job_service(session: Session, cfg: MatchingConfig) -> ManualJobService:
+    return ManualJobService(
+        jobs=SqlJobRepository(session), evaluations=SqlJobEvaluationRepository(session),
+        billing=SqlBillingRepository(session), evaluator=JobEvaluationService.from_config(cfg),
+        cfg=cfg.billing, clock=utcnow,
+    )
+
+
+def billing_service(session: Session, cfg: MatchingConfig) -> BillingService:
+    return BillingService(billing=SqlBillingRepository(session), cfg=cfg.billing, clock=utcnow)
 
 
 def recruiter_service(session: Session) -> RecruiterService:

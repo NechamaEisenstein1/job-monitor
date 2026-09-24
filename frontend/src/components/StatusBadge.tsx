@@ -60,6 +60,16 @@ export function TenderBadge() {
   );
 }
 
+/** A posting a recruiter published on this site (not scraped), and its paid placement. */
+export function ManualBadges({ manual, featured }: { manual?: boolean; featured?: boolean }) {
+  return (
+    <>
+      {featured && <Badge tone="violet">★ {he.featured}</Badge>}
+      {manual && <Badge tone="blue">{he.manual}</Badge>}
+    </>
+  );
+}
+
 export function RoleBadge({ role }: { role: string | null | undefined }) {
   if (!role) return null;
   return <Badge tone={role === "software" ? "blue" : "slate"}>{he.roles[role] ?? role}</Badge>;

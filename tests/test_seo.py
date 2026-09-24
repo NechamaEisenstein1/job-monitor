@@ -32,7 +32,7 @@ def renderer(tmp_path, settings):
 @pytest.mark.parametrize("path, kind", [
     ("/", "public"), ("/login", "public"), ("/privacy", "public"), ("/terms/", "public"),
     ("/me", "private"), ("/jobs", "private"), ("/jobs/123", "private"), ("/admin", "private"),
-    ("/runs/2e833407-4d74-4f91-86e1-dbd47b69bc8e", "private"),
+    ("/runs/2e833407-4d74-4f91-86e1-dbd47b69bc8e", "private"), ("/recruiter", "private"), ("/billing", "private"),
     ("/wp-admin", "unknown"), ("/jobs/abc", "unknown"),
 ])
 def test_page_classification(path, kind):
@@ -62,7 +62,7 @@ def test_search_console_verification_tag(tmp_path, settings):
 
 def test_robots_blocks_private_areas_but_not_public_pages(settings):
     robots = robots_txt(settings)
-    for prefix in ("/api/", "/me", "/jobs", "/runs", "/sources", "/admin"):
+    for prefix in ("/api/", "/me", "/jobs", "/runs", "/sources", "/admin", "/recruiter", "/billing"):
         assert f"Disallow: {prefix}" in robots
     assert "Disallow: /\n" not in robots and "Allow: /" in robots
     assert "Sitemap: https://jobs.example.com/sitemap.xml" in robots

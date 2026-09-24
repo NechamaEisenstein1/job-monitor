@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from backend.domain.enums import ExperienceLevel
+from backend.domain.enums import ExperienceLevel, UserRole
 from backend.domain.models import Recruiter, User
 from backend.infrastructure.email.renderer import render_verification
 from backend.infrastructure.email.senders import EmailSender
@@ -106,7 +106,7 @@ class AccountService:
             else:
                 user = self._users.save(User(
                     id=None, email=_email(profile.email), display_name=_text(profile.name, "invalid_name"),
-                    password_hash=None, is_admin=False, is_active=True, experience_level=ExperienceLevel.JUNIOR,
+                    password_hash=None, role=UserRole.USER, is_active=True, experience_level=ExperienceLevel.JUNIOR,
                     alerts_enabled=True, created_at=self._clock(), google_sub=profile.sub,
                     email_verified=profile.email_verified))
                 created = True
@@ -150,7 +150,8 @@ class AccountService:
                     level: ExperienceLevel = ExperienceLevel.JUNIOR, email_verified: bool = True) -> User:
         """Admin/CLI-created accounts are trusted (verified); self sign-up passes False."""
         user = User(id=None, email=_email(email), display_name=_text(display_name, "invalid_name"),
-                    password_hash=hash_password(_password(password)), is_admin=is_admin, is_active=True,
+                    password_hash=hash_password(_password(password)),
+                    role=UserRole.ADMIN if is_admin else UserRole.USER, is_active=True,
                     experience_level=level, alerts_enabled=True, created_at=self._clock(),
                     email_verified=email_verified)
         return self._users.save(user)
@@ -177,16 +178,19 @@ class AccountService:
         return promoted
 
     def admin_update(self, user_id: int, *, is_active: bool | None = None, is_admin: bool | None = None,
-                     new_password: str | None = None, acting_admin: User) -> User:
+                     role: UserRole | None = None, new_password: str | None = None, acting_admin: User) -> User:
         user = self._users.get(user_id)
         if user is None:
             raise AccountError("not_found")
-        if user.id == acting_admin.id and (is_active is False or is_admin is False):
+        demotes_self = is_admin is False or (role is not None and role is not UserRole.ADMIN)
+        if user.id == acting_admin.id and (is_active is False or demotes_self):
             raise AccountError("cannot_demote_self")
         if is_active is not None:
             user.is_active = is_active
         if is_admin is not None:
             user.is_admin = is_admin
+        if role is not None:
+            user.role = role
         if new_password:
             user.password_hash = hash_password(_password(new_password))
         self._users.save(user)

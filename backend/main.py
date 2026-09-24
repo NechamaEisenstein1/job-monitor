@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from backend.api import account_routes, admin_routes, routes
+from backend.api import account_routes, admin_routes, recruiter_routes, routes
 from backend.api.seo import PageRenderer, classify, robots_txt, sitemap_xml
 from backend.bootstrap import build_email_sender, google_oauth
 from backend.config.settings import PROJECT_ROOT, Settings, load_matching_config, load_sources_config
@@ -71,6 +71,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(account_routes.router)
     app.include_router(admin_routes.router)
+    app.include_router(recruiter_routes.router)
     app.include_router(routes.router)
 
     @app.get("/robots.txt", include_in_schema=False)

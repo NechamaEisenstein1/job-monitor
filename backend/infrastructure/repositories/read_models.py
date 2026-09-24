@@ -1,9 +1,9 @@
 """SQL read models for the dashboard. Returns DTOs; no business decisions."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import and_, case, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from backend.application.dto import (
@@ -74,9 +74,13 @@ class SqlReadRepository:
                                                    JobSourceRow.recruitment_company == source)))
 
         total = self._s.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        featured = case((JobRow.featured_until > now, 1), else_=0)
         order = {
-            # rank_score is computed by the domain (junior first, then role priority, then score).
-            "relevance": [JobEvaluationRow.rank_score.desc().nulls_last(), JobRow.first_seen_at.desc()],
+            # Featured (paid with points) postings first; then rank_score, computed by the
+            # domain (junior first, then role priority, then score).
+            "relevance": [featured.desc(), JobEvaluationRow.rank_score.desc().nulls_last(),
+                          JobRow.first_seen_at.desc()],
             "newest": [JobRow.first_seen_at.desc()],
             "updated": [JobRow.updated_at.desc()],
             "score": [JobEvaluationRow.junior_score.desc().nulls_last()],
@@ -94,6 +98,9 @@ class SqlReadRepository:
                 is_government_tender=bool(ev and ev.is_government_tender),
                 source_count=len(companies.get(job.id, [])), recruitment_companies=companies.get(job.id, []),
                 last_seen_at=job.last_seen_at, updated_at=job.updated_at, first_seen_at=job.first_seen_at,
+                is_manual=job.is_manual, tender_number=job.tender_number,
+                government_ministry=job.government_ministry,
+                is_featured=bool(job.featured_until and job.featured_until > now),
             )
             for job, ev in rows
         ]

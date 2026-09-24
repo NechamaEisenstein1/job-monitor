@@ -63,8 +63,26 @@ class SqlJobRepository:
         self._s.flush()
 
     def list_matchable(self) -> list[Job]:
-        rows = self._s.scalars(select(JobRow).where(JobRow.status != JobStatus.ARCHIVED.value).order_by(JobRow.id))
+        # Manual postings are never merged with scraped ones: a scraped source attached to
+        # one would make the daily refresh delete it when that site drops the posting.
+        rows = self._s.scalars(select(JobRow).where(
+            JobRow.status != JobStatus.ARCHIVED.value, JobRow.is_manual.is_(False)).order_by(JobRow.id))
         return [to_domain(r, Job, _JOB_ENUMS) for r in rows]
+
+    def find(self, job_id: int) -> Job | None:
+        row = self._s.get(JobRow, job_id)
+        return to_domain(row, Job, _JOB_ENUMS) if row else None
+
+    def tender_number_taken(self, tender_number: str) -> bool:
+        return self._s.scalar(select(func.count()).select_from(JobRow).where(
+            func.lower(JobRow.tender_number) == tender_number.lower())) > 0
+
+    def list_posted_by(self, user_id: int | None) -> list[Job]:
+        """Manual postings, newest first; None = every recruiter's (admin view)."""
+        stmt = select(JobRow).where(JobRow.is_manual.is_(True))
+        if user_id is not None:
+            stmt = stmt.where(JobRow.posted_by == user_id)
+        return [to_domain(r, Job, _JOB_ENUMS) for r in self._s.scalars(stmt.order_by(JobRow.created_at.desc()))]
 
 
 class SqlJobSourceRepository:
