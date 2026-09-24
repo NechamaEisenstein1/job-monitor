@@ -7,13 +7,16 @@ from sqlalchemy import and_, case, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from backend.application.dto import (
-    EvaluationDto, JobChangeDto, JobDetailDto, JobListDto, JobListItemDto, JobSourceDto,
+    EvaluationDto, JobChangeDto, JobDetailDto, JobListDto, JobListItemDto, JobSignalsDto, JobSourceDto,
     ScrapeRunDto, ScraperRunDto,
 )
+from backend.config.settings import SignalsConfig
+from backend.domain.services.signals import SignalPolicy
 from backend.domain.enums import JobSourceStatus, JobStatus, ScrapeStatus
 from backend.infrastructure.db.orm import (
     JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, ScrapeRunRow, ScraperRunRow,
 )
+from backend.infrastructure.repositories.sql import SqlPostingHistoryRepository
 
 
 def _duration(start: datetime | None, end: datetime | None) -> float | None:
@@ -39,9 +42,19 @@ def run_to_dto(row: ScrapeRunRow) -> ScrapeRunDto:
     )
 
 
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 class SqlReadRepository:
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, signals: SignalsConfig | None = None):
         self._s = session
+        self._signals = SignalPolicy(signals or SignalsConfig())
+
+    def _signals_for(self, job_ids: list[int], now: datetime) -> dict[int, JobSignalsDto]:
+        histories = SqlPostingHistoryRepository(self._s).for_jobs(job_ids)
+        return {job_id: JobSignalsDto.model_validate(self._signals.compute(rows, now))
+                for job_id, rows in histories.items()}
 
     # -------------------------------------------------------------- jobs
 
@@ -74,7 +87,7 @@ class SqlReadRepository:
                                                    JobSourceRow.recruitment_company == source)))
 
         total = self._s.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = _utcnow()
         featured = case((JobRow.featured_until > now, 1), else_=0)
         order = {
             # Featured (paid with points) postings first; then rank_score, computed by the
@@ -89,6 +102,7 @@ class SqlReadRepository:
                                .offset((page - 1) * page_size).limit(page_size)).all()
 
         companies = self._companies_by_job([r[0].id for r in rows])
+        signals = self._signals_for([r[0].id for r in rows], now)
         items = [
             JobListItemDto(
                 id=job.id, title=job.title, client_company=job.client_company, location=job.location,
@@ -101,6 +115,9 @@ class SqlReadRepository:
                 is_manual=job.is_manual, tender_number=job.tender_number,
                 government_ministry=job.government_ministry,
                 is_featured=bool(job.featured_until and job.featured_until > now),
+                signals=signals.get(job.id),
+                junior_title_mismatch=bool(ev and ev.junior_title_mismatch),
+                required_years=ev.required_years if ev else None,
             )
             for job, ev in rows
         ]
@@ -149,8 +166,9 @@ class SqlReadRepository:
             .order_by(JobEvaluationRow.created_at.desc(), JobEvaluationRow.id.desc()).limit(1)
         ).first()
         return JobDetailDto(
-            **{c: getattr(job, c) for c in JobDetailDto.model_fields if c != "evaluation"},
+            **{c: getattr(job, c) for c in JobDetailDto.model_fields if c not in ("evaluation", "signals")},
             evaluation=EvaluationDto.model_validate(evaluation) if evaluation else None,
+            signals=self._signals_for([job_id], _utcnow()).get(job_id),
         )
 
     def job_sources(self, job_id: int) -> list[JobSourceDto]:

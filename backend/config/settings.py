@@ -76,6 +76,12 @@ class ExperienceConfig:
     # Junior = at most this many years required ("no experience" counts as 0).
     # A posting that requires more is never junior, whatever its keywords say.
     junior_max_years: float = 2
+    # Title words that promise a junior role; a posting whose title says so but that
+    # requires more than junior_max_years is flagged as a "fake junior".
+    junior_title_keywords: tuple[str, ...] = (
+        "ג'וניור", "גוניור", "junior", "jr", "entry level", "ללא ניסיון", "סטודנט", "סטודנטית",
+        "בוגר", "בוגרת", "בוגרי", "graduate", "intern",
+    )
 
 
 @dataclass(frozen=True)
@@ -144,6 +150,16 @@ class UsersConfig:
 
 
 @dataclass(frozen=True)
+class SignalsConfig:
+    """Honesty labels on job listings (built from the posting history)."""
+    # Listed first within this many hours -> "new".
+    new_within_hours: int = 30
+    # Open this long, or taken down and re-published this often -> likely a standing ad.
+    ghost_after_days: int = 45
+    ghost_min_reposts: int = 2
+
+
+@dataclass(frozen=True)
 class BillingConfig:
     """Points economy and subscription pricing. Values may come from ${ENV} in the YAML,
     so they are coerced here. The price is 0 until a real payment provider is wired in."""
@@ -182,6 +198,7 @@ class MatchingConfig:
     schedule: ScheduleConfig
     users: UsersConfig
     billing: BillingConfig = BillingConfig()
+    signals: SignalsConfig = SignalsConfig()
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "MatchingConfig":
@@ -190,7 +207,8 @@ class MatchingConfig:
             locations=LocationsConfig(**raw["locations"]),
             junior_keywords=JuniorKeywords(**raw["keywords"]["junior"]),
             junior_scoring=JuniorScoring(**raw["junior_scoring"]),
-            experience=ExperienceConfig(**raw.get("experience", {})),
+            experience=ExperienceConfig(**{k: tuple(v) if isinstance(v, list) else v
+                                           for k, v in raw.get("experience", {}).items()}),
             thresholds=Thresholds(**raw["thresholds"]),
             retention=RetentionConfig(**raw.get("retention", {})),
             email=EmailConfig(**raw["email"]),
@@ -201,6 +219,7 @@ class MatchingConfig:
             schedule=ScheduleConfig(**raw.get("schedule", {})),
             users=UsersConfig(**raw.get("users", {})),
             billing=BillingConfig(**raw.get("billing", {})),
+            signals=SignalsConfig(**raw.get("signals", {})),
         )
 
 

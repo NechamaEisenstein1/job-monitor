@@ -48,6 +48,24 @@ export const he = {
   } as Record<string, string>,
   tender: "מכרז ממשלתי",
   manual: "פורסם באתר",
+  signals: {
+    isNew: "חדשה היום",
+    newHint: "הופיעה לראשונה ב-24 השעות האחרונות. כדאי להגיש מוקדם.",
+    ghost: "כנראה מודעה קבועה",
+    ghostHint: (days: number | null, reposts: number) =>
+      [days ? `פתוחה לפחות ${days} ימים` : "", reposts ? `הוסרה ופורסמה מחדש ${reposts} פעמים` : ""]
+        .filter(Boolean).join(", ") + ". ייתכן שאין מאחוריה משרה פתוחה אמיתית.",
+    agencies: (n: number) => `ב-${n} חברות השמה`,
+    agenciesHint: (first: string | null) =>
+      `אותה משרה מפורסמת בכמה חברות השמה. הגישי דרך אחת בלבד - הגשה כפולה לאותו מעסיק עלולה לפסול.` +
+      (first ? ` ${first} פרסמה ראשונה.` : ""),
+    fakeJunior: (years: number | null) => (years ? `"ג'וניור" מטעה: דורשת ${years} שנים` : `"ג'וניור" מטעה`),
+    fakeJuniorHint: "בכותרת כתוב ג'וניור, אבל בדרישות מופיע ניסיון מעבר ל-2 שנים.",
+    title: "שקיפות",
+    openFor: (days: number) => (days === 0 ? "הופיעה היום" : `פתוחה לפחות ${days} ימים`),
+    firstSeen: "נראתה לראשונה",
+    tracking: "הגיל נספר מהיום שבו התחלנו לעקוב אחרי המשרה.",
+  },
   featured: "מקודמת",
   junior: "ג'וניור",
 

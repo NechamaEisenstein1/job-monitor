@@ -229,6 +229,10 @@ class JobEvaluation:
     is_government_tender: bool = False
     # Relevance order for listings: higher first (junior, then role priority, then score).
     rank_score: float = 0.0
+    # Highest mandatory years of experience stated in the posting (None = not stated).
+    required_years: float | None = None
+    # The title promises a junior role but the posting requires more than junior years.
+    junior_title_mismatch: bool = False
 
 
 @dataclass
@@ -372,3 +376,19 @@ class Subscription:
     starts_at: datetime
     expires_at: datetime
     created_at: datetime
+
+
+@dataclass
+class PostingHistory:
+    """What we know about one agency posting over time. Unlike JobSource it survives the
+    daily refresh: a removed posting keeps its row (gone_at set), so a re-publication is
+    recognised - by its id/URL, or by the same title at the same agency."""
+    id: int | None
+    recruitment_company: str
+    posting_key: str   # "id:<source_job_id>" or "url:<fingerprint>"
+    title_key: str     # comparison_key(title): recognises a re-publication under a new id
+    first_seen_at: datetime         # this row's first sighting
+    origin_first_seen_at: datetime  # first sighting of the chain of re-publications
+    last_seen_at: datetime
+    gone_at: datetime | None = None
+    reposts: int = 0

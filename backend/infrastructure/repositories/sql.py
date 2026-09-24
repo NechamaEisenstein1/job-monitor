@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import case, delete, func, literal, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -11,11 +11,11 @@ from backend.domain.enums import (
     JobChange, JobSourceStatus, JobStatus, RunStatus, ScrapeStatus,
 )
 from backend.domain.models import (
-    Job, JobChangeRecord, JobEvaluation, JobSource, ScrapeRun, ScraperRun, SourceIdentity,
+    Job, JobChangeRecord, JobEvaluation, JobSource, PostingHistory, ScrapeRun, ScraperRun, SourceIdentity,
 )
 from backend.infrastructure.db.orm import (
-    JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, OutreachMessageRow, ScrapeRunRow, ScraperRunRow,
-    SentNotificationRow, UserJobAlertRow,
+    JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, OutreachMessageRow, PostingHistoryRow, ScrapeRunRow,
+    ScraperRunRow, SentNotificationRow, UserJobAlertRow,
 )
 from backend.infrastructure.repositories.mapping import to_domain, to_values
 
@@ -264,6 +264,58 @@ class SqlNotificationRepository:
         self._s.commit()
 
 
+def source_posting_key():  # noqa: ANN201
+    """SQL twin of signals.posting_key() over job_sources columns."""
+    return case((JobSourceRow.source_job_id.is_not(None), literal("id:") + JobSourceRow.source_job_id),
+                else_=literal("url:") + JobSourceRow.source_url_fingerprint)
+
+
+class SqlPostingHistoryRepository:
+    def __init__(self, session: Session):
+        self._s = session
+
+    def find(self, company: str, key: str) -> PostingHistory | None:
+        row = self._s.scalars(select(PostingHistoryRow).where(
+            PostingHistoryRow.recruitment_company == company, PostingHistoryRow.posting_key == key)).first()
+        return to_domain(row, PostingHistory) if row else None
+
+    def find_gone_by_title(self, company: str, title_key: str) -> PostingHistory | None:
+        """The most recently removed posting of this agency with the same title."""
+        if not title_key:
+            return None
+        row = self._s.scalars(select(PostingHistoryRow).where(
+            PostingHistoryRow.recruitment_company == company, PostingHistoryRow.title_key == title_key,
+            PostingHistoryRow.gone_at.is_not(None)).order_by(PostingHistoryRow.gone_at.desc()).limit(1)).first()
+        return to_domain(row, PostingHistory) if row else None
+
+    def save(self, history: PostingHistory) -> PostingHistory:
+        _upsert(self._s, PostingHistoryRow, history)
+        return history
+
+    def delete(self, history_id: int) -> None:
+        self._s.execute(delete(PostingHistoryRow).where(PostingHistoryRow.id == history_id))
+
+    def mark_gone(self, company: str, keys: list[str], now: datetime) -> None:
+        if keys:
+            self._s.execute(update(PostingHistoryRow).where(
+                PostingHistoryRow.recruitment_company == company, PostingHistoryRow.posting_key.in_(keys),
+            ).values(gone_at=now).execution_options(synchronize_session=False))
+
+    def for_jobs(self, job_ids: list[int]) -> dict[int, list[PostingHistory]]:
+        """History rows of each job's current postings."""
+        if not job_ids:
+            return {}
+        rows = self._s.execute(
+            select(JobSourceRow.job_id, PostingHistoryRow)
+            .join(PostingHistoryRow, (PostingHistoryRow.recruitment_company == JobSourceRow.recruitment_company)
+                  & (PostingHistoryRow.posting_key == source_posting_key()))
+            .where(JobSourceRow.job_id.in_(job_ids)))
+        result: dict[int, list[PostingHistory]] = {}
+        for job_id, row in rows:
+            result.setdefault(job_id, []).append(to_domain(row, PostingHistory))
+        return result
+
+
 class SqlUnitOfWork:
     def __init__(self, session: Session):
         self.session = session
@@ -273,6 +325,7 @@ class SqlUnitOfWork:
         self.scraper_runs = SqlScraperRunRepository(session)
         self.evaluations = SqlJobEvaluationRepository(session)
         self.changes = SqlJobChangeRepository(session)
+        self.history = SqlPostingHistoryRepository(session)
 
     def commit(self) -> None:
         self.session.commit()

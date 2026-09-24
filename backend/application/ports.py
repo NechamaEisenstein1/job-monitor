@@ -6,7 +6,7 @@ from datetime import date, datetime
 from typing import Protocol
 
 from backend.domain.models import (
-    Job, JobChangeRecord, JobEvaluation, JobSource, ScrapeRun, ScraperRun, SourceIdentity,
+    Job, JobChangeRecord, JobEvaluation, JobSource, PostingHistory, ScrapeRun, ScraperRun, SourceIdentity,
 )
 
 
@@ -44,6 +44,14 @@ class JobChangeRepository(Protocol):
     def list_for_run(self, run_id: str) -> list[JobChangeRecord]: ...
 
 
+class PostingHistoryRepository(Protocol):
+    def find(self, company: str, key: str) -> PostingHistory | None: ...
+    def find_gone_by_title(self, company: str, title_key: str) -> PostingHistory | None: ...
+    def save(self, history: PostingHistory) -> PostingHistory: ...
+    def delete(self, history_id: int) -> None: ...
+    def mark_gone(self, company: str, keys: list[str], now: datetime) -> None: ...
+
+
 class NotificationRepository(Protocol):
     def try_claim(self, notification_type: str, scheduled_date: date, recipient: str,
                   run_id: str | None, now: datetime, stale_before: datetime) -> bool: ...
@@ -58,5 +66,6 @@ class UnitOfWork(Protocol):
     scraper_runs: ScraperRunRepository
     evaluations: JobEvaluationRepository
     changes: JobChangeRepository
+    history: PostingHistoryRepository
 
     def commit(self) -> None: ...

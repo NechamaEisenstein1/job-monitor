@@ -128,6 +128,9 @@ class JobEvaluationRow(Base):
     role_type: Mapped[str] = mapped_column(String(32), default="other")
     is_government_tender: Mapped[bool] = mapped_column(Boolean, default=False)
     rank_score: Mapped[float] = mapped_column(Float, default=0.0)
+    # migration 0005
+    required_years: Mapped[float | None] = mapped_column(Float)
+    junior_title_mismatch: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class JobChangeRow(Base):
@@ -274,3 +277,24 @@ class SubscriptionRow(Base):
     starts_at: Mapped[datetime] = mapped_column(DateTime)
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+# ------------------------------------------------------------------ history (migration 0005)
+
+class PostingHistoryRow(Base):
+    """Outlives job_sources: removed postings keep their row so re-publications are seen."""
+    __tablename__ = "posting_history"
+    __table_args__ = (
+        UniqueConstraint("recruitment_company", "posting_key", name="uq_posting_history_company_key"),
+        Index("ix_posting_history_company_title", "recruitment_company", "title_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    recruitment_company: Mapped[str] = mapped_column(String(200))
+    posting_key: Mapped[str] = mapped_column(String(260))
+    title_key: Mapped[str] = mapped_column(String(300))
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime)
+    origin_first_seen_at: Mapped[datetime] = mapped_column(DateTime)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime)
+    gone_at: Mapped[datetime | None] = mapped_column(DateTime)
+    reposts: Mapped[int] = mapped_column(Integer, default=0)

@@ -4,7 +4,7 @@ import type { JobListItem } from "../types/api";
 import { he } from "../i18n/he";
 import { formatDate, formatRelative } from "../services/format";
 import { ScoreBadge } from "./ScoreBadge";
-import { JuniorBadge, ManualBadges, RoleBadge, StatusBadge, TenderBadge } from "./StatusBadge";
+import { JuniorBadge, ManualBadges, RoleBadge, SignalBadges, StatusBadge, TenderBadge } from "./StatusBadge";
 import { td, th } from "./Layout";
 
 const c = he.jobs.columns;
@@ -28,6 +28,7 @@ export function JobTable({ jobs }: { jobs: JobListItem[] }) {
                   {job.title}
                 </Link>
                 <div className="mt-1 flex flex-wrap gap-1">
+                  <SignalBadges signals={job.signals} fakeJunior={job.junior_title_mismatch} years={job.required_years} />
                   <ManualBadges manual={job.is_manual} featured={job.is_featured} />
                   {job.is_junior && <JuniorBadge />}
                   {job.is_government_tender && <TenderBadge />}
