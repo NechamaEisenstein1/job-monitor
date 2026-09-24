@@ -1,4 +1,4 @@
-import type { ChangeType, JobStatus, RunStatus, ScrapeStatus } from "../types/api";
+import type { ChangeType, JobSignals, JobStatus, RunStatus, ScrapeStatus } from "../types/api";
 import { he } from "../i18n/he";
 
 type Tone = "green" | "amber" | "red" | "slate" | "blue" | "violet";
@@ -57,6 +57,25 @@ export function TenderBadge() {
     <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-amber-400 px-2 py-0.5 text-xs font-semibold text-amber-950">
       <span aria-hidden>🏛</span>{he.tender}
     </span>
+  );
+}
+
+/** Honesty labels: new / likely a standing ad / several agencies / misleading "junior". */
+export function SignalBadges({ signals, fakeJunior, years }: {
+  signals: JobSignals | null | undefined; fakeJunior?: boolean; years?: number | null;
+}) {
+  const t = he.signals;
+  return (
+    <>
+      {fakeJunior && <span title={t.fakeJuniorHint}><Badge tone="red">⚠ {t.fakeJunior(years ?? null)}</Badge></span>}
+      {signals?.is_new && <span title={t.newHint}><Badge tone="green">● {t.isNew}</Badge></span>}
+      {signals?.is_ghost && (
+        <span title={t.ghostHint(signals.days_open, signals.reposts)}><Badge tone="amber">👻 {t.ghost}</Badge></span>
+      )}
+      {signals && signals.agency_count > 1 && (
+        <span title={t.agenciesHint(signals.first_agency)}><Badge tone="blue">{t.agencies(signals.agency_count)}</Badge></span>
+      )}
+    </>
   );
 }
 

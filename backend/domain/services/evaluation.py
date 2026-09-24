@@ -54,6 +54,7 @@ class JobEvaluationService:
         tender_detector: GovernmentTenderDetector,
         ranking: RankingPolicy,
         junior_max_years: float = 2,
+        junior_title_keywords: tuple[str, ...] = (),
     ):
         self._groups = [
             ("strong_positive", scoring.strong_positive, keywords.strong_positive),
@@ -68,6 +69,7 @@ class JobEvaluationService:
         self._tenders = tender_detector
         self._ranking = ranking
         self._max_years = junior_max_years
+        self._title_patterns = [keyword_pattern(k) for k in junior_title_keywords]
 
     @classmethod
     def from_config(cls, cfg: MatchingConfig, threshold: float | None = None) -> "JobEvaluationService":
@@ -76,7 +78,7 @@ class JobEvaluationService:
             cfg.thresholds.junior_score if threshold is None else threshold,
             LocationMatcher(cfg.locations), RoleClassifier(cfg.roles),
             GovernmentTenderDetector(cfg.government), RankingPolicy(cfg.ranking),
-            cfg.experience.junior_max_years,
+            cfg.experience.junior_max_years, cfg.experience.junior_title_keywords,
         )
 
     def junior_score(self, job: Job) -> tuple[float, list[str]]:
@@ -90,14 +92,14 @@ class JobEvaluationService:
                     rules.append(f"{group}:{kw}")
         return round(min(1.0, max(0.0, score)), 4), rules
 
-    def _seniority(self, job: Job, score: float, matched: list[str]) -> tuple[bool, float, str | None, str | None]:
+    def _seniority(self, years: float | None, score: float,
+                   matched: list[str]) -> tuple[bool, float, str | None, str | None]:
         """-> (is_junior, adjusted score, matched rule, rejection).
 
         Stated experience decides first: above the ceiling is never junior; at or below
         it is junior unless a senior/lead keyword says otherwise. Without a stated
         requirement the keyword score decides. The score is kept consistent with the
         verdict so the UI never shows a junior job with a failing score."""
-        years = required_years("\n".join([job.title, job.description, job.requirements]))
         senior_keyword = any(r.startswith("strong_negative:") for r in matched)
         if years is not None and years > self._max_years:
             return False, min(score, round(self._threshold - 0.1, 4)), None, \
@@ -120,7 +122,8 @@ class JobEvaluationService:
         else:
             rejections.append("location_not_matched")
 
-        is_junior, score, rule, rejection = self._seniority(job, score, matched)
+        years = required_years("\n".join([job.title, job.description, job.requirements]))
+        is_junior, score, rule, rejection = self._seniority(years, score, matched)
         if rule:
             matched.append(rule)
         if rejection:
@@ -135,6 +138,10 @@ class JobEvaluationService:
         if is_tender:
             matched.append("government_tender")
 
+        # "Junior" in the title, years above the junior ceiling in the requirements.
+        title_mismatch = years is not None and years > self._max_years and \
+            any(p.search(job.title.casefold()) for p in self._title_patterns)
+
         return JobEvaluation(
             job_id=job.id,
             scrape_run_id=scrape_run_id,
@@ -148,4 +155,6 @@ class JobEvaluationService:
             role_type=role_type,
             is_government_tender=is_tender,
             rank_score=self._ranking.rank(is_junior=is_junior, role_type=role_type, junior_score=score),
+            required_years=years,
+            junior_title_mismatch=title_mismatch,
         )

@@ -27,6 +27,18 @@ export interface Evaluation {
   role_type: RoleType;
   is_government_tender: boolean;
   rank_score: number;
+  required_years: number | null;
+  junior_title_mismatch: boolean;
+}
+
+export interface JobSignals {
+  open_since: string | null;
+  days_open: number | null;
+  reposts: number;
+  is_new: boolean;
+  is_ghost: boolean;
+  agency_count: number;
+  first_agency: string | null;
 }
 
 export interface JobListItem {
@@ -50,6 +62,9 @@ export interface JobListItem {
   tender_number: string | null;
   government_ministry: string | null;
   is_featured: boolean;
+  signals: JobSignals | null;
+  junior_title_mismatch: boolean;
+  required_years: number | null;
 }
 
 export interface JobList {
@@ -74,6 +89,7 @@ export interface JobDetail {
   updated_at: string;
   last_seen_at: string | null;
   evaluation: Evaluation | null;
+  signals: JobSignals | null;
   is_manual: boolean;
   tender_number: string | null;
   government_ministry: string | null;

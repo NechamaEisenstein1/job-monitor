@@ -259,7 +259,7 @@ def my_matches(
 ) -> JobListDto:
     """Active jobs that fit the user's profile, best first, with their known recruiters."""
     cfg = request.app.state.cfg
-    result = SqlReadRepository(session).list_jobs(
+    result = SqlReadRepository(session, request.app.state.cfg.signals).list_jobs(
         status="active", role_types=cfg.roles.eligible_types, location_matched=True, government=government,
         junior=True if user.experience_level == ExperienceLevel.JUNIOR else None,
         sort="relevance", page=page, page_size=page_size,

@@ -1,6 +1,6 @@
 import type { JobDetail } from "../types/api";
 import { he, reasonLabel, ruleLabel } from "../i18n/he";
-import { EligibilityBadge, JuniorBadge, ManualBadges, RoleBadge, StatusBadge, TenderBadge } from "./StatusBadge";
+import { EligibilityBadge, JuniorBadge, ManualBadges, RoleBadge, SignalBadges, StatusBadge, TenderBadge } from "./StatusBadge";
 import { ScoreBadge } from "./ScoreBadge";
 
 /** Header facts for a job, plus the backend's evaluation explanation. */
@@ -20,6 +20,7 @@ export function JobCard({ job }: { job: JobDetail }) {
     <div className="space-y-4">
       {ev && (
         <div className="flex flex-wrap gap-1.5">
+          <SignalBadges signals={job.signals} fakeJunior={ev.junior_title_mismatch} years={ev.required_years} />
           <ManualBadges manual={job.is_manual} />
           {ev.is_government_tender && <TenderBadge />}
           {ev.is_junior && <JuniorBadge />}

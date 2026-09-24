@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api", dependencies=[Depends(current_user)])
 
 def get_queries(request: Request) -> Iterator[DashboardQueries]:
     with request.app.state.session_factory() as session:
-        yield DashboardQueries(SqlReadRepository(session), request.app.state.sources)
+        yield DashboardQueries(SqlReadRepository(session, request.app.state.cfg.signals), request.app.state.sources)
 
 
 Queries = Annotated[DashboardQueries, Depends(get_queries)]

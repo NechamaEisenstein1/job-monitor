@@ -20,7 +20,7 @@ from backend.application.use_cases.user_alerts import UserAlertService
 from backend.config.settings import MatchingConfig
 from backend.domain.enums import JobSourceStatus, ScrapeStatus
 from backend.domain.models import (
-    Job, JobChangeRecord, JobEvaluation, JobSource, NormalizedJob, ScrapeRun, ScraperRun,
+    Job, JobChangeRecord, JobEvaluation, JobSource, NormalizedJob, PostingHistory, ScrapeRun, ScraperRun,
 )
 from backend.domain.services.retention import RetentionPolicy, derive_job_status
 from backend.domain.services.change_detection import detect_change
@@ -28,6 +28,7 @@ from backend.domain.services.evaluation import JobEvaluationService
 from backend.domain.services.matching import JobMatcher
 from backend.domain.services.normalization import normalize_raw_job
 from backend.domain.services.run_status import compute_run_status
+from backend.domain.services.signals import posting_key, title_key
 from backend.domain.services.source_identity import SourceIdentityResolver
 from backend.domain.services.validation import validate_job
 from backend.infrastructure.scrapers.base import BaseScraper
@@ -166,6 +167,7 @@ class RunPipeline:
                                     source_hash, job.id, ctx.run.id, now)
         self._uow.sources.save(source)
         self._company_job_ids(ctx, source.recruitment_company).add(job.id)
+        self._record_sighting(source, now)
 
         change = detect_change(job, previous, source, previous_source)
         if change is not None:
@@ -177,6 +179,29 @@ class RunPipeline:
             log_event(event, job_id=job.id, change=change.value, recruitment_company=source.recruitment_company)
 
         ctx.current_run_jobs[job.id] = job
+
+    def _record_sighting(self, source: JobSource, now: datetime) -> None:
+        """Posting history (outlives the daily refresh): a posting seen again after it was
+        removed - under the same id, or a new id with the same title at the same agency -
+        counts as a re-publication and keeps the original first-seen date."""
+        key = posting_key(source.source_job_id, source.source_url_fingerprint)
+        history = self._uow.history.find(source.recruitment_company, key)
+        if history is None:
+            history = PostingHistory(
+                id=None, recruitment_company=source.recruitment_company, posting_key=key,
+                title_key=title_key(source.external_title), first_seen_at=now, origin_first_seen_at=now,
+                last_seen_at=now)
+            earlier = self._uow.history.find_gone_by_title(source.recruitment_company, history.title_key)
+            if earlier is not None:
+                history.origin_first_seen_at = earlier.origin_first_seen_at
+                history.reposts = earlier.reposts + 1
+                self._uow.history.delete(earlier.id)
+        elif history.gone_at is not None:
+            history.reposts += 1
+            history.gone_at = None
+        history.last_seen_at = now
+        history.title_key = title_key(source.external_title) or history.title_key
+        self._uow.history.save(history)
 
     def _company_job_ids(self, ctx: _RunContext, company: str) -> set[int]:
         if company not in ctx.company_job_ids:
@@ -225,6 +250,8 @@ class RunPipeline:
                     self._uow.scraper_runs.save(scraper_run)
                     log_event("prune_skipped", logging.WARNING, site=scraper_run.site, reason=decision.reason)
                 continue
+            self._uow.history.mark_gone(scraper_run.site, [posting_key(s.source_job_id, s.source_url_fingerprint)
+                                                           for s in unseen], self._clock())
             self._uow.sources.delete_many([s.id for s in unseen])
             affected |= {s.job_id for s in unseen}
             log_event("postings_removed", site=scraper_run.site, count=len(unseen))

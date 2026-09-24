@@ -29,6 +29,18 @@ class EvaluationDto(Dto):
     role_type: str
     is_government_tender: bool
     rank_score: float
+    required_years: float | None = None
+    junior_title_mismatch: bool = False
+
+
+class JobSignalsDto(Dto):
+    open_since: UtcDatetime | None
+    days_open: int | None
+    reposts: int
+    is_new: bool
+    is_ghost: bool
+    agency_count: int
+    first_agency: str | None
 
 
 class JobListItemDto(Dto):
@@ -53,6 +65,10 @@ class JobListItemDto(Dto):
     tender_number: str | None = None
     government_ministry: str | None = None
     is_featured: bool = False
+    # Honesty labels (see domain/services/signals.py).
+    signals: JobSignalsDto | None = None
+    junior_title_mismatch: bool = False
+    required_years: float | None = None
 
 
 class JobListDto(Dto):
@@ -80,6 +96,7 @@ class JobDetailDto(Dto):
     is_manual: bool = False
     tender_number: str | None = None
     government_ministry: str | None = None
+    signals: JobSignalsDto | None = None
 
 
 class JobSourceDto(Dto):

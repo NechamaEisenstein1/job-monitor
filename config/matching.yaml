@@ -118,6 +118,15 @@ junior_scoring:
 # the keyword score below.
 experience:
   junior_max_years: 2
+  # A title with one of these that requires more than junior_max_years is a "fake junior".
+  junior_title_keywords: ["ג'וניור", "גוניור", "junior", "jr", "entry level", "ללא ניסיון", "סטודנט",
+                          "סטודנטית", "בוגר", "בוגרת", "בוגרי", "graduate", "intern"]
+
+# Honesty labels on listings, from the posting history (kept even after a posting is removed).
+signals:
+  new_within_hours: 30      # first listed within this -> "new today"
+  ghost_after_days: 45      # open this long -> likely a standing ad
+  ghost_min_reposts: 2      # or removed and re-published this often
 
 thresholds:
   junior_score: 0.6
