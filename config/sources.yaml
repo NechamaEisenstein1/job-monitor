@@ -90,5 +90,5 @@ sources:
   - name: "Log-On"
     type: site
     site: logon
-    enabled: false
-    note: "האתר logon.co.il חוסם גישה אוטומטית (HTTP 418), ובאתר log-on.com אין לוח משרות."
+    enabled: true
+    note: "לוח המשרות ב-b.log-on.com (נקרא דרך נקודת ה-Ajax Load More של האתר)."

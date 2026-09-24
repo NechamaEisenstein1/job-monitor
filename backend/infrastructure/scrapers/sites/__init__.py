@@ -6,6 +6,7 @@ from backend.infrastructure.scrapers.sites.consist import ConsistScraper
 from backend.infrastructure.scrapers.sites.gav import GavScraper
 from backend.infrastructure.scrapers.sites.hms import HmsScraper
 from backend.infrastructure.scrapers.sites.horizon import HorizonScraper
+from backend.infrastructure.scrapers.sites.logon import LogonScraper
 from backend.infrastructure.scrapers.sites.matrix import MatrixScraper
 from backend.infrastructure.scrapers.sites.ness import NessScraper
 from backend.infrastructure.scrapers.sites.one import OneScraper
@@ -28,4 +29,5 @@ SITE_SCRAPERS: dict[str, type[SiteScraper]] = {
     "prologic": PrologicScraper,
     "sqlink": SqlinkScraper,
     "one": OneScraper,
+    "logon": LogonScraper,
 }
