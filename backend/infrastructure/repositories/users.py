@@ -8,14 +8,14 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.domain.enums import ExperienceLevel, OutreachStatus
+from backend.domain.enums import ExperienceLevel, OutreachStatus, UserRole
 from backend.domain.models import Recruiter, User
 from backend.infrastructure.db.orm import (
     AnalyticsEventRow, EmailTokenRow, OutreachMessageRow, RecruiterRow, UserJobAlertRow, UserRow, UserSessionRow,
 )
 from backend.infrastructure.repositories.mapping import to_domain, to_values
 
-_USER_ENUMS = {"experience_level": ExperienceLevel}
+_USER_ENUMS = {"experience_level": ExperienceLevel, "role": UserRole}
 
 
 class DuplicateError(Exception):
@@ -40,6 +40,11 @@ class SqlUserRepository:
 
     def list(self) -> list[User]:
         return [to_domain(r, User, _USER_ENUMS) for r in self._s.scalars(select(UserRow).order_by(UserRow.id))]
+
+    def billing_summary(self) -> dict[int, tuple[int, str]]:
+        """user id -> (points balance, stored subscription status), for the admin list."""
+        rows = self._s.execute(select(UserRow.id, UserRow.points_balance, UserRow.subscription_status))
+        return {uid: (points, status) for uid, points, status in rows}
 
     def list_alert_recipients(self) -> list[User]:
         rows = self._s.scalars(select(UserRow).where(

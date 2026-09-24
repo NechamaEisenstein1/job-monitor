@@ -22,7 +22,7 @@ class EvaluationDto(Dto):
     is_eligible: bool
     matched_rules: list[str]
     rejection_reasons: list[str]
-    scrape_run_id: str
+    scrape_run_id: str | None  # None for manual postings
     created_at: UtcDatetime
     is_junior: bool
     location_matched: bool
@@ -49,6 +49,10 @@ class JobListItemDto(Dto):
     first_seen_at: UtcDatetime
     # Filled only for the personal area: the user's saved recruiters at this company.
     known_recruiters: list[str] = []
+    is_manual: bool = False
+    tender_number: str | None = None
+    government_ministry: str | None = None
+    is_featured: bool = False
 
 
 class JobListDto(Dto):
@@ -73,6 +77,9 @@ class JobDetailDto(Dto):
     updated_at: UtcDatetime
     last_seen_at: UtcDatetime | None
     evaluation: EvaluationDto | None
+    is_manual: bool = False
+    tender_number: str | None = None
+    government_ministry: str | None = None
 
 
 class JobSourceDto(Dto):
@@ -170,6 +177,7 @@ class UserDto(Dto):
     id: int
     email: str
     display_name: str
+    role: str
     is_admin: bool
     is_active: bool
     experience_level: str
@@ -179,6 +187,9 @@ class UserDto(Dto):
     email_verified: bool
     has_password: bool
     google_linked: bool
+    # Filled in the admin user list only.
+    points_balance: int | None = None
+    subscription_status: str | None = None
 
 
 class AuthConfigDto(Dto):
@@ -230,3 +241,65 @@ class AdminStatsDto(Dto):
     jobs_by_source: list[NamedCountDto]
     jobs_by_role: list[NamedCountDto]
     recent_runs: list[ScrapeRunDto]
+
+
+# ------------------------------------------------------------------ recruiters & billing
+
+class PointTransactionDto(Dto):
+    id: int
+    amount: int
+    action_type: str
+    reference: str | None
+    created_at: UtcDatetime
+
+
+class WalletDto(Dto):
+    balance: int
+    transactions: list[PointTransactionDto]
+
+
+class SubscriptionDto(Dto):
+    id: int
+    status: str
+    amount_paid: float
+    points_spent: int
+    payment_method: str
+    starts_at: UtcDatetime
+    expires_at: UtcDatetime
+
+
+class SubscriptionStateDto(Dto):
+    status: str
+    current: SubscriptionDto | None
+    trial_available: bool
+    price_ils: float
+    price_points: int
+    days: int
+    trial_days: int
+    free_checkout: bool  # price is 0: activation needs no payment
+    points_balance: int
+
+
+class ManualJobDto(Dto):
+    id: int
+    title: str
+    tender_number: str | None
+    government_ministry: str | None
+    location: str | None
+    status: str
+    created_at: UtcDatetime
+    featured_until: UtcDatetime | None
+    posted_by: int | None
+
+
+class PublishResultDto(Dto):
+    job: ManualJobDto
+    points_awarded: int
+    balance: int
+
+
+class BillingPricesDto(Dto):
+    points_per_manual_job: int
+    max_awarded_posts_per_day: int
+    featured_job_points: int
+    featured_job_days: int

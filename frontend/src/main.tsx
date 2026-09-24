@@ -8,6 +8,7 @@ import { EmptyState, LoadingState } from "./components/States";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { he } from "./i18n/he";
 import { AdminPage } from "./pages/AdminPage";
+import { BillingPage } from "./pages/BillingPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { JobDetailsPage } from "./pages/JobDetailsPage";
 import { JobsPage } from "./pages/JobsPage";
@@ -16,6 +17,7 @@ import { MyAreaPage } from "./pages/MyAreaPage";
 import { LandingPage } from "./pages/public/LandingPage";
 import { PrivacyPage, TermsPage } from "./pages/public/LegalPages";
 import { PublicLayout } from "./pages/public/PublicLayout";
+import { RecruiterPage } from "./pages/RecruiterPage";
 import { RunDetailsPage, RunsPage } from "./pages/RunsPage";
 import { SourcesPage } from "./pages/SourcesPage";
 
@@ -34,7 +36,7 @@ function ToLogin() {
   return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
 }
 
-const PRIVATE_PATHS = ["me", "jobs", "jobs/:id", "runs", "runs/:id", "sources", "admin"];
+const PRIVATE_PATHS = ["me", "jobs", "jobs/:id", "runs", "runs/:id", "sources", "admin", "recruiter", "billing"];
 
 function App() {
   const { user, loading } = useAuth();
@@ -73,6 +75,8 @@ function App() {
         <Route path="terms" element={<TermsPage />} />
         {/* The server enforces admin-only too; this just hides the page. */}
         <Route path="admin" element={user.is_admin ? <AdminPage /> : <Navigate to="/" replace />} />
+        <Route path="recruiter" element={user.role !== "user" ? <RecruiterPage /> : <Navigate to="/" replace />} />
+        <Route path="billing" element={<BillingPage />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

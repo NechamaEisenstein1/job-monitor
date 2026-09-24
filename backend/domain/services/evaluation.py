@@ -108,7 +108,7 @@ class JobEvaluationService:
             return True, score, None, None
         return False, score, None, f"junior_score_below_threshold ({score} < {self._threshold})"
 
-    def evaluate(self, job: Job, scrape_run_id: str, now: datetime) -> JobEvaluation:
+    def evaluate(self, job: Job, scrape_run_id: str | None, now: datetime) -> JobEvaluation:
         if job.id is None:
             raise ValueError("Only persisted jobs can be evaluated")
         score, matched = self.junior_score(job)

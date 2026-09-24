@@ -12,7 +12,7 @@ from backend.application.dto import AdminStatsDto, UserDto
 from backend.application.use_cases.accounts import AccountError
 from backend.application.use_cases.admin import AdminQueries
 from backend.bootstrap import account_service, utcnow
-from backend.domain.enums import ExperienceLevel
+from backend.domain.enums import ExperienceLevel, UserRole
 from backend.infrastructure.repositories.read_models import SqlReadRepository
 from backend.infrastructure.repositories.users import (
     DuplicateError, SqlAlertRepository, SqlAnalyticsRepository, SqlOutreachRepository, SqlUserRepository,
@@ -32,7 +32,10 @@ def stats(_: AdminUser, session: DbSession) -> AdminStatsDto:
 
 @router.get("/users", response_model=list[UserDto])
 def list_users(_: AdminUser, request: Request, session: DbSession) -> list[UserDto]:
-    return [user_dto(u) for u in account_service(session, request.app.state.cfg).list_users()]
+    wallets = SqlUserRepository(session).billing_summary()
+    return [user_dto(u).model_copy(update=dict(zip(("points_balance", "subscription_status"),
+                                                   wallets.get(u.id, (0, "inactive")))))
+            for u in account_service(session, request.app.state.cfg).list_users()]
 
 
 class NewUserIn(BaseModel):
@@ -58,6 +61,7 @@ def create_user(body: NewUserIn, _: AdminUser, request: Request, session: DbSess
 class UserUpdateIn(BaseModel):
     is_active: bool | None = None
     is_admin: bool | None = None
+    role: UserRole | None = None  # grant / revoke RECRUITER (or ADMIN)
     new_password: str | None = Field(default=None, max_length=200)
 
 
@@ -66,7 +70,8 @@ def update_user(user_id: Annotated[int, Path(ge=1)], body: UserUpdateIn, admin: 
                 request: Request, session: DbSession) -> UserDto:
     try:
         user = account_service(session, request.app.state.cfg).admin_update(
-            user_id, is_active=body.is_active, is_admin=body.is_admin, new_password=body.new_password,
+            user_id, is_active=body.is_active, is_admin=body.is_admin, role=body.role,
+            new_password=body.new_password,
             acting_admin=admin)
     except AccountError as exc:
         raise _fail(exc) from exc

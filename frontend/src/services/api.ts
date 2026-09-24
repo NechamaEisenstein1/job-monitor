@@ -1,7 +1,8 @@
 import { errorLabel, he } from "../i18n/he";
 import type {
-  AdminStats, AuthConfig, ExperienceLevel, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
-  OutreachResult, Recruiter, RecruiterInput, RegisterInput, RunDetail, ScrapeRun, SourceHealth, Stats, User,
+  AdminStats, AuthConfig, BillingPrices, ExperienceLevel, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
+  ManualJob, ManualJobInput, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
+  ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
 
 export class ApiError extends Error {
@@ -46,7 +47,7 @@ async function request<T>(method: string, path: string, options: { params?: Para
 const get = <T>(path: string, params?: Params) => request<T>("GET", path, { params });
 const post = <T>(path: string, body?: unknown) => request<T>("POST", path, { body });
 const put = <T>(path: string, body: unknown) => request<T>("PUT", path, { body });
-const del = (path: string) => request<void>("DELETE", path);
+const del = <T = void>(path: string) => request<T>("DELETE", path);
 
 export const PAGE_SIZE = 25;
 
@@ -91,6 +92,19 @@ export const api = {
   adminUsers: () => get<User[]>("/admin/users"),
   adminCreateUser: (u: { email: string; display_name: string; password: string; is_admin: boolean;
     experience_level: ExperienceLevel }) => post<User>("/admin/users", u),
-  adminUpdateUser: (id: number, u: { is_active?: boolean; is_admin?: boolean; new_password?: string }) =>
+  adminUpdateUser: (id: number, u: { is_active?: boolean; is_admin?: boolean; role?: UserRole; new_password?: string }) =>
     put<User>(`/admin/users/${id}`, u),
+
+  // recruiter postings
+  myPostings: (all = false) => get<ManualJob[]>("/recruiter/jobs", { all: all || undefined }),
+  publishJob: (j: ManualJobInput) => post<PublishResult>("/recruiter/jobs", j),
+  removeJob: (id: number) => del<{ points_reversed: number }>(`/recruiter/jobs/${id}`),
+  featureJob: (id: number) => post<ManualJob>(`/recruiter/jobs/${id}/feature`),
+
+  // points & subscription
+  billingPrices: () => get<BillingPrices>("/billing/prices"),
+  wallet: () => get<Wallet>("/billing/wallet"),
+  subscription: () => get<SubscriptionState>("/billing/subscription"),
+  startTrial: () => post<SubscriptionState>("/billing/subscription/trial"),
+  checkout: (method: "free" | "points") => post<SubscriptionState>("/billing/subscription/checkout", { method }),
 };

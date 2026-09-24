@@ -1,4 +1,4 @@
-"""Request-scoped dependencies: DB session, the logged-in user, admin gate, CSRF check."""
+"""Request-scoped dependencies: DB session, the logged-in user, admin/recruiter gates, CSRF check."""
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -39,6 +39,15 @@ def require_admin(user: CurrentUser) -> User:
 
 
 AdminUser = Annotated[User, Depends(require_admin)]
+
+
+def require_recruiter(user: CurrentUser) -> User:
+    if not user.can_post_jobs:
+        raise HTTPException(status_code=403, detail="recruiter_only")
+    return user
+
+
+RecruiterUser = Annotated[User, Depends(require_recruiter)]
 
 
 def csrf_protect(request: Request) -> None:

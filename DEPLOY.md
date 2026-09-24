@@ -44,7 +44,7 @@ set DATABASE_URL=
    |---|---|
    | `DATABASE_URL` | ה-connection string מ-Neon |
    | `PUBLIC_BASE_URL` | בינתיים `https://job-monitor.onrender.com` (מתקנים בשלב 4) |
-   | `ADMIN_EMAILS` | `programming0839@gmail.com` |
+   | `ADMIN_EMAILS` | הכתובת שלך, זו שאיתה תיכנסי (למשל `you@gmail.com`) |
    | `CONTACT_EMAIL` | כתובת שתופיע במדיניות הפרטיות לבקשות מחיקה |
    | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ריק בינתיים (שלב 3) |
    | `GOOGLE_SITE_VERIFICATION` | ריק בינתיים (שלב 6) |

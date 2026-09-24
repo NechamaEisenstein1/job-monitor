@@ -69,6 +69,12 @@ class JobRow(Base):
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     status: Mapped[str] = mapped_column(String(32), index=True)
     content_hash: Mapped[str] = mapped_column(String(64))
+    # migration 0004: recruiter postings
+    is_manual: Mapped[bool] = mapped_column(Boolean, default=False)
+    posted_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    tender_number: Mapped[str | None] = mapped_column(String(100), unique=True)
+    government_ministry: Mapped[str | None] = mapped_column(String(200))
+    featured_until: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class JobSourceRow(Base):
@@ -111,7 +117,7 @@ class JobEvaluationRow(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"), index=True)
-    scrape_run_id: Mapped[str] = mapped_column(ForeignKey("scrape_runs.id"), index=True)
+    scrape_run_id: Mapped[str | None] = mapped_column(ForeignKey("scrape_runs.id"), index=True)
     junior_score: Mapped[float] = mapped_column(Float)
     is_eligible: Mapped[bool] = mapped_column(Boolean)
     matched_rules: Mapped[list] = mapped_column(JSON, default=list)
@@ -160,7 +166,7 @@ class UserRow(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True)
     display_name: Mapped[str] = mapped_column(String(200))
     password_hash: Mapped[str | None] = mapped_column(String(300))  # None = Google-only account
-    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    role: Mapped[str] = mapped_column(String(16), default="user")  # user | recruiter | admin
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     experience_level: Mapped[str] = mapped_column(String(16), default="junior")
     alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -168,6 +174,9 @@ class UserRow(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
     google_sub: Mapped[str | None] = mapped_column(String(64), unique=True)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Changed only through atomic UPDATEs in the billing repository.
+    points_balance: Mapped[int] = mapped_column(Integer, default=0)
+    subscription_status: Mapped[str] = mapped_column(String(16), default="inactive")
 
 
 class EmailTokenRow(Base):
@@ -238,3 +247,30 @@ class AnalyticsEventRow(Base):
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     path: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+
+
+# ------------------------------------------------------------------ billing (migration 0004)
+
+class PointTransactionRow(Base):
+    __tablename__ = "point_transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    action_type: Mapped[str] = mapped_column(String(32))
+    reference: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+
+
+class SubscriptionRow(Base):
+    __tablename__ = "subscriptions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(16))
+    amount_paid: Mapped[float] = mapped_column(Float, default=0.0)
+    points_spent: Mapped[int] = mapped_column(Integer, default=0)
+    payment_method: Mapped[str] = mapped_column(String(16))
+    starts_at: Mapped[datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)

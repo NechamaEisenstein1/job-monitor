@@ -46,6 +46,10 @@ export interface JobListItem {
   last_seen_at: string | null;
   updated_at: string;
   first_seen_at: string;
+  is_manual: boolean;
+  tender_number: string | null;
+  government_ministry: string | null;
+  is_featured: boolean;
 }
 
 export interface JobList {
@@ -70,6 +74,9 @@ export interface JobDetail {
   updated_at: string;
   last_seen_at: string | null;
   evaluation: Evaluation | null;
+  is_manual: boolean;
+  tender_number: string | null;
+  government_ministry: string | null;
 }
 
 export interface JobSource {
@@ -162,10 +169,13 @@ export interface JobFilterValues {
   page: number;
 }
 
+export type UserRole = "user" | "recruiter" | "admin";
+
 export interface User {
   id: number;
   email: string;
   display_name: string;
+  role: UserRole;
   is_admin: boolean;
   is_active: boolean;
   experience_level: ExperienceLevel;
@@ -175,6 +185,8 @@ export interface User {
   email_verified: boolean;
   has_password: boolean;
   google_linked: boolean;
+  points_balance: number | null; // admin user list only
+  subscription_status: SubscriptionStatus | null;
 }
 
 export interface AuthConfig {
@@ -236,4 +248,78 @@ export interface AdminStats {
   jobs_by_source: NamedCount[];
   jobs_by_role: NamedCount[];
   recent_runs: ScrapeRun[];
+}
+
+// ------------------------------------------------------------------ recruiters & billing
+
+export type SubscriptionStatus = "inactive" | "trial" | "active";
+export type PointAction = "job_posted" | "job_removed" | "subscription" | "featured_job";
+
+export interface PointTransaction {
+  id: number;
+  amount: number;
+  action_type: PointAction;
+  reference: string | null;
+  created_at: string;
+}
+
+export interface Wallet {
+  balance: number;
+  transactions: PointTransaction[];
+}
+
+export interface Subscription {
+  id: number;
+  status: SubscriptionStatus;
+  amount_paid: number;
+  points_spent: number;
+  payment_method: string;
+  starts_at: string;
+  expires_at: string;
+}
+
+export interface SubscriptionState {
+  status: SubscriptionStatus;
+  current: Subscription | null;
+  trial_available: boolean;
+  price_ils: number;
+  price_points: number;
+  days: number;
+  trial_days: number;
+  free_checkout: boolean;
+  points_balance: number;
+}
+
+export interface ManualJob {
+  id: number;
+  title: string;
+  tender_number: string | null;
+  government_ministry: string | null;
+  location: string | null;
+  status: JobStatus;
+  created_at: string;
+  featured_until: string | null;
+  posted_by: number | null;
+}
+
+export interface ManualJobInput {
+  title: string;
+  description: string;
+  requirements: string;
+  tender_number: string;
+  government_ministry: string;
+  location: string;
+}
+
+export interface PublishResult {
+  job: ManualJob;
+  points_awarded: number;
+  balance: number;
+}
+
+export interface BillingPrices {
+  points_per_manual_job: number;
+  max_awarded_posts_per_day: number;
+  featured_job_points: number;
+  featured_job_days: number;
 }

@@ -8,7 +8,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 
 from backend.domain.enums import (
-    ExperienceLevel, JobChange, JobSourceStatus, JobStatus, RunStatus, ScrapeStatus,
+    ExperienceLevel, JobChange, JobSourceStatus, JobStatus, PointAction, RunStatus, ScrapeStatus,
+    SubscriptionStatus, UserRole,
 )
 
 
@@ -128,6 +129,15 @@ class Job:
     # Change detection ONLY. Never identity, never a dedup key.
     content_hash: str
 
+    # Postings published by a recruiter on this site (not scraped). They have no
+    # JobSource, are never merged with scraped jobs and never pruned by the daily refresh.
+    is_manual: bool = False
+    posted_by: int | None = None
+    tender_number: str | None = None
+    government_ministry: str | None = None
+    # Paid placement (redeemed with points): listed first until this moment.
+    featured_until: datetime | None = None
+
     @classmethod
     def new(cls, job: NormalizedJob, now: datetime) -> "Job":
         snapshot = job.snapshot()
@@ -201,7 +211,7 @@ class JobSource:
 @dataclass
 class JobEvaluation:
     job_id: int
-    scrape_run_id: str
+    scrape_run_id: str | None  # None for manual postings (evaluated when published)
 
     junior_score: float
     is_eligible: bool
@@ -300,7 +310,7 @@ class User:
     email: str
     display_name: str
     password_hash: str | None  # None for accounts that only sign in with Google
-    is_admin: bool
+    role: UserRole
     is_active: bool
     experience_level: ExperienceLevel
     alerts_enabled: bool
@@ -309,6 +319,24 @@ class User:
     google_sub: str | None = None
     # Alerts and recruiter outreach are sent only for verified addresses.
     email_verified: bool = False
+    # NOTE: points_balance and subscription_status live on the users row but are NOT
+    # fields here: they change only through atomic SQL updates (billing repository), so
+    # saving a stale User can never overwrite them.
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role is UserRole.ADMIN
+
+    @is_admin.setter
+    def is_admin(self, value: bool) -> None:
+        if value:
+            self.role = UserRole.ADMIN
+        elif self.role is UserRole.ADMIN:
+            self.role = UserRole.USER
+
+    @property
+    def can_post_jobs(self) -> bool:
+        return self.role in (UserRole.RECRUITER, UserRole.ADMIN)
 
 
 @dataclass
@@ -319,4 +347,28 @@ class Recruiter:
     name: str
     email: str
     company: str
+    created_at: datetime
+
+
+@dataclass
+class PointTransaction:
+    """Append-only ledger row. The users.points_balance column is its running sum."""
+    id: int | None
+    user_id: int
+    amount: int  # positive = earned, negative = spent / reversed
+    action_type: PointAction
+    created_at: datetime
+    reference: str | None = None  # e.g. "job:42", "subscription:7"
+
+
+@dataclass
+class Subscription:
+    id: int | None
+    user_id: int
+    status: SubscriptionStatus
+    amount_paid: float  # in ILS; 0 while the product is free
+    points_spent: int
+    payment_method: str
+    starts_at: datetime
+    expires_at: datetime
     created_at: datetime

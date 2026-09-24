@@ -33,7 +33,8 @@ def _fail(exc: AccountError) -> HTTPException:
 
 
 def user_dto(user: User) -> UserDto:
-    return UserDto(id=user.id, email=user.email, display_name=user.display_name, is_admin=user.is_admin,
+    return UserDto(id=user.id, email=user.email, display_name=user.display_name, role=user.role.value,
+                   is_admin=user.is_admin,
                    is_active=user.is_active, experience_level=user.experience_level.value,
                    alerts_enabled=user.alerts_enabled, created_at=user.created_at, last_login_at=user.last_login_at,
                    email_verified=user.email_verified, has_password=bool(user.password_hash),

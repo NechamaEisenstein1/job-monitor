@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
@@ -144,6 +144,28 @@ class UsersConfig:
 
 
 @dataclass(frozen=True)
+class BillingConfig:
+    """Points economy and subscription pricing. Values may come from ${ENV} in the YAML,
+    so they are coerced here. The price is 0 until a real payment provider is wired in."""
+    points_per_manual_job: int = 10
+    # Anti-farming: postings beyond this per day are published but earn no points.
+    max_awarded_posts_per_day: int = 10
+    subscription_price_ils: float = 0.0
+    subscription_price_points: int = 100
+    subscription_days: int = 30
+    trial_days: int = 14
+    featured_job_points: int = 50
+    featured_job_days: int = 7
+
+    def __post_init__(self) -> None:
+        for f in fields(self):
+            cast = float if f.name.endswith("_ils") else int
+            object.__setattr__(self, f.name, cast(getattr(self, f.name) or 0))
+        if self.subscription_price_ils < 0 or self.subscription_price_points < 0:
+            raise ValueError("billing prices must not be negative")
+
+
+@dataclass(frozen=True)
 class MatchingConfig:
     run_status: RunStatusConfig
     locations: LocationsConfig
@@ -159,6 +181,7 @@ class MatchingConfig:
     ranking: RankingConfig
     schedule: ScheduleConfig
     users: UsersConfig
+    billing: BillingConfig = BillingConfig()
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "MatchingConfig":
@@ -177,6 +200,7 @@ class MatchingConfig:
             ranking=RankingConfig(**raw["ranking"]),
             schedule=ScheduleConfig(**raw.get("schedule", {})),
             users=UsersConfig(**raw.get("users", {})),
+            billing=BillingConfig(**raw.get("billing", {})),
         )
 
 
