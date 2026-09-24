@@ -2,6 +2,7 @@
 Every recruiter/outreach query is scoped by user_id - users never see each other's data."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import delete, func, select
@@ -11,7 +12,8 @@ from sqlalchemy.orm import Session
 from backend.domain.enums import ExperienceLevel, OutreachStatus, UserRole
 from backend.domain.models import Recruiter, User
 from backend.infrastructure.db.orm import (
-    AnalyticsEventRow, EmailTokenRow, OutreachMessageRow, RecruiterRow, UserJobAlertRow, UserRow, UserSessionRow,
+    AnalyticsEventRow, EmailTokenRow, GmailConnectionRow, JobRow, OutreachMessageRow, RecruiterRow, UserJobAlertRow,
+    UserRow, UserSessionRow,
 )
 from backend.infrastructure.repositories.mapping import to_domain, to_values
 
@@ -173,14 +175,46 @@ class SqlAlertRepository:
         return self._s.scalar(select(func.count()).select_from(UserJobAlertRow).where(UserJobAlertRow.sent_at >= since)) or 0
 
 
+@dataclass(frozen=True)
+class OutreachRecord:
+    status: str
+    created_at: datetime
+    sent_via: str | None = None
+    opened_at: datetime | None = None
+    last_opened_at: datetime | None = None
+    open_count: int = 0
+
+
 class SqlOutreachRepository:
     def __init__(self, session: Session):
         self._s = session
 
-    def statuses(self, user_id: int, job_id: int) -> dict[int, tuple[str, datetime]]:
+    def statuses(self, user_id: int, job_id: int) -> dict[int, OutreachRecord]:
         rows = self._s.scalars(select(OutreachMessageRow).where(
             OutreachMessageRow.user_id == user_id, OutreachMessageRow.job_id == job_id))
-        return {r.recruiter_id: (r.status, r.created_at) for r in rows}
+        return {r.recruiter_id: OutreachRecord(r.status, r.created_at, r.sent_via, r.opened_at, r.last_opened_at,
+                                               r.open_count or 0) for r in rows}
+
+    def log_for_user(self, user_id: int, limit: int = 100) -> list[tuple]:
+        """The user's outreach, newest first: (row, job title, recruiter name)."""
+        return list(self._s.execute(
+            select(OutreachMessageRow, JobRow.title, RecruiterRow.name)
+            .join(JobRow, JobRow.id == OutreachMessageRow.job_id)
+            .join(RecruiterRow, RecruiterRow.id == OutreachMessageRow.recruiter_id)
+            .where(OutreachMessageRow.user_id == user_id)
+            .order_by(OutreachMessageRow.created_at.desc(), OutreachMessageRow.id.desc()).limit(limit)))
+
+    def record_open(self, token: str, now: datetime, ignore_within: timedelta) -> bool:
+        """Count an open of the email carrying this tracking image. Loads right after
+        sending (the sender's own preview, security scanners) are ignored."""
+        row = self._s.scalars(select(OutreachMessageRow).where(OutreachMessageRow.tracking_token == token)).first()
+        if row is None or now - row.created_at < ignore_within:
+            return False
+        row.opened_at = row.opened_at or now
+        row.last_opened_at = now
+        row.open_count = (row.open_count or 0) + 1
+        self._s.commit()
+        return True
 
     def sent_count_since(self, user_id: int, since: datetime) -> int:
         return self._s.scalar(select(func.count()).select_from(OutreachMessageRow).where(
@@ -188,21 +222,43 @@ class SqlOutreachRepository:
             OutreachMessageRow.created_at >= since)) or 0
 
     def record(self, user_id: int, job_id: int, recruiter_id: int, status: OutreachStatus,
-               error: str | None, now: datetime) -> None:
+               error: str | None, now: datetime, *, sent_via: str | None = None,
+               tracking_token: str | None = None) -> None:
         """Upsert: a FAILED attempt may later be replaced by SENT; SENT is final."""
         row = self._s.scalars(select(OutreachMessageRow).where(
             OutreachMessageRow.user_id == user_id, OutreachMessageRow.job_id == job_id,
             OutreachMessageRow.recruiter_id == recruiter_id)).first()
         if row is None:
-            self._s.add(OutreachMessageRow(user_id=user_id, job_id=job_id, recruiter_id=recruiter_id,
-                                           status=status.value, error=error, created_at=now))
-        else:
-            row.status, row.error, row.created_at = status.value, error, now
+            row = OutreachMessageRow(user_id=user_id, job_id=job_id, recruiter_id=recruiter_id, open_count=0)
+            self._s.add(row)
+        row.status, row.error, row.created_at = status.value, error, now
+        row.sent_via, row.tracking_token = sent_via, tracking_token
         self._s.commit()
 
     def count_since(self, since: datetime) -> int:
         return self._s.scalar(select(func.count()).select_from(OutreachMessageRow).where(
             OutreachMessageRow.status == OutreachStatus.SENT.value, OutreachMessageRow.created_at >= since)) or 0
+
+
+class SqlGmailRepository:
+    def __init__(self, session: Session):
+        self._s = session
+
+    def get(self, user_id: int) -> GmailConnectionRow | None:
+        return self._s.get(GmailConnectionRow, user_id)
+
+    def save(self, user_id: int, google_email: str, refresh_token_enc: str, scopes: str, now: datetime) -> None:
+        row = self._s.get(GmailConnectionRow, user_id)
+        if row is None:
+            row = GmailConnectionRow(user_id=user_id)
+            self._s.add(row)
+        row.google_email, row.refresh_token_enc = google_email, refresh_token_enc
+        row.scopes, row.connected_at = scopes, now
+        self._s.commit()
+
+    def delete(self, user_id: int) -> None:
+        self._s.execute(delete(GmailConnectionRow).where(GmailConnectionRow.user_id == user_id))
+        self._s.commit()
 
 
 class SqlAnalyticsRepository:

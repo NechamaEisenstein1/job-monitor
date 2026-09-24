@@ -9,9 +9,9 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from backend.api import account_routes, admin_routes, recruiter_routes, routes
+from backend.api import account_routes, admin_routes, gmail_routes, recruiter_routes, routes
 from backend.api.seo import PageRenderer, classify, robots_txt, sitemap_xml
-from backend.bootstrap import build_email_sender, google_oauth
+from backend.bootstrap import build_email_sender, gmail_client, google_oauth, token_cipher
 from backend.config.settings import PROJECT_ROOT, Settings, load_matching_config, load_sources_config
 from backend.infrastructure.db.session import make_engine, make_session_factory
 from backend.observability import configure_logging
@@ -36,6 +36,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.cfg = load_matching_config(settings.config_dir)
     app.state.sender = build_email_sender(settings)
     app.state.google = google_oauth(settings)  # None unless GOOGLE_CLIENT_ID/SECRET are set
+    app.state.gmail = gmail_client(settings)    # also needs GMAIL_TOKEN_KEY
+    app.state.cipher = token_cipher(settings)
     app.state.session_factory = make_session_factory(make_engine(settings.database_url))
     app.state.sources = load_sources_config(settings.config_dir)
 
@@ -72,6 +74,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(account_routes.router)
     app.include_router(admin_routes.router)
     app.include_router(recruiter_routes.router)
+    app.include_router(gmail_routes.router)
     app.include_router(routes.router)
 
     @app.get("/robots.txt", include_in_schema=False)

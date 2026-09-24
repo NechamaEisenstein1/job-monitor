@@ -9,7 +9,8 @@ import { useApi } from "../hooks/useApi";
 import { useAuth, useUser } from "../hooks/useAuth";
 import { he } from "../i18n/he";
 import { api, PAGE_SIZE } from "../services/api";
-import type { ExperienceLevel, JobListItem, OutreachResult, Recruiter, RecruiterInput } from "../types/api";
+import { formatDateTime, formatRelative } from "../services/format";
+import type { ExperienceLevel, GmailStatus, JobListItem, OutreachResult, Recruiter, RecruiterInput } from "../types/api";
 
 const m = he.myArea;
 const control =
@@ -194,8 +195,12 @@ function RecruitersCard({ recruiters, reload }: { recruiters: Recruiter[]; reloa
 
 // ------------------------------------------------------------------ matches + outreach
 
-function OutreachButton({ job, recruiterCount }: { job: JobListItem; recruiterCount: number }) {
+function OutreachButton({ job, recruiterCount, gmailConnected, onSent }: {
+  job: JobListItem; recruiterCount: number; gmailConnected: boolean; onSent: () => void;
+}) {
   const user = useUser();
+  // Gmail proves the sending address itself; sending from the site needs a verified one.
+  const canSend = user.email_verified || gmailConnected;
   const [stage, setStage] = useState<"idle" | "confirm" | "sending" | "done">("idle");
   const [results, setResults] = useState<OutreachResult[]>([]);
   const [error, setError] = useState<string>();
@@ -206,6 +211,7 @@ function OutreachButton({ job, recruiterCount }: { job: JobListItem; recruiterCo
     try {
       setResults(await api.sendOutreach(job.id));
       setStage("done");
+      onSent();
     } catch (err) {
       setError((err as Error).message);
       setStage("idle");
@@ -235,8 +241,8 @@ function OutreachButton({ job, recruiterCount }: { job: JobListItem; recruiterCo
   }
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button className={secondary} disabled={recruiterCount === 0 || !user.email_verified} onClick={() => setStage("confirm")}
-              title={!user.email_verified ? he.errors.email_not_verified : recruiterCount === 0 ? he.errors.no_recruiters : undefined}>
+      <button className={secondary} disabled={recruiterCount === 0 || !canSend} onClick={() => setStage("confirm")}
+              title={!canSend ? he.errors.email_not_verified : recruiterCount === 0 ? he.errors.no_recruiters : undefined}>
         ✉ {m.askRecruiters}
       </button>
       {error && <span role="alert" className="text-sm text-rose-700">{error}</span>}
@@ -244,7 +250,9 @@ function OutreachButton({ job, recruiterCount }: { job: JobListItem; recruiterCo
   );
 }
 
-function MatchesCard({ recruiterCount }: { recruiterCount: number }) {
+function MatchesCard({ recruiterCount, gmailConnected, onSent }: {
+  recruiterCount: number; gmailConnected: boolean; onSent: () => void;
+}) {
   const [page, setPage] = useState(1);
   const [tendersOnly, setTendersOnly] = useState(false);
   const matches = useApi(() => api.matches(page, tendersOnly || undefined), `matches-${page}-${tendersOnly}`);
@@ -280,7 +288,7 @@ function MatchesCard({ recruiterCount }: { recruiterCount: number }) {
                       <span className="font-medium text-emerald-700">{m.knownRecruiters(job.known_recruiters.join(", "))}</span>
                     )}
                   </div>
-                  <OutreachButton job={job} recruiterCount={recruiterCount} />
+                  <OutreachButton job={job} recruiterCount={recruiterCount} gmailConnected={gmailConnected} onSent={onSent} />
                 </li>
               ))}
             </ul>
@@ -291,18 +299,108 @@ function MatchesCard({ recruiterCount }: { recruiterCount: number }) {
   );
 }
 
+// ------------------------------------------------------------------ Gmail + read tracking
+
+function GmailCard({ status, reload }: { status: GmailStatus; reload: () => void }) {
+  const g = m.gmail;
+  const [error, setError] = useState<string>();
+
+  async function disconnect() {
+    if (!window.confirm(g.confirmDisconnect)) return;
+    try {
+      await api.gmailDisconnect();
+      reload();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  return (
+    <Card title={g.title}>
+      {!status.available ? <p className="text-sm text-slate-500">{g.unavailable}</p> : (
+        <div className="space-y-3 text-sm">
+          {status.connected ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium text-emerald-700">✓ {g.connectedAs(status.email ?? "")}</span>
+              <button className={secondary} onClick={disconnect}>{g.disconnect}</button>
+            </div>
+          ) : (
+            <>
+              <p className="text-slate-600">{g.pitch}</p>
+              {/* A plain link: the server redirects to Google's consent screen. */}
+              <a href="/api/gmail/connect" className={`${primary} inline-block`}>{g.connect}</a>
+            </>
+          )}
+          <p className="text-xs text-slate-500">{g.permission}</p>
+          <Message error={error} />
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** WhatsApp-style: one grey tick = sent, two blue ticks = opened. */
+function ReadMark({ opened }: { opened: boolean }) {
+  return <span aria-hidden className={opened ? "font-bold text-sky-600" : "text-slate-400"}>{opened ? "✓✓" : "✓"}</span>;
+}
+
+function OutreachLogCard({ version }: { version: number }) {
+  const log = useApi(api.outreachLog, `outreach-log-${version}`);
+  const l = m.log;
+  return (
+    <Card title={l.title} flush>
+      {log.error ? <div className="p-4"><ErrorState error={log.error} onRetry={log.reload} /></div>
+        : !log.data ? <LoadingState rows={3} />
+        : !log.data.length ? <EmptyState title={l.empty} />
+        : (
+          <>
+            <ul className="divide-y divide-slate-100">
+              {log.data.map((e) => (
+                <li key={`${e.job_id}-${e.recruiter_name}-${e.sent_at}`} className="px-4 py-2.5 text-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link to={`/jobs/${e.job_id}`} className="min-w-0 truncate font-medium text-slate-800 hover:underline" dir="auto">
+                      {e.job_title}
+                    </Link>
+                    <span className="shrink-0 text-xs text-slate-400">{formatRelative(e.sent_at)}</span>
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-600">
+                    <span>{e.recruiter_name}</span>
+                    {e.status === "failed" ? <span className="text-rose-700">{l.failed}</span> : (
+                      <span className={`inline-flex items-center gap-1 ${e.opened_at ? "text-sky-700" : "text-slate-500"}`}
+                            title={e.opened_at ? formatDateTime(e.opened_at) : undefined}>
+                        <ReadMark opened={!!e.opened_at} />
+                        {e.opened_at ? l.opened(formatRelative(e.opened_at), e.open_count) : l.notOpened}
+                      </span>
+                    )}
+                    {e.sent_via && <span className="text-slate-400">· {e.sent_via === "gmail" ? l.viaGmail : l.viaSite}</span>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="border-t border-slate-100 px-4 py-2 text-xs leading-5 text-slate-400">{l.caveat}</p>
+          </>
+        )}
+    </Card>
+  );
+}
+
 function Notice() {
   const params = new URLSearchParams(window.location.search);
   const verified = params.get("verified");
+  const gmail = params.get("gmail");
   const text = verified === "1" ? he.auth.verifiedOk : verified === "0" ? he.auth.verifiedFailed
+    : gmail ? m.gmail.notices[gmail] ?? null
     : params.get("welcome") ? he.auth.welcome : null;
   if (!text) return null;
-  const tone = verified === "0" ? "bg-rose-50 text-rose-800" : "bg-emerald-50 text-emerald-800";
+  const failed = verified === "0" || (gmail !== null && gmail !== "connected");
+  const tone = failed ? "bg-rose-50 text-rose-800" : "bg-emerald-50 text-emerald-800";
   return <p role="status" className={`mb-4 rounded-md px-4 py-2 text-sm ${tone}`}>{text}</p>;
 }
 
 export function MyAreaPage() {
   const recruiters = useApi(api.recruiters, "recruiters");
+  const gmail = useApi(api.gmailStatus, "gmail-status");
+  const [sentVersion, setSentVersion] = useState(0);
   const { setUser } = useAuth();
 
   useEffect(() => {
@@ -316,9 +414,12 @@ export function MyAreaPage() {
       <Notice />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2">
-          <MatchesCard recruiterCount={recruiters.data?.length ?? 0} />
+          <MatchesCard recruiterCount={recruiters.data?.length ?? 0} gmailConnected={!!gmail.data?.connected}
+                       onSent={() => setSentVersion((v) => v + 1)} />
+          <OutreachLogCard version={sentVersion} />
         </div>
         <div className="min-w-0 space-y-6">
+          {gmail.data && <GmailCard status={gmail.data} reload={gmail.reload} />}
           <ProfileCard />
           {recruiters.error ? <ErrorState error={recruiters.error} onRetry={recruiters.reload} />
             : recruiters.data ? <RecruitersCard recruiters={recruiters.data} reload={recruiters.reload} />

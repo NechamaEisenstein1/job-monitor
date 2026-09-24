@@ -9,3 +9,4 @@ psycopg[binary]>=3.2
 beautifulsoup4>=4.12
 truststore>=0.9
 tzdata>=2024.1
+cryptography>=43

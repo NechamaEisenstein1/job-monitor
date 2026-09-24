@@ -228,6 +228,28 @@ class OutreachResultDto(Dto):
     recruiter_name: str
     status: str
     detail: str | None = None
+    sent_at: UtcDatetime | None = None
+    sent_via: str | None = None  # gmail | site
+    opened_at: UtcDatetime | None = None  # first time the email's tracking image loaded
+    open_count: int = 0
+
+
+class OutreachLogDto(Dto):
+    job_id: int
+    job_title: str
+    recruiter_name: str
+    status: str
+    sent_at: UtcDatetime
+    sent_via: str | None
+    opened_at: UtcDatetime | None
+    open_count: int
+
+
+class GmailStatusDto(Dto):
+    available: bool  # the site is configured for Gmail sending
+    connected: bool
+    email: str | None = None
+    connected_at: UtcDatetime | None = None
 
 
 class DailyCountDto(Dto):

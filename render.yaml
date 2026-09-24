@@ -27,6 +27,8 @@ services:
         sync: false
       - key: GOOGLE_SITE_VERIFICATION
         sync: false
+      - key: GMAIL_TOKEN_KEY   # encrypts stored Gmail tokens; Render generates it once
+        generateValue: true
       - key: SMTP_HOST
         sync: false
       - key: SMTP_USER

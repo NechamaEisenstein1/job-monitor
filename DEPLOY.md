@@ -105,6 +105,23 @@ set DATABASE_URL=
 3. ב-Render (וגם ב-GitHub בשלב 7):
    `SMTP_HOST=smtp.gmail.com`, `SMTP_USER=<המייל>`, `SMTP_PASSWORD=<סיסמת האפליקציה>`, `SMTP_FROM=<המייל>`
 
+### 5א. פניות מה-Gmail של המשתמשת + "נפתח ✓✓" (לא חובה)
+
+כשמשתמשת מחברת את ה-Gmail שלה, הפניות למגייסים יוצאות מהכתובת שלה, והאתר מראה מתי המגייסת פתחה את המייל.
+באותו OAuth client משלב 3:
+1. **APIs & Services** ← **Library** ← `Gmail API` ← **Enable**.
+2. **Credentials** ← ה-client ← **Authorized redirect URIs** ← להוסיף:
+   - `https://<הכתובת שלך>/api/gmail/callback`
+   - `http://localhost:8000/api/gmail/callback`
+3. **Data Access** (או **Scopes**) ← **Add or remove scopes** ← לסמן `.../auth/gmail.send` ← **Update** ← **Save**.
+4. `GMAIL_TOKEN_KEY` נוצר אוטומטית ב-Render (ב-`render.yaml`). **לא לשנות אותו:** שינוי ינתק את כל החיבורים, וכל משתמשת תצטרך לחבר מחדש.
+   לפיתוח מקומי: להוסיף ל-`.env` מחרוזת אקראית של 32 תווים ומעלה.
+
+**חשוב לדעת:** `gmail.send` היא הרשאה "רגישה" אצל Google.
+- **לפני אימות של Google:** עד 100 משתמשים, שיש להוסיף ידנית ב-**Audience** ← **Test users**. הם יראו אזהרה "Google hasn't verified this app", והחיבור שלהם פג אחרי **7 ימים** (אז מחברים מחדש).
+- **לפתיחה לכולם:** **Audience** ← **Publish app** ← Google יבקש אימות: מדיניות פרטיות (כבר קיימת ב-`/privacy`), הסבר למה צריך את ההרשאה, וסרטון קצר שמראה את השימוש. התהליך לוקח בדרך כלל כמה ימים עד כמה שבועות.
+- הכניסה הרגילה עם Google (שלב 3) לא מושפעת. היא משתמשת רק בהרשאות בסיסיות.
+
 ---
 
 ## 6. Google Search Console: כדי שהאתר יופיע בחיפוש
