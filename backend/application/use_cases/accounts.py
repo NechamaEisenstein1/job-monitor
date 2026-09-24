@@ -177,6 +177,22 @@ class AccountService:
                 promoted.append(self._users.save(user))
         return promoted
 
+    def vouch_designated_admins(self, registered_after: datetime) -> list[User]:
+        """Operator bootstrap (no email/Google verification configured yet): the operator
+        vouches for the addresses in users.admin_emails, so matching accounts become
+        verified admins. Only accounts registered after `registered_after` qualify - an
+        old unverified sign-up with that address may have been made by someone else."""
+        promoted = []
+        for user in self._users.list():
+            if user.email.lower() not in self._admin_emails or user.is_admin:
+                continue
+            if not user.email_verified and user.created_at < registered_after:
+                continue
+            user.email_verified = True
+            user.is_admin = True
+            promoted.append(self._users.save(user))
+        return promoted
+
     def admin_update(self, user_id: int, *, is_active: bool | None = None, is_admin: bool | None = None,
                      role: UserRole | None = None, new_password: str | None = None, acting_admin: User) -> User:
         user = self._users.get(user_id)
