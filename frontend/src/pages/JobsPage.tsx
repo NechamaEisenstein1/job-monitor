@@ -13,7 +13,7 @@ import { he } from "../i18n/he";
 // Non-tech roles are stored but hidden by default; pick "הכל" to see them.
 const DEFAULTS: JobFilterValues = {
   q: "", location: "", eligible: "", status: "", source: "", role_type: "tech", government: "",
-  sort: "relevance", page: 1,
+  level: "", sort: "relevance", page: 1,
 };
 
 /** Filters live in the URL so views are shareable and survive reloads. */
@@ -27,6 +27,7 @@ function useJobFilters(): [JobFilterValues, (next: Partial<JobFilterValues>) => 
     source: params.get("source") ?? DEFAULTS.source,
     role_type: (params.get("role_type") ?? DEFAULTS.role_type) as JobFilterValues["role_type"],
     government: (params.get("government") ?? DEFAULTS.government) as JobFilterValues["government"],
+    level: (params.get("level") ?? DEFAULTS.level) as JobFilterValues["level"],
     sort: (params.get("sort") ?? DEFAULTS.sort) as JobFilterValues["sort"],
     page: Number(params.get("page") ?? DEFAULTS.page) || 1,
   };

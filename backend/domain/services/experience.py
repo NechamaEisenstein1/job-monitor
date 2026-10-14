@@ -3,7 +3,11 @@
 Only lines that talk about experience are considered, and lines marked as an advantage
 ("יתרון", "advantage", "preferred") are ignored - they are nice-to-haves, not requirements.
 The result is the HIGHEST mandatory requirement: a job that needs 5 years in X is not a
-junior job even if another line asks for one year in Y."""
+junior job even if another line asks for one year in Y.
+
+"N+" ("2+", "+2", "2 ומעלה", "מעל 2", "more than 2") and a range starting at N ("2-3") mean
+MORE than N and are returned as N + OPEN_ENDED, so "2 years" is level A while "2+" is level B.
+"At least N" ("לפחות שנתיים") is a plain N-year requirement."""
 from __future__ import annotations
 
 import re
@@ -20,8 +24,13 @@ _WORD_NUMBERS = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "ten": 10,
 }
 _UNIT = r"(?:שנות|שנים|שנה|years?|yrs?)"
-# "3", "3+", "3-4", "3 – 5", "1.5" followed by a year unit; an optional "עד"/"up to" before it.
-_DIGITS = re.compile(rf"(עד\s*|up\s+to\s*)?(\d+(?:\.\d+)?)\s*(?:[-–]\s*\d+(?:\.\d+)?)?\s*\+?\s*{_UNIT}", re.IGNORECASE)
+# Added to N for "more than N" (N+, N-M ranges); small enough never to look like a real value.
+OPEN_ENDED = 0.01
+# "3", "3+", "+3", "3-4", "3 – 5", "1.5" followed by a year unit; an optional "עד"/"up to" before it.
+_DIGITS = re.compile(rf"(עד\s*|up\s+to\s*)?(\+\s*)?(\d+(?:\.\d+)?)\s*(?:[-–]\s*(\d+(?:\.\d+)?))?\s*(\+)?\s*{_UNIT}",
+                     re.IGNORECASE)
+_MORE_AFTER = re.compile(r"^\s*(?:\+|ומעלה|או\s+יותר|and\s+above|or\s+more|\bplus\b)", re.IGNORECASE)
+_MORE_BEFORE = re.compile(r"(?:מעל|יותר\s+מ-?|more\s+than|over|above)\s*$", re.IGNORECASE)
 _WORDS = re.compile(
     r"(עד\s*|up\s+to\s*)?(?<![א-ת])(שנה אחת|שנתיים|שלושה|שלוש|ארבעה|ארבע|חמישה|חמש|שישה|שש|שבעה|שבע|שמונה|עשר"
     r"|one|two|three|four|five|six|seven|eight|ten)(?:\s+(?:שנות|שנים|years?))?(?![א-ת])", re.IGNORECASE)
@@ -40,13 +49,26 @@ def required_years(text: str) -> float | None:
             continue
         if not _EXPERIENCE_LINE.search(line):
             continue
-        values = [0.0 if up_to else float(n) for up_to, n in _DIGITS.findall(line)]
+        values = []
+        for m in _DIGITS.finditer(line):
+            up_to, plus_before, low, high, plus_after = m.groups()
+            if up_to:
+                values.append(0.0)
+                continue
+            more = (plus_before or plus_after or (high and float(high) > float(low))
+                    or _MORE_AFTER.search(line[m.end():]) or _MORE_BEFORE.search(line[:m.start()]))
+            values.append(float(low) + (OPEN_ENDED if more else 0))
         numbered = _DIGITS.sub(" ", line)  # don't count "3 שנים" twice
-        for up_to, word in _WORDS.findall(numbered):
-            word = word.lower()
+        for m in _WORDS.finditer(numbered):
+            up_to, word = m.group(1), m.group(2).lower()
             # Hebrew number words need a unit or the word "שנתיים" itself to mean years.
             if word in ("שנתיים", "שנה אחת") or re.search(rf"{re.escape(word)}\s+(?:שנות|שנים|years?)", numbered, re.I):
-                values.append(0.0 if up_to else float(_WORD_NUMBERS[word]))
+                if up_to:
+                    values.append(0.0)
+                    continue
+                more = _MORE_AFTER.search(numbered[m.end():]) or _MORE_BEFORE.search(numbered[:m.start()]) \
+                    or numbered[:m.start()].rstrip().endswith("+")
+                values.append(float(_WORD_NUMBERS[word]) + (OPEN_ENDED if more else 0))
         if not values:
             for match in _ONE_YEAR.finditer(numbered):
                 values.append(0.0 if match.group(1) else 1.0)
@@ -54,3 +76,9 @@ def required_years(text: str) -> float | None:
     if not found:
         return None
     return max(found)
+
+
+def format_years(years: float) -> str:
+    """2 -> "2", 2.01 (open-ended) -> "2+", 1.5 -> "1.5"."""
+    base = round(years - OPEN_ENDED, 1)
+    return f"{base:g}+" if abs(years - base - OPEN_ENDED) < 1e-9 else f"{years:g}"

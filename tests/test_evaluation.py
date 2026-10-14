@@ -164,3 +164,19 @@ def test_yael_25688_is_junior_now(cfg):
                                 "היכרות / ניסיון בבדיקות אוטומציה- יתרון משמעותי")
     ev = service(cfg).evaluate(job, "run", NOW)
     assert ev.is_junior and ev.location_matched
+
+
+@pytest.mark.parametrize("text, shown", [
+    ("ניסיון של שנתיים", "2"), ("ניסיון של שנתיים לפחות", "2"), ("2+ שנות ניסיון", "2+"),
+    ("ניסיון +2 שנים", "2+"), ("שנתיים ומעלה ניסיון", "2+"), ("ניסיון של מעל שנתיים", "2+"),
+    ("2-3 שנות ניסיון", "2+"), ("1-2 שנות ניסיון", "1+"), ("4+ years of experience", "4+"),
+    ("experience: more than 4 years", "4+"), ("1.5 שנות ניסיון", "1.5"), ("ניסיון של עד שנה", "0"),
+])
+def test_open_ended_experience_is_more_than_n(text, shown):
+    from backend.domain.services.experience import format_years, required_years
+    assert format_years(required_years(text)) == shown
+
+
+def test_two_plus_years_is_not_junior(cfg):
+    ev = service(cfg).evaluate(make_job(title="מפתח/ת תוכנה", requirements="2+ שנות ניסיון"), "run", NOW)
+    assert not ev.is_junior and "experience_required (2+ > 2 years)" in ev.rejection_reasons

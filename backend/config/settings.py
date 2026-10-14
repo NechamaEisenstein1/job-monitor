@@ -76,6 +76,9 @@ class ExperienceConfig:
     # Junior = at most this many years required ("no experience" counts as 0).
     # A posting that requires more is never junior, whatever its keywords say.
     junior_max_years: float = 2
+    # Experience levels (the Jobs filter): A = junior; B = more than junior_max_years up to
+    # level_b_max_years; C = more than that. "2+" counts as more than 2.
+    level_b_max_years: float = 4
     # Title words that promise a junior role; a posting whose title says so but that
     # requires more than junior_max_years is flagged as a "fake junior".
     junior_title_keywords: tuple[str, ...] = (

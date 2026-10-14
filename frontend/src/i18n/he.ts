@@ -59,7 +59,7 @@ export const he = {
     agenciesHint: (first: string | null) =>
       `אותה משרה מפורסמת בכמה חברות השמה. הגישי דרך אחת בלבד - הגשה כפולה לאותו מעסיק עלולה לפסול.` +
       (first ? ` ${first} פרסמה ראשונה.` : ""),
-    fakeJunior: (years: number | null) => (years ? `"ג'וניור" מטעה: דורשת ${years} שנים` : `"ג'וניור" מטעה`),
+    fakeJunior: (years: number | null) => (years ? `"ג'וניור" מטעה: דורשת ${formatYears(years)} שנים` : `"ג'וניור" מטעה`),
     fakeJuniorHint: "בכותרת כתוב ג'וניור, אבל בדרישות מופיע ניסיון מעבר ל-2 שנים.",
     title: "שקיפות",
     openFor: (days: number) => (days === 0 ? "הופיעה היום" : `פתוחה לפחות ${days} ימים`),
@@ -397,6 +397,10 @@ export const he = {
     location: "מיקום",
     locationPlaceholder: "הכל",
     eligibility: "התאמה",
+    level: "רמת ניסיון",
+    levelA: "רמה א' - ג'וניור (עד שנתיים)",
+    levelB: "רמה ב' - 2+ עד 4 שנים",
+    levelC: "רמה ג' - מעל 4 שנים",
     status: "סטטוס",
     source: "מקור",
     sort: "מיון",
@@ -541,6 +545,12 @@ export const he = {
     days: (n: number) => `לפני ${n} ימים`,
   },
 };
+
+/** Required years as sent by the API: 2 -> "2", 2.01 (open-ended "2+") -> "2+", 1.5 -> "1.5". */
+export function formatYears(years: number): string {
+  const base = Math.round((years - 0.01) * 10) / 10;
+  return Math.abs(years - base - 0.01) < 1e-9 ? `${base}+` : `${years}`;
+}
 
 /** "strong_positive:junior" -> "חיובי חזק: junior"; "location:primary:ירושלים" -> "מיקום (ראשי): ירושלים" */
 export function ruleLabel(rule: string): string {
