@@ -315,3 +315,18 @@ class GmailConnectionRow(Base):
     refresh_token_enc: Mapped[str] = mapped_column(Text)
     scopes: Mapped[str] = mapped_column(String(500))
     connected_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+# ------------------------------------------------------------------ contact (migration 0007)
+
+class ContactMessageRow(Base):
+    """A message from a logged-in user to the site admin (question / complaint / suggestion)."""
+    __tablename__ = "contact_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    category: Mapped[str] = mapped_column(String(16))  # question | complaint | suggestion | other
+    subject: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    handled_at: Mapped[datetime | None] = mapped_column(DateTime)

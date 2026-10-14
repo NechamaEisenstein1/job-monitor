@@ -342,3 +342,22 @@ class BillingPricesDto(Dto):
     max_awarded_posts_per_day: int
     featured_job_points: int
     featured_job_days: int
+
+
+class ContactMessageDto(Dto):
+    id: int
+    category: str
+    subject: str
+    body: str
+    created_at: UtcDatetime
+    handled_at: UtcDatetime | None
+    user_name: str | None
+    user_email: str | None
+
+
+class ContactMessagePageDto(Dto):
+    items: list[ContactMessageDto]
+    total: int        # messages matching the filter (for paging)
+    open_count: int   # all unhandled messages, whatever page or filter is shown
+    page: int
+    page_size: int

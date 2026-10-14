@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import logging
 import secrets
-from typing import Annotated
+from datetime import timedelta
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.responses import RedirectResponse
@@ -18,6 +19,7 @@ from backend.bootstrap import account_service, outreach_service, recruiter_servi
 from backend.domain.enums import ExperienceLevel
 from backend.domain.models import User
 from backend.domain.services.user_matching import recruiters_at
+from backend.infrastructure.repositories.contact import SqlContactRepository
 from backend.infrastructure.repositories.read_models import SqlReadRepository
 from backend.infrastructure.repositories.sql import SqlJobRepository
 from backend.infrastructure.oauth.google import OAuthError, PkcePair
@@ -203,6 +205,31 @@ def update_profile(body: ProfileIn, user: CurrentUser, request: Request, session
     except AccountError as exc:
         raise _fail(exc) from exc
     return user_dto(updated)
+
+
+# ------------------------------------------------------------------ contact the site admin
+
+CONTACT_DAILY_LIMIT = 5  # messages per user per 24 hours (anti-spam)
+
+
+class ContactIn(BaseModel):
+    category: Literal["question", "complaint", "suggestion", "other"]
+    subject: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=5000)
+
+
+@router.post("/me/contact", status_code=201)
+def contact_admin(body: ContactIn, user: CurrentUser, session: DbSession) -> dict[str, int]:
+    subject, text = body.subject.strip(), body.body.strip()
+    if not subject or not text:
+        raise HTTPException(status_code=400, detail="contact_empty")
+    now = utcnow()
+    message_id = SqlContactRepository(session).add_within_limit(
+        user.id, body.category, subject, text, now, since=now - timedelta(days=1), limit=CONTACT_DAILY_LIMIT)
+    if message_id is None:
+        raise HTTPException(status_code=429, detail="contact_daily_limit")
+    log_event("contact_message", message_id=message_id, user_id=user.id, category=body.category)
+    return {"id": message_id}
 
 
 # ------------------------------------------------------------------ recruiters

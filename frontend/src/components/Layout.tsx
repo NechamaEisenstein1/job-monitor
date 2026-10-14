@@ -27,6 +27,7 @@ export function Layout() {
     ...(user.is_admin ? [{ to: "/runs", label: he.nav.runs }, { to: "/sources", label: he.nav.sources }] : []),
     ...(user.role !== "user" ? [{ to: "/recruiter", label: he.nav.recruiter }] : []),
     { to: "/billing", label: he.nav.billing },
+    { to: "/contact", label: he.nav.contact },
     ...(user.is_admin ? [{ to: "/admin", label: he.nav.admin }] : []),
   ];
 
