@@ -13,7 +13,8 @@ export type ChangeType = "new" | "content_updated" | "new_source" | "source_url_
 export type JobSort = "relevance" | "newest" | "updated" | "score";
 export type RoleType =
   | "software" | "data" | "devops" | "cyber" | "qa" | "embedded" | "hardware" | "product" | "it" | "other";
-export type ExperienceLevel = "junior" | "experienced";
+/** The level a user looks for: A = junior (up to 2 years), B = 2+ to 4, C = above 4. */
+export type ExperienceLevel = "a" | "b" | "c";
 
 export interface Evaluation {
   junior_score: number;
@@ -382,4 +383,16 @@ export interface ContactMessagePage {
   open_count: number;
   page: number;
   page_size: number;
+}
+
+/** A job the user marked "I applied"; kept (with job_id null) after the job leaves the board. */
+export interface JobApplication {
+  id: number;
+  job_id: number | null;
+  title: string;
+  client_company: string | null;
+  location: string | null;
+  source_url: string | null;
+  applied_at: string;
+  job_removed: boolean;
 }

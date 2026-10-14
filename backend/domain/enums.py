@@ -36,8 +36,16 @@ class JobChange(Enum):
 
 
 class ExperienceLevel(Enum):
-    JUNIOR = "junior"
-    EXPERIENCED = "experienced"
+    """The level a user is looking for (same levels as the Jobs filter):
+    A = junior (up to 2 years), B = 2+ to 4 years, C = more than 4."""
+    A = "a"
+    B = "b"
+    C = "c"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "ExperienceLevel | None":
+        # Values from before levels existed (old rows, an old browser tab).
+        return {"junior": cls.A, "experienced": cls.B}.get(value)  # type: ignore[arg-type]
 
 
 class OutreachStatus(Enum):

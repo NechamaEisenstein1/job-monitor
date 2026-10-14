@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from backend.config.settings import PROJECT_ROOT
-from tests.conftest import PASSWORD
+import pytest
+
+from tests.conftest import NOW, PASSWORD
 
 
 def recruiter(client, name="רותי", email="ruti@hms.example.com", company="HMS"):
@@ -317,3 +319,68 @@ def test_admin_messages_are_paged_and_the_open_count_covers_every_page(world):
     last = admin.get("/api/admin/messages", params={"page_size": 3, "page": 3}).json()
     assert [m["subject"] for m in last["items"]] == ["m0"]
     assert admin.get("/api/admin/messages", params={"page_size": 101}).status_code == 422
+
+
+# ------------------------------------------------------------------ level A / B / C in the personal area
+
+def test_matches_follow_the_users_level(world):
+    dana, yossi = world.client("junior@example.com"), world.client("senior@example.com")  # levels A and B
+    junior_matches = dana.get("/api/me/matches").json()["items"]
+    assert junior_matches and all(j["is_junior"] for j in junior_matches)
+    b_matches = yossi.get("/api/me/matches").json()["items"]
+    assert b_matches and not any(j["is_junior"] for j in b_matches)  # experienced users no longer get junior jobs
+    assert all(j["required_years"] is None or 2 < j["required_years"] <= 4 for j in b_matches)
+
+    me = yossi.get("/api/auth/me").json()
+    assert yossi.put("/api/me/profile", json={"display_name": me["display_name"], "experience_level": "c",
+                                              "alerts_enabled": True}).status_code == 200
+    c_matches = yossi.get("/api/me/matches").json()["items"]
+    assert all(not j["is_junior"] and (j["required_years"] is None or j["required_years"] > 4) for j in c_matches)
+
+
+@pytest.mark.parametrize("level, is_junior, years, expected", [
+    ("a", True, None, True), ("a", False, None, False), ("a", True, 2, True),
+    ("b", True, 1, False), ("b", False, 2.01, True), ("b", False, 4, True), ("b", False, 4.01, False),
+    ("b", False, None, True), ("c", False, 4.01, True), ("c", False, 3, False), ("c", False, None, True),
+])
+def test_alert_matching_uses_the_same_levels(level, is_junior, years, expected):
+    from backend.domain.enums import ExperienceLevel
+    from backend.domain.models import JobEvaluation
+    from backend.domain.services.user_matching import matches_profile
+    ev = JobEvaluation(job_id=1, scrape_run_id="r", junior_score=0.5, is_eligible=True, matched_rules=[],
+                       rejection_reasons=[], created_at=NOW, location_matched=True, role_type="software",
+                       is_junior=is_junior, required_years=years)
+    assert matches_profile(ev, ExperienceLevel(level), ["software"]) is expected
+
+
+# ------------------------------------------------------------------ "I applied"
+
+def test_applied_jobs_stay_listed_after_the_job_leaves_the_board(world):
+    from backend.infrastructure.repositories.sql import SqlJobRepository
+
+    dana, yossi = world.client("junior@example.com"), world.client("senior@example.com")
+    job = dana.get("/api/jobs").json()["items"][0]
+    assert dana.put(f"/api/me/applications/{job['id']}").status_code == 204
+    assert dana.put(f"/api/me/applications/{job['id']}").status_code == 204  # twice = once
+    assert dana.put("/api/me/applications/99999").status_code == 404
+    [entry] = dana.get("/api/me/applications").json()
+    assert entry["job_id"] == job["id"] and entry["title"] == job["title"] and entry["source_url"]
+    assert yossi.get("/api/me/applications").json() == []  # private to each user
+
+    with world.app.state.session_factory() as s:  # the daily refresh removes the job
+        SqlJobRepository(s).delete_many([job["id"]])
+        s.commit()
+    [entry] = dana.get("/api/me/applications").json()
+    assert entry["job_id"] is None and entry["job_removed"] and entry["title"] == job["title"]
+
+    assert yossi.delete(f"/api/me/applications/entry/{entry['id']}").status_code == 404  # not hers
+    assert dana.delete(f"/api/me/applications/entry/{entry['id']}").status_code == 204
+    assert dana.get("/api/me/applications").json() == []
+
+
+def test_unmarking_an_application(world):
+    dana = world.client("junior@example.com")
+    job_id = dana.get("/api/jobs").json()["items"][0]["id"]
+    dana.put(f"/api/me/applications/{job_id}")
+    assert dana.delete(f"/api/me/applications/{job_id}").status_code == 204
+    assert dana.get("/api/me/applications").json() == []

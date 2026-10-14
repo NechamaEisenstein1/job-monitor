@@ -12,7 +12,7 @@ from backend.infrastructure.oauth.google import GoogleProfile, OAuthError
 from tests.conftest import PASSWORD
 
 
-def register(client, email="new@example.com", level="junior"):
+def register(client, email="new@example.com", level="a"):
     return client.post("/api/auth/register", json={"email": email, "display_name": "נחמה", "password": PASSWORD,
                                                    "experience_level": level})
 
@@ -26,10 +26,10 @@ def verification_link(world, email):
 
 def test_register_logs_in_and_sends_verification(world):
     client = world.client()
-    response = register(client, level="experienced")
+    response = register(client, level="c")
     assert response.status_code == 201
     me = client.get("/api/auth/me").json()
-    assert me["email"] == "new@example.com" and me["experience_level"] == "experienced"
+    assert me["email"] == "new@example.com" and me["experience_level"] == "c"
     assert me["email_verified"] is False and me["has_password"] is True
     assert verification_link(world, "new@example.com")
 
@@ -222,3 +222,11 @@ def test_operator_can_vouch_for_a_fresh_admin_signup(world, cfg, session_factory
     assert [u.email for u in promoted] == ["owner@example.com"]
     me = client.get("/api/auth/me").json()
     assert me["is_admin"] and me["email_verified"]
+
+
+
+def test_old_level_values_still_work(world):
+    """An open tab from before levels A/B/C may still send "junior" / "experienced"."""
+    client = world.client()
+    assert register(client, level="experienced").status_code == 201
+    assert client.get("/api/auth/me").json()["experience_level"] == "b"

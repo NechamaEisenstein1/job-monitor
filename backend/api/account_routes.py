@@ -12,13 +12,14 @@ from pydantic import BaseModel, Field
 
 from backend.api.deps import SESSION_COOKIE, CurrentUser, DbSession, csrf_protect
 from backend.application.dto import (
-    AuthConfigDto, JobListDto, OutreachLogDto, OutreachResultDto, RecruiterDto, UserDto,
+    AuthConfigDto, JobApplicationDto, JobListDto, OutreachLogDto, OutreachResultDto, RecruiterDto, UserDto,
 )
 from backend.application.use_cases.accounts import AccountError, RecruiterInput
 from backend.bootstrap import account_service, outreach_service, recruiter_service, utcnow, verification_service
 from backend.domain.enums import ExperienceLevel
 from backend.domain.models import User
 from backend.domain.services.user_matching import recruiters_at
+from backend.infrastructure.repositories.applications import SqlApplicationRepository
 from backend.infrastructure.repositories.contact import SqlContactRepository
 from backend.infrastructure.repositories.read_models import SqlReadRepository
 from backend.infrastructure.repositories.sql import SqlJobRepository
@@ -81,7 +82,7 @@ class RegisterIn(BaseModel):
     email: str = Field(max_length=320)
     display_name: str = Field(max_length=200)
     password: str = Field(max_length=200)
-    experience_level: ExperienceLevel = ExperienceLevel.JUNIOR
+    experience_level: ExperienceLevel = ExperienceLevel.A
 
 
 @router.post("/auth/register", response_model=UserDto, status_code=201)
@@ -207,6 +208,31 @@ def update_profile(body: ProfileIn, user: CurrentUser, request: Request, session
     return user_dto(updated)
 
 
+# ------------------------------------------------------------------ jobs the user applied to
+
+@router.get("/me/applications", response_model=list[JobApplicationDto])
+def my_applications(user: CurrentUser, session: DbSession) -> list[JobApplicationDto]:
+    return SqlApplicationRepository(session).list(user.id)
+
+
+@router.put("/me/applications/{job_id}", status_code=204)
+def mark_applied(job_id: Annotated[int, Path(ge=1)], user: CurrentUser, session: DbSession) -> None:
+    if not SqlApplicationRepository(session).mark(user.id, job_id, utcnow()):
+        raise HTTPException(status_code=404, detail="not_found")
+
+
+@router.delete("/me/applications/{job_id}", status_code=204)
+def unmark_applied(job_id: Annotated[int, Path(ge=1)], user: CurrentUser, session: DbSession) -> None:
+    SqlApplicationRepository(session).unmark(user.id, job_id)
+
+
+@router.delete("/me/applications/entry/{application_id}", status_code=204)
+def remove_application(application_id: Annotated[int, Path(ge=1)], user: CurrentUser, session: DbSession) -> None:
+    """Removes an entry whose job already left the board (it has no job id any more)."""
+    if not SqlApplicationRepository(session).remove(user.id, application_id):
+        raise HTTPException(status_code=404, detail="not_found")
+
+
 # ------------------------------------------------------------------ contact the site admin
 
 CONTACT_DAILY_LIMIT = 5  # messages per user per 24 hours (anti-spam)
@@ -290,7 +316,8 @@ def my_matches(
     cfg = request.app.state.cfg
     result = SqlReadRepository(session, request.app.state.cfg.signals).list_jobs(
         status="active", role_types=cfg.roles.eligible_types, location_matched=True, government=government,
-        junior=True if user.experience_level == ExperienceLevel.JUNIOR else None,
+        level=user.experience_level.value, level_includes_unstated=True,
+        level_years=(cfg.experience.junior_max_years, cfg.experience.level_b_max_years),
         sort="relevance", page=page, page_size=page_size,
     )
     recruiters = recruiter_service(session).list(user)

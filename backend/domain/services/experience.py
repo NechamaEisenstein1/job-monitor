@@ -87,3 +87,21 @@ def format_years(years: float) -> str:
     """2 -> "2", 2.01 (open-ended) -> "2+", 1.5 -> "1.5"."""
     base = round(years - OPEN_ENDED, 1)
     return f"{base:g}+" if abs(years - base - OPEN_ENDED) < 1e-9 else f"{years:g}"
+
+
+def in_level(level: str, is_junior: bool, years: float | None, junior_max: float, b_max: float,
+             include_unstated: bool = False) -> bool:
+    """A = junior; B / C = not junior and required years in (junior_max, b_max] / above b_max.
+    A non-junior posting that states no requirement has no level; `include_unstated` lets it
+    count for B and C (a user looking for experienced roles should still see "Senior X")."""
+    if level == "a":
+        return is_junior
+    if is_junior:
+        return False
+    if years is None:
+        return include_unstated
+    if level == "b":
+        return junior_max < years <= b_max
+    if level == "c":
+        return years > b_max
+    raise ValueError(f"unknown experience level {level!r}")

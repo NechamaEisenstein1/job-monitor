@@ -79,7 +79,7 @@ def _create_user(email: str, name: str, admin: bool, experienced: bool) -> int:
         try:
             user = account_service(session, load_matching_config(settings.config_dir)).create_user(
                 email, name, password, is_admin=admin,
-                level=ExperienceLevel.EXPERIENCED if experienced else ExperienceLevel.JUNIOR)
+                level=ExperienceLevel.B if experienced else ExperienceLevel.A)
         except AccountError as exc:
             print(f"Error: {exc.code}")
             return 1
@@ -152,7 +152,7 @@ def main() -> int:
     create.add_argument("--email", required=True)
     create.add_argument("--name", required=True)
     create.add_argument("--admin", action="store_true")
-    create.add_argument("--experienced", action="store_true", help="experienced profile (default: junior)")
+    create.add_argument("--experienced", action="store_true", help="level B profile (default: level A, junior)")
     sub.add_parser("ensure-admins", help="grant admin to verified accounts listed in ADMIN_EMAILS")
     vouch = sub.add_parser("vouch-admins", help="make recently registered ADMIN_EMAILS accounts verified admins")
     vouch.add_argument("--hours", type=int, default=24, help="only accounts registered in the last N hours")

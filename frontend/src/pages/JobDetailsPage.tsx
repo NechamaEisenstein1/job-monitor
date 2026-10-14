@@ -1,11 +1,13 @@
 import { useParams } from "react-router-dom";
 
+import { AppliedCheckbox } from "../components/AppliedCheckbox";
 import { ChangeList } from "../components/ChangeList";
 import { JobCard } from "../components/JobCard";
 import { BackLink, Card, PageHeader } from "../components/Layout";
 import { SourceList } from "../components/SourceList";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { useApi } from "../hooks/useApi";
+import { useApplications } from "../hooks/useApplications";
 import { he } from "../i18n/he";
 import { api } from "../services/api";
 import { formatDate, formatDateTime } from "../services/format";
@@ -49,6 +51,7 @@ export function JobDetailsPage() {
   const job = useApi(() => api.job(id), `job-${id}`);
   const sources = useApi(() => api.jobSources(id), `sources-${id}`);
   const history = useApi(() => api.jobHistory(id), `history-${id}`);
+  const applications = useApplications();
 
   if (job.error) return <ErrorState error={job.error} onRetry={job.reload} />;
   if (!job.data) return <LoadingState rows={10} />;
@@ -60,7 +63,12 @@ export function JobDetailsPage() {
       <PageHeader
         title={j.title}
         subtitle={he.job.subtitle(formatDateTime(j.first_seen_at), formatDateTime(j.updated_at), formatDateTime(j.last_seen_at))}
-      />
+      >
+        <div className="rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm">
+          <AppliedCheckbox jobId={j.id} applications={applications} />
+          {applications.error && <p role="alert" className="mt-1 text-xs text-rose-700">{applications.error}</p>}
+        </div>
+      </PageHeader>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2">
           <Card><JobCard job={j} /></Card>

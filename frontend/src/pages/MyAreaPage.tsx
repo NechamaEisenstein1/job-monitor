@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { AppliedCheckbox } from "../components/AppliedCheckbox";
 import { Card, PageHeader } from "../components/Layout";
 import { Pagination } from "../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { JUNIOR_HIGHLIGHT, JuniorBadge, RoleBadge, TenderBadge } from "../components/StatusBadge";
 import { useApi } from "../hooks/useApi";
+import { type Applications, useApplications } from "../hooks/useApplications";
 import { useAuth, useUser } from "../hooks/useAuth";
 import { he } from "../i18n/he";
 import { api, PAGE_SIZE } from "../services/api";
@@ -251,12 +253,13 @@ function OutreachButton({ job, recruiterCount, gmailConnected, onSent }: {
   );
 }
 
-function MatchesCard({ recruiterCount, gmailConnected, onSent }: {
-  recruiterCount: number; gmailConnected: boolean; onSent: () => void;
+function MatchesCard({ recruiterCount, gmailConnected, onSent, applications }: {
+  recruiterCount: number; gmailConnected: boolean; onSent: () => void; applications: Applications;
 }) {
+  const level = useUser().experience_level;  // matches follow the level saved in the profile
   const [page, setPage] = useState(1);
   const [tendersOnly, setTendersOnly] = useState(false);
-  const matches = useApi(() => api.matches(page, tendersOnly || undefined), `matches-${page}-${tendersOnly}`);
+  const matches = useApi(() => api.matches(page, tendersOnly || undefined), `matches-${level}-${page}-${tendersOnly}`);
 
   return (
     <Card title={m.matches} flush actions={
@@ -289,12 +292,73 @@ function MatchesCard({ recruiterCount, gmailConnected, onSent }: {
                       <span className="font-medium text-emerald-700">{m.knownRecruiters(job.known_recruiters.join(", "))}</span>
                     )}
                   </div>
-                  <OutreachButton job={job} recruiterCount={recruiterCount} gmailConnected={gmailConnected} onSent={onSent} />
+                  <div className="flex flex-wrap items-center gap-4">
+                    <OutreachButton job={job} recruiterCount={recruiterCount} gmailConnected={gmailConnected} onSent={onSent} />
+                    <AppliedCheckbox jobId={job.id} applications={applications} />
+                  </div>
                 </li>
               ))}
             </ul>
             <Pagination page={page} pageSize={PAGE_SIZE} total={matches.data.total} onPage={setPage} />
           </>
+        )}
+    </Card>
+  );
+}
+
+// ------------------------------------------------------------------ jobs I applied to
+
+function AppliedCard({ applications }: { applications: Applications }) {
+  const t = he.applied;
+  const { list } = applications;
+  const [error, setError] = useState<string>();
+
+  async function remove(entryId: number) {
+    setError(undefined);
+    try {
+      await api.removeApplication(entryId);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+    list.reload();
+  }
+
+  return (
+    <Card title={`${t.title}${list.data ? ` (${list.data.length})` : ""}`} flush>
+      <p className="px-4 pt-3 text-xs text-slate-500">{t.hint}</p>
+      {(error ?? applications.error) && <p role="alert" className="px-4 pt-2 text-sm text-rose-700">{error ?? applications.error}</p>}
+      {list.error ? <div className="p-4"><ErrorState error={list.error} onRetry={list.reload} /></div>
+        : !list.data ? <LoadingState rows={3} />
+        : !list.data.length ? <EmptyState title={t.empty} />
+        : (
+          <ul className="divide-y divide-slate-100">
+            {list.data.map((a) => (
+              <li key={a.id} className="space-y-1 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {a.job_id !== null
+                    ? <Link to={`/jobs/${a.job_id}`} className="font-medium text-slate-900 hover:underline" dir="auto">{a.title}</Link>
+                    : <span className="font-medium text-slate-700" dir="auto">{a.title}</span>}
+                  {a.job_removed && (
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{t.removed}</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                  {(a.client_company || a.location) && (
+                    <span dir="auto">{[a.client_company, a.location].filter(Boolean).join(" · ")}</span>
+                  )}
+                  <span>{t.appliedOn(formatDateTime(a.applied_at))}</span>
+                  {a.source_url && (
+                    <a href={a.source_url} target="_blank" rel="noopener noreferrer" className="text-sky-700 hover:underline">
+                      {t.original}
+                    </a>
+                  )}
+                  {a.job_id !== null
+                    ? <button onClick={() => applications.toggle(a.job_id!, false)} className="text-slate-600 hover:underline">{t.unmark}</button>
+                    : <button onClick={() => remove(a.id)} className="text-slate-600 hover:underline">{t.remove}</button>}
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
     </Card>
   );
@@ -402,6 +466,7 @@ export function MyAreaPage() {
   const recruiters = useApi(api.recruiters, "recruiters");
   const gmail = useApi(api.gmailStatus, "gmail-status");
   const [sentVersion, setSentVersion] = useState(0);
+  const applications = useApplications();
   const { setUser } = useAuth();
 
   useEffect(() => {
@@ -416,7 +481,8 @@ export function MyAreaPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2">
           <MatchesCard recruiterCount={recruiters.data?.length ?? 0} gmailConnected={!!gmail.data?.connected}
-                       onSent={() => setSentVersion((v) => v + 1)} />
+                       onSent={() => setSentVersion((v) => v + 1)} applications={applications} />
+          <AppliedCard applications={applications} />
           <OutreachLogCard version={sentVersion} />
         </div>
         <div className="min-w-0 space-y-6">

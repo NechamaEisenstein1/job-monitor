@@ -6,15 +6,18 @@ from dataclasses import dataclass
 
 from backend.domain.enums import ExperienceLevel
 from backend.domain.models import Job, JobEvaluation, Recruiter
+from backend.domain.services.experience import in_level
 from backend.domain.services.normalization import company_key
 
 
-def matches_profile(evaluation: JobEvaluation, level: ExperienceLevel, eligible_role_types: Iterable[str]) -> bool:
-    """Location and role type always apply. Junior users get junior roles only;
-    experienced users get every seniority."""
+def matches_profile(evaluation: JobEvaluation, level: ExperienceLevel, eligible_role_types: Iterable[str],
+                    junior_max: float = 2, b_max: float = 4) -> bool:
+    """Location and role type always apply, then the user's level (A / B / C). Postings that
+    state no experience and are not junior count for B and C."""
     if not evaluation.location_matched or evaluation.role_type not in set(eligible_role_types):
         return False
-    return evaluation.is_junior if level == ExperienceLevel.JUNIOR else True
+    return in_level(level.value, evaluation.is_junior, evaluation.required_years, junior_max, b_max,
+                    include_unstated=True)
 
 
 def recruiters_at(job: Job, recruitment_companies: Iterable[str], recruiters: Iterable[Recruiter]) -> list[Recruiter]:

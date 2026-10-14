@@ -29,7 +29,7 @@ function Tile({ label, value, warn }: { label: string; value: number; warn?: boo
 
 function NewUserForm({ onCreated }: { onCreated: () => void }) {
   const [form, setForm] = useState({ email: "", display_name: "", password: "", is_admin: false,
-    experience_level: "junior" as ExperienceLevel });
+    experience_level: "a" as ExperienceLevel });
   const [error, setError] = useState<string>();
 
   async function submit(e: React.FormEvent) {

@@ -106,7 +106,7 @@ class AccountService:
             else:
                 user = self._users.save(User(
                     id=None, email=_email(profile.email), display_name=_text(profile.name, "invalid_name"),
-                    password_hash=None, role=UserRole.USER, is_active=True, experience_level=ExperienceLevel.JUNIOR,
+                    password_hash=None, role=UserRole.USER, is_active=True, experience_level=ExperienceLevel.A,
                     alerts_enabled=True, created_at=self._clock(), google_sub=profile.sub,
                     email_verified=profile.email_verified))
                 created = True
@@ -147,7 +147,7 @@ class AccountService:
     # ------------------------------------------------------------- accounts
 
     def create_user(self, email: str, display_name: str, password: str, *, is_admin: bool = False,
-                    level: ExperienceLevel = ExperienceLevel.JUNIOR, email_verified: bool = True) -> User:
+                    level: ExperienceLevel = ExperienceLevel.A, email_verified: bool = True) -> User:
         """Admin/CLI-created accounts are trusted (verified); self sign-up passes False."""
         user = User(id=None, email=_email(email), display_name=_text(display_name, "invalid_name"),
                     password_hash=hash_password(_password(password)),

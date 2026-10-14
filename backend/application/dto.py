@@ -361,3 +361,14 @@ class ContactMessagePageDto(Dto):
     open_count: int   # all unhandled messages, whatever page or filter is shown
     page: int
     page_size: int
+
+
+class JobApplicationDto(Dto):
+    id: int
+    job_id: int | None        # None once the job left the board
+    title: str
+    client_company: str | None
+    location: str | None
+    source_url: str | None
+    applied_at: UtcDatetime
+    job_removed: bool
