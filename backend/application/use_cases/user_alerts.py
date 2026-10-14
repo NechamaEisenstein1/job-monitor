@@ -9,7 +9,7 @@ from collections.abc import Callable
 from datetime import date, datetime
 
 from backend.config.settings import MatchingConfig
-from backend.domain.models import JobEvaluation
+from backend.domain.models import Job, JobEvaluation, JobSource, Recruiter
 from backend.domain.services.user_matching import AlertItem, matches_profile, recruiters_at
 from backend.infrastructure.email.renderer import render_user_alert
 from backend.infrastructure.email.senders import EmailSender
@@ -39,11 +39,23 @@ class UserAlertService:
         self._clock = clock
 
     def send_for_run(self, run_id: str, scheduled_date: date) -> int:
-        """Returns how many users were emailed."""
+        """Returns how many users were emailed.
+
+        Everything the emails need is loaded up front in a handful of queries; the loop over
+        users then only writes each user's alert record (one round trip per user)."""
         evaluations = self._evaluations.list_for_run(run_id)
+        job_ids = [ev.job_id for ev in evaluations]
+        jobs = self._jobs.get_many(job_ids)
+        sources = self._sources.list_for_jobs(sorted(jobs))
+        alerted = self._alerts.alerted_job_ids_by_user(job_ids)
+        recruiters = self._recruiters.list_by_user()
+        recipients = self._users.list_alert_recipients()
+        self._alerts.end_read()  # no transaction stays open while emails are sent
+
         emailed = 0
-        for user in self._users.list_alert_recipients():
-            items = self._items_for(user, evaluations)
+        for user in recipients:
+            items = self._items_for(user, evaluations, jobs, sources, alerted.get(user.id, set()),
+                                    recruiters.get(user.id, []))
             if not items:
                 continue
             email = render_user_alert(user.display_name, items, scheduled_date,
@@ -59,19 +71,20 @@ class UserAlertService:
             emailed += 1
         return emailed
 
-    def _items_for(self, user, evaluations: list[JobEvaluation]) -> list[AlertItem]:  # noqa: ANN001
-        already = self._alerts.alerted_job_ids(user.id)
-        recruiters = self._recruiters.list_for_user(user.id)
+    def _items_for(self, user, evaluations: list[JobEvaluation], jobs: dict[int, Job],  # noqa: ANN001
+                   sources: dict[int, list[JobSource]], already: set[int],
+                   recruiters: list[Recruiter]) -> list[AlertItem]:
         items = []
         for ev in evaluations:
-            if ev.job_id in already or not matches_profile(ev, user.experience_level, self._cfg.roles.eligible_types):
+            job = jobs.get(ev.job_id)
+            if job is None or ev.job_id in already \
+                    or not matches_profile(ev, user.experience_level, self._cfg.roles.eligible_types):
                 continue
-            job = self._jobs.get(ev.job_id)
-            sources = self._sources.list_for_job(ev.job_id)
-            known = recruiters_at(job, [s.recruitment_company for s in sources], recruiters)
+            job_sources = sources.get(ev.job_id, [])
+            known = recruiters_at(job, [s.recruitment_company for s in job_sources], recruiters)
             items.append(AlertItem(
                 job_id=job.id, title=job.title, location=job.location, client_company=job.client_company,
                 junior_score=ev.junior_score, is_government_tender=ev.is_government_tender,
-                source_urls=[s.source_url for s in sources], recruiter_names=[r.name for r in known],
+                source_urls=[s.source_url for s in job_sources], recruiter_names=[r.name for r in known],
             ))
         return items

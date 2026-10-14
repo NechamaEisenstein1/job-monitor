@@ -80,6 +80,15 @@ class SqlJobRepository:
         _pin(self._s, rows)  # the run reads and updates these jobs again: no second trip
         return [to_domain(r, Job, _JOB_ENUMS) for r in rows]
 
+    def get_many(self, job_ids: list[int]) -> dict[int, Job]:
+        """get for many jobs in a few queries; ids that no longer exist are left out."""
+        ids = sorted(set(job_ids))
+        result: dict[int, Job] = {}
+        for start in range(0, len(ids), 500):
+            for row in self._s.scalars(select(JobRow).where(JobRow.id.in_(ids[start:start + 500]))):
+                result[row.id] = to_domain(row, Job, _JOB_ENUMS)
+        return result
+
     def find(self, job_id: int) -> Job | None:
         row = self._s.get(JobRow, job_id)
         return to_domain(row, Job, _JOB_ENUMS) if row else None
@@ -389,3 +398,6 @@ class SqlUnitOfWork:
 
     def commit(self) -> None:
         self.session.commit()
+
+    def rollback(self) -> None:
+        self.session.rollback()

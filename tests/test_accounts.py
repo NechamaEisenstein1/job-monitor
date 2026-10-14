@@ -178,3 +178,31 @@ def test_admin_manages_users(world):
     assert dana.get("/api/auth/me").status_code == 401
     # An admin cannot lock themselves out.
     assert admin.put(f"/api/admin/users/{world.admin.id}", json={"is_admin": False}).status_code == 400
+
+
+def test_alert_queries_do_not_grow_with_users(world):
+    """Alerts load everything in a few queries up front: more users must not mean more SELECTs."""
+    from sqlalchemy import Engine, event
+
+    selects = {"n": 0}
+
+    def count(conn, cursor, statement, *args):  # noqa: ANN001
+        if statement.lstrip().upper().startswith("SELECT"):
+            selects["n"] += 1
+
+    def selects_for_run() -> int:
+        selects["n"] = 0
+        world.run_day("day1")  # nothing new: every user is checked, nobody is emailed
+        return selects["n"]
+
+    event.listen(Engine, "before_cursor_execute", count)
+    try:
+        baseline = selects_for_run()
+        admin = world.client("admin@example.com")
+        for i in range(5):
+            admin.post("/api/admin/users", json={"email": f"u{i}@example.com", "display_name": "x",
+                                                 "password": "another-long-password"})
+        world.run_day("day1")  # the new users get their first (and only) alert
+        assert selects_for_run() == baseline
+    finally:
+        event.remove(Engine, "before_cursor_execute", count)
