@@ -81,7 +81,9 @@ class UserAlertService:
         for ev in evaluations:
             job = jobs.get(ev.job_id)
             if job is None or ev.job_id in already \
-                    or not matches_profile(ev, user.experience_level, self._cfg.roles.eligible_types):
+                    or not matches_profile(ev, user.experience_level, self._cfg.roles.eligible_types,
+                                                       self._cfg.experience.junior_max_years,
+                                                       self._cfg.experience.level_b_max_years):
                 continue
             job_sources = sources.get(ev.job_id, [])
             known = recruiters_at(job, [s.recruitment_company for s in job_sources], recruiters)

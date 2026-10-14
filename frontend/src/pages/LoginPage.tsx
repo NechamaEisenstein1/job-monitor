@@ -44,7 +44,7 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [level, setLevel] = useState<ExperienceLevel>("junior");
+  const [level, setLevel] = useState<ExperienceLevel>("a");
   const urlError = new URLSearchParams(window.location.search).get("auth_error");
   const [error, setError] = useState<string | undefined>(urlError ? errorLabel(urlError) : undefined);
   const [busy, setBusy] = useState(false);

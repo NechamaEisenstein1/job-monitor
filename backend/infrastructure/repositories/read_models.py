@@ -46,17 +46,20 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def _level_condition(level: str, junior_max: float, b_max: float):  # noqa: ANN202
-    """A = junior; B / C = not junior and required years in (junior_max, b_max] / above b_max.
-    A non-junior posting that states no experience requirement has no level."""
+def _level_condition(level: str, junior_max: float, b_max: float, include_unstated: bool = False):  # noqa: ANN202
+    """SQL form of experience.in_level: A = junior; B / C = not junior and required years in
+    (junior_max, b_max] / above b_max; `include_unstated` adds non-junior postings with no
+    stated requirement to B and C."""
     years = JobEvaluationRow.required_years
     if level == "a":
         return JobEvaluationRow.is_junior.is_(True)
     if level == "b":
-        return and_(JobEvaluationRow.is_junior.is_(False), years > junior_max, years <= b_max)
-    if level == "c":
-        return and_(JobEvaluationRow.is_junior.is_(False), years > b_max)
-    raise ValueError(f"unknown experience level {level!r}")
+        stated = and_(years > junior_max, years <= b_max)
+    elif level == "c":
+        stated = years > b_max
+    else:
+        raise ValueError(f"unknown experience level {level!r}")
+    return and_(JobEvaluationRow.is_junior.is_(False), or_(stated, years.is_(None)) if include_unstated else stated)
 
 
 class SqlReadRepository:
@@ -75,6 +78,7 @@ class SqlReadRepository:
                   status: str | None = None, source: str | None = None, role_types: list[str] | None = None,
                   government: bool | None = None, junior: bool | None = None, location_matched: bool | None = None,
                   level: str | None = None, level_years: tuple[float, float] = (2, 4),
+                  level_includes_unstated: bool = False,
                   sort: str = "relevance", page: int = 1, page_size: int = 25) -> JobListDto:
         latest_eval = _latest_evaluation_id()
         stmt = select(JobRow, JobEvaluationRow).outerjoin(JobEvaluationRow, JobEvaluationRow.id == latest_eval)
@@ -85,7 +89,7 @@ class SqlReadRepository:
         if junior is not None:
             stmt = stmt.where(JobEvaluationRow.is_junior.is_(junior))
         if level:
-            stmt = stmt.where(_level_condition(level, *level_years))
+            stmt = stmt.where(_level_condition(level, *level_years, include_unstated=level_includes_unstated))
         if location_matched is not None:
             stmt = stmt.where(JobEvaluationRow.location_matched.is_(location_matched))
         if q:

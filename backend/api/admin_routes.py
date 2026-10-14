@@ -44,7 +44,7 @@ class NewUserIn(BaseModel):
     display_name: str = Field(max_length=200)
     password: str = Field(max_length=200)
     is_admin: bool = False
-    experience_level: ExperienceLevel = ExperienceLevel.JUNIOR
+    experience_level: ExperienceLevel = ExperienceLevel.A
 
 
 @router.post("/users", response_model=UserDto, status_code=201)

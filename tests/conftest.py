@@ -90,7 +90,7 @@ def world(cfg, session_factory, tmp_path):
         accounts = account_service(s, cfg)
         admin = accounts.create_user("admin@example.com", "מנהלת", PASSWORD, is_admin=True)
         junior = accounts.create_user("junior@example.com", "דנה", PASSWORD)
-        senior = accounts.create_user("senior@example.com", "יוסי", PASSWORD, level=ExperienceLevel.EXPERIENCED)
+        senior = accounts.create_user("senior@example.com", "יוסי", PASSWORD, level=ExperienceLevel.B)
 
     def run_day(day: str):
         with session_factory() as s, session_factory() as ns, session_factory() as als:

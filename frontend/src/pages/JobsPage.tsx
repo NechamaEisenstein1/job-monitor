@@ -6,6 +6,7 @@ import { Card, PageHeader } from "../components/Layout";
 import { Pagination } from "../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { useApi } from "../hooks/useApi";
+import { useApplications } from "../hooks/useApplications";
 import { api, PAGE_SIZE } from "../services/api";
 import type { JobFilterValues } from "../types/api";
 import { he } from "../i18n/he";
@@ -46,6 +47,7 @@ export function JobsPage() {
   const [filters, setFilters] = useJobFilters();
   const jobs = useApi(() => api.jobs(filters), JSON.stringify(filters));
   const sources = useApi(api.sources, "sources");
+  const applications = useApplications();
 
   return (
     <>
@@ -59,7 +61,8 @@ export function JobsPage() {
             <LoadingState rows={8} />
           ) : jobs.data?.items.length ? (
             <div className={jobs.loading ? "opacity-60" : ""}>
-              <JobTable jobs={jobs.data.items} />
+              {applications.error && <p role="alert" className="px-4 pt-3 text-sm text-rose-700">{applications.error}</p>}
+              <JobTable jobs={jobs.data.items} applications={applications} />
               <Pagination page={filters.page} pageSize={PAGE_SIZE} total={jobs.data.total}
                           onPage={(page) => setFilters({ page })} />
             </div>

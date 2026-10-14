@@ -1,6 +1,6 @@
 import { errorLabel, he } from "../i18n/he";
 import type {
-  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
+  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, JobApplication, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
   GmailStatus, ManualJob, ManualJobInput, OutreachLogEntry, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
   ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
@@ -89,6 +89,12 @@ export const api = {
   outreachLog: () => get<OutreachLogEntry[]>("/me/outreach"),
   gmailStatus: () => get<GmailStatus>("/gmail/status"),
   gmailDisconnect: () => post<void>("/gmail/disconnect"),
+
+  // jobs the user applied to
+  applications: () => get<JobApplication[]>("/me/applications"),
+  markApplied: (jobId: number) => put<void>(`/me/applications/${jobId}`, {}),
+  unmarkApplied: (jobId: number) => del(`/me/applications/${jobId}`),
+  removeApplication: (entryId: number) => del(`/me/applications/entry/${entryId}`),
 
   // contact the site admin
   contactAdmin: (m: { category: ContactCategory; subject: string; body: string }) => post<{ id: number }>("/me/contact", m),

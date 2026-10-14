@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 
+import type { Applications } from "../hooks/useApplications";
 import type { JobListItem } from "../types/api";
+import { AppliedCheckbox } from "./AppliedCheckbox";
 import { he } from "../i18n/he";
 import { formatDate, formatRelative } from "../services/format";
 import { ScoreBadge } from "./ScoreBadge";
@@ -9,7 +11,7 @@ import { td, th } from "./Layout";
 
 const c = he.jobs.columns;
 
-export function JobTable({ jobs }: { jobs: JobListItem[] }) {
+export function JobTable({ jobs, applications }: { jobs: JobListItem[]; applications?: Applications }) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-slate-100">
@@ -18,6 +20,7 @@ export function JobTable({ jobs }: { jobs: JobListItem[] }) {
             {[c.title, c.client, c.location, c.score, c.status, c.sources, c.lastSeen, c.updated].map((h) => (
               <th key={h} className={th}>{h}</th>
             ))}
+            {applications && <th className={th}>{he.applied.column}</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -50,6 +53,7 @@ export function JobTable({ jobs }: { jobs: JobListItem[] }) {
               </td>
               <td className={`${td} whitespace-nowrap`}>{formatRelative(job.last_seen_at)}</td>
               <td className={`${td} whitespace-nowrap`}>{formatDate(job.updated_at)}</td>
+              {applications && <td className={td}><AppliedCheckbox jobId={job.id} applications={applications} /></td>}
             </tr>
           ))}
         </tbody>

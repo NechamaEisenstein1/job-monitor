@@ -171,7 +171,7 @@ class UserRow(Base):
     password_hash: Mapped[str | None] = mapped_column(String(300))  # None = Google-only account
     role: Mapped[str] = mapped_column(String(16), default="user")  # user | recruiter | admin
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    experience_level: Mapped[str] = mapped_column(String(16), default="junior")
+    experience_level: Mapped[str] = mapped_column(String(16), default="a")  # a | b | c
     alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
@@ -330,3 +330,21 @@ class ContactMessageRow(Base):
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     handled_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+# ------------------------------------------------------------------ applications (migration 0008)
+
+class JobApplicationRow(Base):
+    """A job the user marked "I applied". The job's details are copied in, so the entry stays
+    in the user's list after the job leaves the board (job_id then becomes NULL)."""
+    __tablename__ = "job_applications"
+    __table_args__ = (UniqueConstraint("user_id", "job_id", name="uq_job_applications_user_job"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    title: Mapped[str] = mapped_column(String(500))
+    client_company: Mapped[str | None] = mapped_column(String(300))
+    location: Mapped[str | None] = mapped_column(String(300))
+    source_url: Mapped[str | None] = mapped_column(Text)
+    applied_at: Mapped[datetime] = mapped_column(DateTime)
