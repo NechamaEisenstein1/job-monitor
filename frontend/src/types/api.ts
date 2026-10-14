@@ -181,6 +181,7 @@ export interface JobFilterValues {
   source: string;
   role_type: RoleType | "tech" | "all";
   government: "" | "true";
+  level: "" | "a" | "b" | "c";
   sort: JobSort;
   page: number;
 }

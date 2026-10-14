@@ -276,3 +276,20 @@ def test_other_errors_when_finishing_are_not_retried(cfg, session_factory):
         with pytest.raises(ValueError):
             asyncio.run(_pipeline_with(uow, cfg, ns).run())
         assert uow.attempts == 1
+
+
+def test_experience_levels_split_at_two_and_four_years(harness, session_factory):
+    from backend.infrastructure.repositories.read_models import SqlReadRepository
+
+    reqs = {"A0": "ללא ניסיון", "A2": "ניסיון של שנתיים", "B2+": "2+ שנות ניסיון", "B3": "3-4 שנות ניסיון",
+            "B4": "ניסיון של 4 שנים", "C4+": "4+ years of experience", "C6": "ניסיון של 6 שנים"}
+    harness(FakeScraper("Matrix", [job(k, title=f"מפתח/ת תוכנה {k}", description=v) for k, v in reqs.items()]))
+
+    def titles(level):
+        with session_factory() as s:
+            items = SqlReadRepository(s).list_jobs(level=level, page_size=100).items
+        return sorted(i.title.split()[-1] for i in items)
+
+    assert titles("a") == ["A0", "A2"]
+    assert titles("b") == ["B2+", "B3", "B4"]
+    assert titles("c") == ["C4+", "C6"]

@@ -46,6 +46,16 @@ export function JobFilters({ value, sources, onChange }: {
         </select>
       </label>
       <label className={label}>
+        {f.level}
+        <select className={control} value={value.level}
+                onChange={(e) => onChange({ level: e.target.value as JobFilterValues["level"] })}>
+          <option value="">{f.all}</option>
+          <option value="a">{f.levelA}</option>
+          <option value="b">{f.levelB}</option>
+          <option value="c">{f.levelC}</option>
+        </select>
+      </label>
+      <label className={label}>
         {f.status}
         <select className={control} value={value.status}
                 onChange={(e) => onChange({ status: e.target.value as JobFilterValues["status"] })}>

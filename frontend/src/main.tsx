@@ -36,7 +36,7 @@ function ToLogin() {
   return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
 }
 
-const PRIVATE_PATHS = ["me", "jobs", "jobs/:id", "runs", "runs/:id", "sources", "admin", "recruiter", "billing"];
+const PRIVATE_PATHS = ["dashboard", "me", "jobs", "jobs/:id", "runs", "runs/:id", "sources", "admin", "recruiter", "billing"];
 
 function App() {
   const { user, loading } = useAuth();
@@ -64,13 +64,16 @@ function App() {
       {/* Only same-site relative targets, never an open redirect. */}
       <Route path="login" element={<Navigate to={next?.startsWith("/") && !next.startsWith("//") ? next : "/"} replace />} />
       <Route element={<Layout />}>
-        <Route index element={<DashboardPage />} />
+        {/* Logged-in visitors land on the jobs page. */}
+        <Route index element={<Navigate to="/jobs" replace />} />
+        <Route path="dashboard" element={<DashboardPage />} />
         <Route path="me" element={<MyAreaPage />} />
         <Route path="jobs" element={<JobsPage />} />
         <Route path="jobs/:id" element={<JobDetailsPage />} />
-        <Route path="runs" element={<RunsPage />} />
-        <Route path="runs/:id" element={<RunDetailsPage />} />
-        <Route path="sources" element={<SourcesPage />} />
+        {/* Run information is for admins only (the API enforces it too). */}
+        <Route path="runs" element={user.is_admin ? <RunsPage /> : <Navigate to="/jobs" replace />} />
+        <Route path="runs/:id" element={user.is_admin ? <RunDetailsPage /> : <Navigate to="/jobs" replace />} />
+        <Route path="sources" element={user.is_admin ? <SourcesPage /> : <Navigate to="/jobs" replace />} />
         <Route path="privacy" element={<PrivacyPage />} />
         <Route path="terms" element={<TermsPage />} />
         {/* The server enforces admin-only too; this just hides the page. */}

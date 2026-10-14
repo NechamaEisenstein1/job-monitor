@@ -8,11 +8,9 @@ import { SiteFooter } from "../pages/public/PublicLayout";
 import { VerifyBanner } from "./VerifyBanner";
 
 const NAV = [
-  { to: "/", label: he.nav.dashboard, end: true },
-  { to: "/me", label: he.nav.myArea },
   { to: "/jobs", label: he.nav.jobs },
-  { to: "/runs", label: he.nav.runs },
-  { to: "/sources", label: he.nav.sources },
+  { to: "/me", label: he.nav.myArea },
+  { to: "/dashboard", label: he.nav.dashboard },
 ];
 
 export function Layout() {
@@ -26,6 +24,7 @@ export function Layout() {
 
   const items = [
     ...NAV,
+    ...(user.is_admin ? [{ to: "/runs", label: he.nav.runs }, { to: "/sources", label: he.nav.sources }] : []),
     ...(user.role !== "user" ? [{ to: "/recruiter", label: he.nav.recruiter }] : []),
     { to: "/billing", label: he.nav.billing },
     ...(user.is_admin ? [{ to: "/admin", label: he.nav.admin }] : []),
@@ -41,7 +40,6 @@ export function Layout() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.end}
                 className={({ isActive }) =>
                   `rounded-md px-3 py-1.5 text-sm font-medium ${
                     isActive ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"

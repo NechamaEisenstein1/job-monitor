@@ -10,7 +10,7 @@ from backend.application.dto import (
     JobChangeDto, JobDetailDto, JobListDto, JobSourceDto, RunDetailDto, ScrapeRunDto,
     ScraperRunDto, SourceHealthDto, StatsDto,
 )
-from backend.api.deps import current_user
+from backend.api.deps import CurrentUser, current_user, require_admin
 from backend.application.use_cases.queries import DashboardQueries
 from backend.domain.enums import JobStatus
 from backend.infrastructure.repositories.read_models import SqlReadRepository
@@ -47,13 +47,21 @@ def list_jobs(
     role_type: Annotated[str | None, Query(max_length=100, pattern=r"^[a-z_,]*$",
                                            description="comma-separated, e.g. software,qa; 'tech' = all tech roles")] = None,
     government: bool | None = None,
+    level: Annotated[Literal["a", "b", "c"] | None,
+                     Query(description="experience level: a = junior, b = 2+ to 4 years, c = above 4")] = None,
     sort: Literal["relevance", "newest", "updated", "score"] = "relevance",
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=200)] = 25,
 ) -> JobListDto:
     return queries.list_jobs(q=q, location=location, eligible=eligible, status=status.value if status else None,
                              source=source, role_types=_role_types(role_type, request),
-                             government=government, sort=sort, page=page, page_size=page_size)
+                             government=government, level=level, level_years=_level_years(request),
+                             sort=sort, page=page, page_size=page_size)
+
+
+def _level_years(request: Request) -> tuple[float, float]:
+    exp = request.app.state.cfg.experience
+    return exp.junior_max_years, exp.level_b_max_years
 
 
 def _role_types(role_type: str | None, request: Request) -> list[str] | None:
@@ -81,24 +89,29 @@ def get_job_history(job_id: JobId, queries: Queries) -> list[JobChangeDto]:
     return queries.job_history(job_id)
 
 
-@router.get("/runs", response_model=list[ScrapeRunDto])
+# Run information (start, finish, duration, status, per-site results) is for admins only.
+@router.get("/runs", response_model=list[ScrapeRunDto], dependencies=[Depends(require_admin)])
 def list_runs(queries: Queries, limit: Annotated[int, Query(ge=1, le=500)] = 50) -> list[ScrapeRunDto]:
     return queries.list_runs(limit)
 
 
-@router.get("/runs/{run_id}", response_model=RunDetailDto)
+@router.get("/runs/{run_id}", response_model=RunDetailDto, dependencies=[Depends(require_admin)])
 def get_run(run_id: RunId, queries: Queries) -> RunDetailDto:
     return _found(queries.get_run(run_id))
 
 
-@router.get("/runs/{run_id}/scrapers", response_model=list[ScraperRunDto])
+@router.get("/runs/{run_id}/scrapers", response_model=list[ScraperRunDto], dependencies=[Depends(require_admin)])
 def get_run_scrapers(run_id: RunId, queries: Queries) -> list[ScraperRunDto]:
     return queries.run_scrapers(run_id)
 
 
 @router.get("/sources", response_model=list[SourceHealthDto])
-def list_sources(queries: Queries) -> list[SourceHealthDto]:
-    return queries.sources()
+def list_sources(queries: Queries, user: CurrentUser) -> list[SourceHealthDto]:
+    sources = queries.sources()
+    if not user.is_admin:  # names feed the Jobs filter; per-site run results are for admins only
+        hidden = dict.fromkeys(("last_status", "last_run_at", "last_successful_at", "jobs_fetched", "last_error"))
+        sources = [s.model_copy(update=hidden) for s in sources]
+    return sources
 
 
 @router.get("/activity", response_model=list[JobChangeDto])
@@ -107,5 +120,8 @@ def recent_activity(queries: Queries, limit: Annotated[int, Query(ge=1, le=200)]
 
 
 @router.get("/stats", response_model=StatsDto)
-def stats(queries: Queries) -> StatsDto:
-    return queries.stats()
+def stats(queries: Queries, user: CurrentUser) -> StatsDto:
+    result = queries.stats()
+    if not user.is_admin:  # run information is for admins only
+        result = result.model_copy(update={"latest_run": None, "failed_sources": []})
+    return result

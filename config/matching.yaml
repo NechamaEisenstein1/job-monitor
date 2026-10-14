@@ -118,6 +118,9 @@ junior_scoring:
 # the keyword score below.
 experience:
   junior_max_years: 2
+  # Levels in the Jobs filter: A = junior (up to junior_max_years, "2" yes, "2+" no),
+  # B = above that up to level_b_max_years (incl.), C = above level_b_max_years.
+  level_b_max_years: 4
   # A title with one of these that requires more than junior_max_years is a "fake junior".
   junior_title_keywords: ["ג'וניור", "גוניור", "junior", "jr", "entry level", "ללא ניסיון", "סטודנט",
                           "סטודנטית", "בוגר", "בוגרת", "בוגרי", "graduate", "intern"]

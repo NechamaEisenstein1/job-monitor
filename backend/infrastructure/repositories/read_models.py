@@ -46,6 +46,19 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _level_condition(level: str, junior_max: float, b_max: float):  # noqa: ANN202
+    """A = junior; B / C = not junior and required years in (junior_max, b_max] / above b_max.
+    A non-junior posting that states no experience requirement has no level."""
+    years = JobEvaluationRow.required_years
+    if level == "a":
+        return JobEvaluationRow.is_junior.is_(True)
+    if level == "b":
+        return and_(JobEvaluationRow.is_junior.is_(False), years > junior_max, years <= b_max)
+    if level == "c":
+        return and_(JobEvaluationRow.is_junior.is_(False), years > b_max)
+    raise ValueError(f"unknown experience level {level!r}")
+
+
 class SqlReadRepository:
     def __init__(self, session: Session, signals: SignalsConfig | None = None):
         self._s = session
@@ -61,6 +74,7 @@ class SqlReadRepository:
     def list_jobs(self, *, q: str | None = None, location: str | None = None, eligible: bool | None = None,
                   status: str | None = None, source: str | None = None, role_types: list[str] | None = None,
                   government: bool | None = None, junior: bool | None = None, location_matched: bool | None = None,
+                  level: str | None = None, level_years: tuple[float, float] = (2, 4),
                   sort: str = "relevance", page: int = 1, page_size: int = 25) -> JobListDto:
         latest_eval = _latest_evaluation_id()
         stmt = select(JobRow, JobEvaluationRow).outerjoin(JobEvaluationRow, JobEvaluationRow.id == latest_eval)
@@ -70,6 +84,8 @@ class SqlReadRepository:
             stmt = stmt.where(JobEvaluationRow.is_government_tender.is_(government))
         if junior is not None:
             stmt = stmt.where(JobEvaluationRow.is_junior.is_(junior))
+        if level:
+            stmt = stmt.where(_level_condition(level, *level_years))
         if location_matched is not None:
             stmt = stmt.where(JobEvaluationRow.location_matched.is_(location_matched))
         if q:

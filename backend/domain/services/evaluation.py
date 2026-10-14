@@ -8,7 +8,7 @@ from backend.domain.models import Job, JobEvaluation
 from backend.domain.services.classification import (
     GovernmentTenderDetector, RankingPolicy, RoleClassifier, keyword_pattern,
 )
-from backend.domain.services.experience import required_years
+from backend.domain.services.experience import format_years, required_years
 from backend.domain.services.normalization import comparison_key
 
 
@@ -103,9 +103,9 @@ class JobEvaluationService:
         senior_keyword = any(r.startswith("strong_negative:") for r in matched)
         if years is not None and years > self._max_years:
             return False, min(score, round(self._threshold - 0.1, 4)), None, \
-                f"experience_required ({years:g} > {self._max_years:g} years)"
+                f"experience_required ({format_years(years)} > {self._max_years:g} years)"
         if years is not None and not senior_keyword:
-            return True, max(score, self._threshold), f"experience:{years:g}y", None
+            return True, max(score, self._threshold), f"experience:{format_years(years)}y", None
         if score >= self._threshold:
             return True, score, None, None
         return False, score, None, f"junior_score_below_threshold ({score} < {self._threshold})"

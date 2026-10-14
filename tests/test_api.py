@@ -19,10 +19,36 @@ def test_api_endpoints_over_demo_fixtures(world):
     assert [h["change_type"] for h in client.get(f"/api/jobs/{job_id}/history").json()] == ["new", "new_source"]
     assert client.get(f"/api/jobs/{job_id}").json()["evaluation"]["is_eligible"] is True
 
-    assert client.get(f"/api/runs/{world.run.id}").json()["scrapers"][0]["site"] == "Matrix"
+    admin = world.client("admin@example.com")
+    assert admin.get(f"/api/runs/{world.run.id}").json()["scrapers"][0]["site"] == "Matrix"
     assert client.get("/api/stats").json()["new_jobs"] == 6
     assert client.get("/api/jobs/99999").status_code == 404
     assert client.get("/api/jobs", params={"page_size": 1000}).status_code == 422
+
+
+def test_run_information_is_for_admins_only(world):
+    user, admin = world.client("junior@example.com"), world.client("admin@example.com")
+    for path in ("/api/runs", f"/api/runs/{world.run.id}", f"/api/runs/{world.run.id}/scrapers"):
+        assert user.get(path).status_code == 403, path
+        assert admin.get(path).status_code == 200, path
+    user_sources = user.get("/api/sources").json()
+    assert {s["name"] for s in user_sources} >= {"Matrix", "HMS"}  # names still feed the Jobs filter
+    assert all(s[k] is None for s in user_sources
+               for k in ("last_status", "last_run_at", "last_successful_at", "jobs_fetched", "last_error"))
+    assert any(s["last_status"] for s in admin.get("/api/sources").json())
+    stats = user.get("/api/stats").json()
+    assert stats["latest_run"] is None and stats["failed_sources"] == [] and stats["new_jobs"] == 6
+    assert admin.get("/api/stats").json()["latest_run"]["id"] == world.run.id
+
+
+def test_experience_level_filter(world):
+    client = world.client("junior@example.com")
+    level_a = client.get("/api/jobs", params={"level": "a"}).json()["items"]
+    assert level_a and all(j["is_junior"] for j in level_a)
+    for level, low, high in (("b", 2, 4), ("c", 4, 99)):
+        items = client.get("/api/jobs", params={"level": level}).json()["items"]
+        assert all(not j["is_junior"] and low < j["required_years"] <= high for j in items), (level, items)
+    assert client.get("/api/jobs", params={"level": "d"}).status_code == 422
 
 
 def test_relevance_sort_and_role_filter(world):
