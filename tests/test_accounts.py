@@ -229,3 +229,35 @@ def test_scheduled_run_sends_no_user_alerts_without_smtp(session_factory, tmp_pa
     assert not alerts_enabled(None)
     assert alerts_enabled(SmtpSettings(host="smtp.example.com", port=587, user="u", password="p",
                                        sender="u@example.com", use_tls=True))
+
+
+def test_alerts_go_out_only_on_alert_days(world, cfg):
+    from datetime import date
+
+    from backend.bootstrap import user_alert_service
+
+    assert cfg.users.alert_weekdays == {6, 2}  # Sunday and Wednesday
+    world.client("admin@example.com").post("/api/admin/users", json={
+        "email": "new@example.com", "display_name": "חדשה", "password": "another-long-password"})
+    with world.app.state.session_factory() as s:
+        service = user_alert_service(s, world.app.state.settings, cfg, world.sender)
+        assert service.send_for_run(world.run.id, date(2026, 9, 24)) == 0  # Thursday: nothing goes out
+        assert world.sender.to("new@example.com") == []
+        assert service.send_for_run(world.run.id, date(2026, 9, 27)) == 1  # Sunday: the new user's alert
+        assert len(world.sender.to("new@example.com")) == 1
+
+
+def test_alert_email_lists_at_most_max_jobs_and_links_the_rest():
+    from datetime import date
+
+    from backend.domain.services.user_matching import AlertItem
+    from backend.infrastructure.email.renderer import render_user_alert
+
+    items = [AlertItem(job_id=i, title=f"Job {i}", location="Jerusalem", client_company=None,
+                       junior_score=i / 100, is_government_tender=False, source_urls=[], recruiter_names=[])
+             for i in range(1, 16)]
+    email = render_user_alert("דנה", items, date(2026, 9, 27), "משרות - {date}", "https://site.example", max_jobs=10)
+    assert email.html.count("/jobs/") == 10
+    assert "Job 15" in email.html and "Job 5<" not in email.html  # best (highest score) first
+    assert "ועוד 5 משרות" in email.html and "https://site.example/me" in email.html
+    assert "להפסקת ההתראות" in email.text
