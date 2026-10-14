@@ -1,6 +1,7 @@
 """Accounts, private recruiter directory, per-user alerts, outreach and admin analytics."""
 from __future__ import annotations
 
+from backend.config.settings import PROJECT_ROOT
 from tests.conftest import PASSWORD
 
 
@@ -206,3 +207,25 @@ def test_alert_queries_do_not_grow_with_users(world):
         assert selects_for_run() == baseline
     finally:
         event.remove(Engine, "before_cursor_execute", count)
+
+
+def test_scheduled_run_sends_no_user_alerts_without_smtp(session_factory, tmp_path):
+    """Without SMTP the emails would only be written to a local folder; they must not be
+    recorded as sent, or the real email would never go out once SMTP is configured."""
+    import asyncio
+
+    from backend.bootstrap import pipeline_from_settings
+    from backend.config.settings import Settings, SmtpSettings
+
+    def alerts_enabled(smtp) -> bool:
+        settings = Settings(database_url=str(session_factory.kw["bind"].url), config_dir=PROJECT_ROOT / "config",
+                            email_outbox_dir=tmp_path, smtp=smtp, log_level="WARNING")
+
+        async def build():
+            async with pipeline_from_settings(settings) as pipeline:
+                return pipeline._user_alerts is not None
+        return asyncio.run(build())
+
+    assert not alerts_enabled(None)
+    assert alerts_enabled(SmtpSettings(host="smtp.example.com", port=587, user="u", password="p",
+                                       sender="u@example.com", use_tls=True))

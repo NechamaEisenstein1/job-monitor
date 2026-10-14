@@ -28,7 +28,7 @@ cd frontend && npm install && npm run dev    # http://localhost:5173
 npm run build                                # -> frontend/dist, served by FastAPI
 ```
 
-Without SMTP settings, digests are written to `outbox/` as HTML.
+Without SMTP settings, digests are written to `outbox/` as HTML and per-user alerts are not sent (nor recorded as sent).
 
 ## Users, alerts and outreach
 

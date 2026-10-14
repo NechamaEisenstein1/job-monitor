@@ -1,6 +1,7 @@
 """Composition root: the only place that wires infrastructure into use cases."""
 from __future__ import annotations
 
+import logging
 import ssl
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -36,6 +37,7 @@ from backend.infrastructure.repositories.users import (
 from backend.infrastructure.oauth.google import GoogleOAuth
 from backend.infrastructure.scrapers.http import RetryingHttpClient, RetryPolicy
 from backend.infrastructure.scrapers.registry import build_scrapers
+from backend.observability import log_event
 
 
 def utcnow() -> datetime:
@@ -121,6 +123,10 @@ async def pipeline_from_settings(settings: Settings) -> AsyncIterator[RunPipelin
     sources = load_sources_config(settings.config_dir)
     session_factory = make_session_factory(make_engine(settings.database_url))
     sender = build_email_sender(settings)
+    if settings.smtp is None:
+        # Without SMTP the file sender only writes to a local folder; recording those alerts
+        # as sent would stop the real emails from ever going out once SMTP is configured.
+        log_event("user_alerts_disabled", logging.WARNING, reason="SMTP_HOST not configured")
 
     async with http_client(cfg) as http:
         with session_factory() as session, session_factory() as notification_session, \
@@ -135,7 +141,7 @@ async def pipeline_from_settings(settings: Settings) -> AsyncIterator[RunPipelin
                     SqlNotificationRepository(notification_session), sender, cfg.email, utcnow,
                 ),
                 clock=utcnow,
-                user_alerts=user_alert_service(alerts_session, settings, cfg, sender),
+                user_alerts=user_alert_service(alerts_session, settings, cfg, sender) if settings.smtp else None,
             )
 
 
