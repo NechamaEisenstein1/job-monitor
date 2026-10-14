@@ -96,6 +96,9 @@ class RunPipeline:
         self._uow.commit()
 
         self._send_digest(ctx)
+        # End the digest's read transaction: the server terminates a connection left
+        # idle in a transaction during the (long) alerts phase, and _finish needs it.
+        self._uow.commit()
         if self._user_alerts is not None:
             try:
                 self._user_alerts.send_for_run(run.id, run.scheduled_date)
@@ -298,8 +301,17 @@ class RunPipeline:
         if ctx is not None:
             run.canonical_jobs_touched = len(ctx.current_run_jobs)
             run.eligible_jobs = sum(1 for e in ctx.evaluations.values() if e.is_eligible)
-        self._uow.runs.save(run)
-        self._uow.commit()
+        try:
+            self._uow.runs.save(run)
+            self._uow.commit()
+        except Exception as exc:
+            if not self._uow.is_connection_lost(exc):
+                raise
+            # A dropped connection must not leave the run unfinished.
+            log_event("run_finish_retry", logging.WARNING, run_id=run.id, error=repr(exc)[:300])
+            self._uow.rollback()  # discards the dead connection; the pool opens a fresh one
+            self._uow.runs.save(run)
+            self._uow.commit()
         log_event("run_finished", run_id=run.id, status=run.status.value,
                   sites_succeeded=run.sites_succeeded, sites_failed=run.sites_failed,
                   jobs_touched=run.canonical_jobs_touched, eligible=run.eligible_jobs)

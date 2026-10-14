@@ -75,6 +75,7 @@ jobs:
       - name: Run migrations
         run: alembic upgrade head
       - name: Run Job Monitor
+        shell: bash  # explicit bash runs with pipefail: a crash fails the step instead of hiding behind tee
         run: python -m backend.cli run | tee run.log
       - name: Upload run log
         if: always()

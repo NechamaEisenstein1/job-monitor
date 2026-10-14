@@ -129,6 +129,13 @@ class SqlRecruiterRepository:
         rows = self._s.scalars(select(RecruiterRow).where(RecruiterRow.user_id == user_id).order_by(RecruiterRow.name))
         return [to_domain(r, Recruiter) for r in rows]
 
+    def list_by_user(self) -> dict[int, list[Recruiter]]:
+        """list_for_user for every user in one query."""
+        result: dict[int, list[Recruiter]] = {}
+        for row in self._s.scalars(select(RecruiterRow).order_by(RecruiterRow.name)):
+            result.setdefault(row.user_id, []).append(to_domain(row, Recruiter))
+        return result
+
     def get(self, user_id: int, recruiter_id: int) -> Recruiter | None:
         row = self._s.get(RecruiterRow, recruiter_id)
         return to_domain(row, Recruiter) if row and row.user_id == user_id else None
@@ -165,6 +172,21 @@ class SqlAlertRepository:
 
     def alerted_job_ids(self, user_id: int) -> set[int]:
         return set(self._s.scalars(select(UserJobAlertRow.job_id).where(UserJobAlertRow.user_id == user_id)))
+
+    def alerted_job_ids_by_user(self, job_ids: list[int]) -> dict[int, set[int]]:
+        """alerted_job_ids for every user, limited to job_ids, in a few queries."""
+        ids = sorted(set(job_ids))
+        result: dict[int, set[int]] = {}
+        for start in range(0, len(ids), 500):
+            rows = self._s.execute(select(UserJobAlertRow.user_id, UserJobAlertRow.job_id)
+                                   .where(UserJobAlertRow.job_id.in_(ids[start:start + 500])))
+            for user_id, job_id in rows:
+                result.setdefault(user_id, set()).add(job_id)
+        return result
+
+    def end_read(self) -> None:
+        """Close the read transaction so the connection is not left idle in one."""
+        self._s.commit()
 
     def record(self, user_id: int, job_ids: list[int], run_id: str | None, now: datetime) -> None:
         for job_id in job_ids:

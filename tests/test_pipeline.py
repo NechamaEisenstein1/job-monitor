@@ -193,3 +193,60 @@ def test_schema_has_no_unique_content_hash_and_partial_source_indexes(session_fa
         assert unique_columns == [["tender_number"]]
         names = {i["name"] for i in insp.get_indexes("job_sources") if i.get("unique")}
         assert {"uq_job_sources_company_source_job_id", "uq_job_sources_company_url_fingerprint"} <= names
+
+
+def _pipeline_with(uow, cfg, session_factory_ns):
+    return RunPipeline(
+        uow=uow, scrapers=[FakeScraper("Matrix", [job("1")])], executor=ScraperExecutor(1, lambda: NOW),
+        config=cfg, evaluator=JobEvaluationService.from_config(cfg),
+        notifications=NotificationService(SqlNotificationRepository(session_factory_ns), NullSender(),
+                                          cfg.email, lambda: NOW),
+        clock=lambda: NOW,
+    )
+
+
+def test_run_is_finished_even_if_the_connection_drops_at_the_end(cfg, session_factory):
+    """The server may terminate a connection (e.g. idle-in-transaction timeout); the final
+    save must reconnect instead of leaving the run without a status."""
+    from backend.infrastructure.db.orm import ScrapeRunRow
+
+    class DropsOnce(SqlUnitOfWork):
+        def __init__(self, session):
+            super().__init__(session)
+            save, self.dropped = self.runs.save, False
+
+            def save_finished(run):
+                if run.finished_at is not None and not self.dropped:
+                    self.dropped = True
+                    # Close the real DB connection under the session, as the server does.
+                    self.session.connection().connection.dbapi_connection.close()
+                return save(run)
+            self.runs.save = save_finished
+
+    with session_factory() as s, session_factory() as ns:
+        uow = DropsOnce(s)
+        run = asyncio.run(_pipeline_with(uow, cfg, ns).run())
+        assert uow.dropped
+    with session_factory() as s:
+        row = s.get(ScrapeRunRow, run.id)
+        assert row.status == RunStatus.SUCCESS.value and row.sites_succeeded == 1 and row.finished_at is not None
+
+
+def test_other_errors_when_finishing_are_not_retried(cfg, session_factory):
+    class BrokenSave(SqlUnitOfWork):
+        def __init__(self, session):
+            super().__init__(session)
+            save, self.attempts = self.runs.save, 0
+
+            def save_finished(run):
+                if run.finished_at is not None:
+                    self.attempts += 1
+                    raise ValueError("a bug, not a lost connection")
+                return save(run)
+            self.runs.save = save_finished
+
+    with session_factory() as s, session_factory() as ns:
+        uow = BrokenSave(s)
+        with pytest.raises(ValueError):
+            asyncio.run(_pipeline_with(uow, cfg, ns).run())
+        assert uow.attempts == 1
