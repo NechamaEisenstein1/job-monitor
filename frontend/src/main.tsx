@@ -73,7 +73,7 @@ function App() {
         {/* Run information is for admins only (the API enforces it too). */}
         <Route path="runs" element={user.is_admin ? <RunsPage /> : <Navigate to="/jobs" replace />} />
         <Route path="runs/:id" element={user.is_admin ? <RunDetailsPage /> : <Navigate to="/jobs" replace />} />
-        <Route path="sources" element={<SourcesPage />} />
+        <Route path="sources" element={user.is_admin ? <SourcesPage /> : <Navigate to="/jobs" replace />} />
         <Route path="privacy" element={<PrivacyPage />} />
         <Route path="terms" element={<TermsPage />} />
         {/* The server enforces admin-only too; this just hides the page. */}

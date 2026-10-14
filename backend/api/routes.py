@@ -106,8 +106,12 @@ def get_run_scrapers(run_id: RunId, queries: Queries) -> list[ScraperRunDto]:
 
 
 @router.get("/sources", response_model=list[SourceHealthDto])
-def list_sources(queries: Queries) -> list[SourceHealthDto]:
-    return queries.sources()
+def list_sources(queries: Queries, user: CurrentUser) -> list[SourceHealthDto]:
+    sources = queries.sources()
+    if not user.is_admin:  # names feed the Jobs filter; per-site run results are for admins only
+        hidden = dict.fromkeys(("last_status", "last_run_at", "last_successful_at", "jobs_fetched", "last_error"))
+        sources = [s.model_copy(update=hidden) for s in sources]
+    return sources
 
 
 @router.get("/activity", response_model=list[JobChangeDto])

@@ -11,7 +11,6 @@ const NAV = [
   { to: "/jobs", label: he.nav.jobs },
   { to: "/me", label: he.nav.myArea },
   { to: "/dashboard", label: he.nav.dashboard },
-  { to: "/sources", label: he.nav.sources },
 ];
 
 export function Layout() {
@@ -25,7 +24,7 @@ export function Layout() {
 
   const items = [
     ...NAV,
-    ...(user.is_admin ? [{ to: "/runs", label: he.nav.runs }] : []),
+    ...(user.is_admin ? [{ to: "/runs", label: he.nav.runs }, { to: "/sources", label: he.nav.sources }] : []),
     ...(user.role !== "user" ? [{ to: "/recruiter", label: he.nav.recruiter }] : []),
     { to: "/billing", label: he.nav.billing },
     ...(user.is_admin ? [{ to: "/admin", label: he.nav.admin }] : []),

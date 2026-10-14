@@ -27,9 +27,14 @@ _UNIT = r"(?:שנות|שנים|שנה|years?|yrs?)"
 # Added to N for "more than N" (N+, N-M ranges); small enough never to look like a real value.
 OPEN_ENDED = 0.01
 # "3", "3+", "+3", "3-4", "3 – 5", "1.5" followed by a year unit; an optional "עד"/"up to" before it.
-_DIGITS = re.compile(rf"(עד\s*|up\s+to\s*)?(\+\s*)?(\d+(?:\.\d+)?)\s*(?:[-–]\s*(\d+(?:\.\d+)?))?\s*(\+)?\s*{_UNIT}",
-                     re.IGNORECASE)
-_MORE_AFTER = re.compile(r"^\s*(?:\+|ומעלה|או\s+יותר|and\s+above|or\s+more|\bplus\b)", re.IGNORECASE)
+_MORE_WORDS = r"ומעלה|או\s+יותר|and\s+above|or\s+more"
+# A leading "+" counts only on its own ("+2", "ניסיון +2"), never the end of "C++".
+_DIGITS = re.compile(rf"(עד\s*|up\s+to\s*)?((?<![\w+])\+\s*)?(\d+(?:\.\d+)?)\s*(?:[-–]\s*(\d+(?:\.\d+)?))?"
+                     rf"\s*(\+|{_MORE_WORDS})?\s*{_UNIT}", re.IGNORECASE)
+# After the unit: "2 שנים+", "2 years or more", also past the word experience: "2 שנות ניסיון ומעלה".
+# (A "+" after "ניסיון" usually means "and", e.g. "ניסיון + תואר", so only words count there.)
+_MORE_AFTER = re.compile(rf"^\s*(?:\+|{_MORE_WORDS}|\bplus\b|(?:of\s+)?(?:ניסיון|נסיון|experience)\s+(?:{_MORE_WORDS}))",
+                         re.IGNORECASE)
 _MORE_BEFORE = re.compile(r"(?:מעל|יותר\s+מ-?|more\s+than|over|above)\s*$", re.IGNORECASE)
 _WORDS = re.compile(
     r"(עד\s*|up\s+to\s*)?(?<![א-ת])(שנה אחת|שנתיים|שלושה|שלוש|ארבעה|ארבע|חמישה|חמש|שישה|שש|שבעה|שבע|שמונה|עשר"
@@ -67,7 +72,7 @@ def required_years(text: str) -> float | None:
                     values.append(0.0)
                     continue
                 more = _MORE_AFTER.search(numbered[m.end():]) or _MORE_BEFORE.search(numbered[:m.start()]) \
-                    or numbered[:m.start()].rstrip().endswith("+")
+                    or re.search(r"(?<![\w+])\+\s*$", numbered[:m.start()])
                 values.append(float(_WORD_NUMBERS[word]) + (OPEN_ENDED if more else 0))
         if not values:
             for match in _ONE_YEAR.finditer(numbered):

@@ -31,6 +31,11 @@ def test_run_information_is_for_admins_only(world):
     for path in ("/api/runs", f"/api/runs/{world.run.id}", f"/api/runs/{world.run.id}/scrapers"):
         assert user.get(path).status_code == 403, path
         assert admin.get(path).status_code == 200, path
+    user_sources = user.get("/api/sources").json()
+    assert {s["name"] for s in user_sources} >= {"Matrix", "HMS"}  # names still feed the Jobs filter
+    assert all(s[k] is None for s in user_sources
+               for k in ("last_status", "last_run_at", "last_successful_at", "jobs_fetched", "last_error"))
+    assert any(s["last_status"] for s in admin.get("/api/sources").json())
     stats = user.get("/api/stats").json()
     assert stats["latest_run"] is None and stats["failed_sources"] == [] and stats["new_jobs"] == 6
     assert admin.get("/api/stats").json()["latest_run"]["id"] == world.run.id

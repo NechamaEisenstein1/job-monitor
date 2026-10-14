@@ -171,6 +171,10 @@ def test_yael_25688_is_junior_now(cfg):
     ("ניסיון +2 שנים", "2+"), ("שנתיים ומעלה ניסיון", "2+"), ("ניסיון של מעל שנתיים", "2+"),
     ("2-3 שנות ניסיון", "2+"), ("1-2 שנות ניסיון", "1+"), ("4+ years of experience", "4+"),
     ("experience: more than 4 years", "4+"), ("1.5 שנות ניסיון", "1.5"), ("ניסיון של עד שנה", "0"),
+    # word orders and false "+" from review
+    ("C++ 2 years of experience", "2"), ("ניסיון של 2 שנים ב-C++", "2"), ("ניסיון של 2 ומעלה שנים", "2+"),
+    ("4 or more years of experience", "4+"), ("2 שנות ניסיון ומעלה", "2+"), ("2 years of experience or more", "2+"),
+    ("שנתיים ניסיון ומעלה", "2+"), ("2 שנות ניסיון + תואר רלוונטי", "2"),
 ])
 def test_open_ended_experience_is_more_than_n(text, shown):
     from backend.domain.services.experience import format_years, required_years
