@@ -154,6 +154,10 @@ email:
 # Per-user alerts and recruiter outreach (the multi-user personal area).
 users:
   alert_subject: "משרות שמתאימות לך - {date}"
+  # Alert emails: only on these days (Israel time), one email per user, at most
+  # alert_max_jobs jobs in it - the rest are counted with a link to the personal area.
+  alert_days: "sun,wed"
+  alert_max_jobs: 10
   # Hard cap on personalised recruiter emails a user can send per day (anti-abuse).
   outreach_daily_limit: 30
   session_days: 14

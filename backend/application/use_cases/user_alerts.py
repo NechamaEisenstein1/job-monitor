@@ -39,10 +39,13 @@ class UserAlertService:
         self._clock = clock
 
     def send_for_run(self, run_id: str, scheduled_date: date) -> int:
-        """Returns how many users were emailed.
+        """Returns how many users were emailed. Sends only on the configured alert days.
 
         Everything the emails need is loaded up front in a handful of queries; the loop over
         users then only writes each user's alert record (one round trip per user)."""
+        if scheduled_date.weekday() not in self._cfg.users.alert_weekdays:
+            log_event("user_alerts_not_today", scheduled_date=scheduled_date, days=self._cfg.users.alert_days)
+            return 0
         evaluations = self._evaluations.list_for_run(run_id)
         job_ids = [ev.job_id for ev in evaluations]
         jobs = self._jobs.get_many(job_ids)
@@ -58,8 +61,8 @@ class UserAlertService:
                                     recruiters.get(user.id, []))
             if not items:
                 continue
-            email = render_user_alert(user.display_name, items, scheduled_date,
-                                      self._cfg.users.alert_subject, self._base_url)
+            email = render_user_alert(user.display_name, items, scheduled_date, self._cfg.users.alert_subject,
+                                      self._base_url, max_jobs=self._cfg.users.alert_max_jobs)
             try:
                 self._sender.send(user.email, email)
             except Exception as exc:  # noqa: BLE001 - one user's failure must not stop the others

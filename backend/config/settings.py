@@ -143,9 +143,23 @@ class ScheduleConfig:
 @dataclass(frozen=True)
 class UsersConfig:
     alert_subject: str = "משרות שמתאימות לך - {date}"
+    # Alert emails go out only on these days (sun,mon,tue,wed,thu,fri,sat), one email per user,
+    # listing at most alert_max_jobs jobs (the rest are counted and linked to the personal area).
+    alert_days: str = "sun,wed"
+    alert_max_jobs: int = 10
     outreach_daily_limit: int = 30
     session_days: int = 14
     admin_emails: str = ""
+
+    @property
+    def alert_weekdays(self) -> frozenset[int]:
+        """date.weekday() numbers (Monday=0) of alert_days."""
+        names = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+        days = {d.strip().lower()[:3] for d in self.alert_days.split(",") if d.strip()}
+        unknown = days - set(names)
+        if unknown:
+            raise ValueError(f"users.alert_days: unknown day(s) {sorted(unknown)}")
+        return frozenset(names.index(d) for d in days)
 
     @property
     def admin_email_set(self) -> frozenset[str]:

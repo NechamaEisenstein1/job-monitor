@@ -40,7 +40,7 @@ function ProfileCard() {
   const { setUser } = useAuth();
   const [name, setName] = useState(user.display_name);
   const [level, setLevel] = useState<ExperienceLevel>(user.experience_level);
-  const [alerts, setAlerts] = useState(user.alerts_enabled);
+  const [alerts] = useState(user.alerts_enabled);  // email alerts are "coming soon": kept as is
   const [status, setStatus] = useState<{ error?: string; ok?: string }>({});
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -81,9 +81,10 @@ function ProfileCard() {
             {Object.entries(m.levels).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
           </select>
         </Field>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" className="size-4" checked={alerts} onChange={(e) => setAlerts(e.target.checked)} />
-          {m.alerts}
+        <label className="flex items-center gap-2 text-sm text-slate-400" title={m.alertsSoonHint}>
+          {/* Email alerts are not sent yet: the option stays visible but cannot be changed. */}
+          <input type="checkbox" className="size-4" checked={false} disabled readOnly />
+          {m.alerts} <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{m.alertsSoon}</span>
         </label>
         <div className="flex items-center gap-3">
           <button className={primary}>{m.save}</button>

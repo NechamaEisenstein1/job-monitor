@@ -55,11 +55,15 @@ def _page(title: str, body: str) -> str:
 
 
 def render_user_alert(display_name: str, items: list[AlertItem], scheduled_date: date,
-                      subject_template: str, base_url: str) -> RenderedEmail:
-    """Government tenders first, then jobs where the user already knows a recruiter."""
+                      subject_template: str, base_url: str, max_jobs: int | None = None) -> RenderedEmail:
+    """Government tenders first, then jobs where the user already knows a recruiter. Only the
+    first max_jobs are listed; the rest are counted, with a link to the personal area."""
     subject = subject_template.format(date=scheduled_date.isoformat())
+    ranked = sorted(items, key=lambda i: i.priority, reverse=True)
+    shown = ranked[:max_jobs] if max_jobs else ranked
+    my_area = f"{base_url.rstrip('/')}/me"
     rows, lines = [], [f"שלום {display_name},", "", subject, ""]
-    for item in sorted(items, key=lambda i: i.priority, reverse=True):
+    for item in shown:
         badges = []
         if item.is_government_tender:
             badges.append(f"<span style='background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px'>{_TENDER}</span>")
@@ -74,9 +78,16 @@ def render_user_alert(display_name: str, items: list[AlertItem], scheduled_date:
         tags = (f" [{_TENDER}]" if item.is_government_tender else "") + (
             f" [מכירים: {', '.join(item.recruiter_names)}]" if item.recruiter_names else "")
         lines += [f"- {item.title}{tags} ({meta})", f"  {link}"]
+    more = ""
+    if len(ranked) > len(shown):
+        more = (f"<p><a href='{escape(my_area)}' style='color:#0369a1'>"
+                f"ועוד {len(ranked) - len(shown)} משרות מתאימות - לצפייה באזור האישי</a></p>")
+        lines += ["", f"ועוד {len(ranked) - len(shown)} משרות מתאימות באזור האישי: {my_area}"]
+    lines += ["", f"להפסקת ההתראות: {my_area}"]
     body = (f"<p>שלום {escape(display_name)}, נמצאו {len(items)} משרות חדשות שמתאימות לפרופיל שלך:</p>"
-            f"<table style='border-collapse:collapse;width:100%'>{''.join(rows)}</table>"
-            f"<p style='color:#64748b;font-size:12px'>ניתן לכבות התראות באזור האישי.</p>")
+            f"<table style='border-collapse:collapse;width:100%'>{''.join(rows)}</table>{more}"
+            f"<p style='color:#64748b;font-size:12px'>להפסקת ההתראות: "
+            f"<a href='{escape(my_area)}' style='color:#64748b'>האזור האישי</a></p>")
     return RenderedEmail(subject=subject, html=_page(subject, body), text="\n".join(lines))
 
 
