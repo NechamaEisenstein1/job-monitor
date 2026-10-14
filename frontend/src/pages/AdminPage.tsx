@@ -9,7 +9,7 @@ import { useUser } from "../hooks/useAuth";
 import { he } from "../i18n/he";
 import { api } from "../services/api";
 import { formatDate, formatDateTime } from "../services/format";
-import type { ExperienceLevel, User, UserRole } from "../types/api";
+import type { ContactMessage, ExperienceLevel, User, UserRole } from "../types/api";
 
 const a = he.admin;
 const control =
@@ -144,6 +144,61 @@ function UsersCard() {
   );
 }
 
+function MessageItem({ message, onToggle }: { message: ContactMessage; onToggle: () => void }) {
+  const handled = message.handled_at !== null;
+  const mailto = message.user_email
+    ? `mailto:${message.user_email}?subject=${encodeURIComponent(`Re: ${message.subject}`)}` : undefined;
+  return (
+    <li className={`space-y-2 px-4 py-3 ${handled ? "bg-slate-50 text-slate-500" : ""}`}>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge tone={message.category === "complaint" ? "red" : "slate"}>{he.contact.categories[message.category]}</Badge>
+        <span className="font-medium text-slate-900">{message.subject}</span>
+        <span className="text-xs text-slate-500">
+          {message.user_name ?? a.deletedUser}{message.user_email && <> · <span className="ltr">{message.user_email}</span></>}
+          {" · "}{formatDateTime(message.created_at)}
+        </span>
+      </div>
+      <p className="whitespace-pre-wrap text-sm text-slate-700" dir="auto">{message.body}</p>
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        {mailto && <a href={mailto} className="font-medium text-sky-700 hover:underline">{a.replyByEmail}</a>}
+        <button onClick={onToggle} className="font-medium text-slate-700 hover:underline">
+          {handled ? a.markOpen : a.markHandled}
+        </button>
+        {handled && <span>{a.handledAt(formatDateTime(message.handled_at))}</span>}
+      </div>
+    </li>
+  );
+}
+
+function MessagesCard() {
+  const [showHandled, setShowHandled] = useState(false);
+  const messages = useApi(() => api.adminMessages(!showHandled), `admin-messages-${showHandled}`);
+  const open = messages.data?.filter((m) => m.handled_at === null).length ?? 0;
+
+  async function toggle(message: ContactMessage) {
+    await api.adminSetMessageHandled(message.id, message.handled_at === null);
+    messages.reload();
+  }
+
+  return (
+    <Card title={`${a.messages}${messages.data ? ` · ${a.messagesOpen(open)}` : ""}`} flush actions={
+      <label className="flex items-center gap-2 text-xs text-slate-600">
+        <input type="checkbox" className="size-4" checked={showHandled} onChange={(e) => setShowHandled(e.target.checked)} />
+        {a.messagesShowHandled}
+      </label>
+    }>
+      {messages.error ? <div className="p-4"><ErrorState error={messages.error} onRetry={messages.reload} /></div>
+        : !messages.data ? <LoadingState rows={3} />
+        : !messages.data.length ? <p className="px-4 py-6 text-center text-sm text-slate-500">{a.messagesEmpty}</p>
+        : (
+          <ul className="divide-y divide-slate-100">
+            {messages.data.map((msg) => <MessageItem key={msg.id} message={msg} onToggle={() => toggle(msg)} />)}
+          </ul>
+        )}
+    </Card>
+  );
+}
+
 export function AdminPage() {
   const stats = useApi(api.adminStats, "admin-stats");
   const s = stats.data;
@@ -164,6 +219,8 @@ export function AdminPage() {
             <Tile label={a.cards.outreach7d} value={s.outreach_sent_7d} />
             <Tile label={a.cards.tenders} value={s.government_tenders_active} />
           </div>
+
+          <MessagesCard />
 
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="min-w-0 lg:col-span-2">

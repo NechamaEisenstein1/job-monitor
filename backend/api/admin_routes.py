@@ -8,11 +8,12 @@ from pydantic import BaseModel, Field
 
 from backend.api.account_routes import _fail, user_dto
 from backend.api.deps import AdminUser, DbSession, csrf_protect
-from backend.application.dto import AdminStatsDto, UserDto
+from backend.application.dto import AdminStatsDto, ContactMessageDto, UserDto
 from backend.application.use_cases.accounts import AccountError
 from backend.application.use_cases.admin import AdminQueries
 from backend.bootstrap import account_service, utcnow
 from backend.domain.enums import ExperienceLevel, UserRole
+from backend.infrastructure.repositories.contact import SqlContactRepository
 from backend.infrastructure.repositories.read_models import SqlReadRepository
 from backend.infrastructure.repositories.users import (
     DuplicateError, SqlAlertRepository, SqlAnalyticsRepository, SqlOutreachRepository, SqlUserRepository,
@@ -76,3 +77,21 @@ def update_user(user_id: Annotated[int, Path(ge=1)], body: UserUpdateIn, admin: 
     except AccountError as exc:
         raise _fail(exc) from exc
     return user_dto(user)
+
+
+# ------------------------------------------------------------------ contact messages from users
+
+@router.get("/messages", response_model=list[ContactMessageDto])
+def list_messages(_: AdminUser, session: DbSession, open_only: bool = False) -> list[ContactMessageDto]:
+    return SqlContactRepository(session).list(open_only=open_only)
+
+
+class MessageUpdateIn(BaseModel):
+    handled: bool
+
+
+@router.put("/messages/{message_id}", status_code=204)
+def update_message(message_id: Annotated[int, Path(ge=1)], body: MessageUpdateIn, _: AdminUser,
+                   session: DbSession) -> None:
+    if not SqlContactRepository(session).set_handled(message_id, utcnow() if body.handled else None):
+        raise HTTPException(status_code=404, detail="not found")

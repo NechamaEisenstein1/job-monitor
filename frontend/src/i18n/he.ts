@@ -4,7 +4,7 @@
 export const he = {
   appName: "מוניטור משרות",
   nav: { dashboard: "לוח בקרה", jobs: "משרות", runs: "ריצות", sources: "מקורות", myArea: "האזור שלי", admin: "ניהול",
-    recruiter: "פרסום משרות", billing: "נקודות ומנוי" },
+    recruiter: "פרסום משרות", billing: "נקודות ומנוי", contact: "צור קשר" },
 
   auth: {
     title: "כניסה",
@@ -71,6 +71,8 @@ export const he = {
 
   errors: {
     invalid_credentials: "אימייל או סיסמה שגויים",
+    contact_empty: "יש למלא נושא ותוכן",
+    contact_daily_limit: "אפשר לשלוח עד 5 פניות ביממה. נסו שוב מחר.",
     too_many_attempts: "יותר מדי ניסיונות כושלים. נסו שוב בעוד 15 דקות.",
     invalid_email: "כתובת אימייל לא תקינה",
     password_too_short: "הסיסמה חייבת להכיל לפחות 10 תווים",
@@ -180,6 +182,19 @@ export const he = {
     },
   },
 
+  contact: {
+    title: "צור קשר",
+    subtitle: "שאלה, תלונה או הצעה לשיפור? כתבו לנו ונחזור אליכם.",
+    category: "סוג הפנייה",
+    categories: { question: "שאלה", complaint: "תלונה", suggestion: "הצעה / הארה", other: "אחר" } as Record<string, string>,
+    subject: "נושא",
+    body: "תוכן הפנייה",
+    bodyHint: "עד 5,000 תווים",
+    send: "שליחה",
+    sent: "הפנייה נשלחה. תודה!",
+    replyTo: (email: string) => `התשובה תישלח לכתובת ${email}`,
+  },
+
   admin: {
     title: "ניהול",
     subtitle: "כניסות, תנועה ומצב המערכת",
@@ -197,6 +212,15 @@ export const he = {
     topPages: "הדפים הנצפים ביותר (7 ימים)",
     bySource: "משרות פעילות לפי מקור",
     byRole: "משרות פעילות לפי סוג תפקיד",
+    messages: "פניות ממשתמשים",
+    messagesOpen: (n: number) => `${n} פתוחות`,
+    messagesShowHandled: "הצגת פניות שטופלו",
+    messagesEmpty: "אין פניות פתוחות",
+    markHandled: "סימון כטופלה",
+    markOpen: "החזרה לפתוחות",
+    handledAt: (when: string) => `טופלה ${when}`,
+    replyByEmail: "מענה במייל",
+    deletedUser: "משתמש/ת שנמחק/ה",
     users: "משתמשים",
     newUser: "משתמש/ת חדש/ה",
     create: "יצירה",

@@ -342,3 +342,14 @@ class BillingPricesDto(Dto):
     max_awarded_posts_per_day: int
     featured_job_points: int
     featured_job_days: int
+
+
+class ContactMessageDto(Dto):
+    id: int
+    category: str
+    subject: str
+    body: str
+    created_at: UtcDatetime
+    handled_at: UtcDatetime | None
+    user_name: str | None
+    user_email: str | None

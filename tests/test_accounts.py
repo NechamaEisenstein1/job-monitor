@@ -261,3 +261,34 @@ def test_alert_email_lists_at_most_max_jobs_and_links_the_rest():
     assert "Job 15" in email.html and "Job 5<" not in email.html  # best (highest score) first
     assert "ועוד 5 משרות" in email.html and "https://site.example/me" in email.html
     assert "להפסקת ההתראות" in email.text
+
+
+# ------------------------------------------------------------------ contact the site admin
+
+def test_users_write_to_the_admin_who_reads_and_handles_them(world):
+    dana, admin = world.client("junior@example.com"), world.client("admin@example.com")
+    sent = dana.post("/api/me/contact", json={"category": "complaint", "subject": "  משרה לא רלוונטית ",
+                                               "body": "המשרה כבר לא קיימת באתר של החברה"})
+    assert sent.status_code == 201
+
+    [message] = admin.get("/api/admin/messages").json()
+    assert message["subject"] == "משרה לא רלוונטית" and message["category"] == "complaint"
+    assert message["user_email"] == "junior@example.com" and message["handled_at"] is None
+
+    assert admin.put(f"/api/admin/messages/{message['id']}", json={"handled": True}).status_code == 204
+    assert admin.get("/api/admin/messages", params={"open_only": True}).json() == []
+    assert admin.put(f"/api/admin/messages/{message['id']}", json={"handled": False}).status_code == 204
+    assert len(admin.get("/api/admin/messages", params={"open_only": True}).json()) == 1
+    assert admin.put("/api/admin/messages/9999", json={"handled": True}).status_code == 404
+
+
+def test_contact_messages_are_private_validated_and_rate_limited(world):
+    dana = world.client("junior@example.com")
+    assert dana.get("/api/admin/messages").status_code == 403  # only admins read messages
+    assert world.client().post("/api/me/contact", json={"category": "other", "subject": "x", "body": "y"}).status_code == 401
+    assert dana.post("/api/me/contact", json={"category": "spam", "subject": "x", "body": "y"}).status_code == 422
+    assert dana.post("/api/me/contact", json={"category": "other", "subject": "  ", "body": "y"}).status_code == 400
+    assert dana.post("/api/me/contact", json={"category": "other", "subject": "x", "body": "y" * 5001}).status_code == 422
+    for _ in range(5):
+        assert dana.post("/api/me/contact", json={"category": "question", "subject": "x", "body": "y"}).status_code == 201
+    assert dana.post("/api/me/contact", json={"category": "question", "subject": "x", "body": "y"}).status_code == 429

@@ -362,3 +362,16 @@ export interface BillingPrices {
   featured_job_points: number;
   featured_job_days: number;
 }
+
+export type ContactCategory = "question" | "complaint" | "suggestion" | "other";
+
+export interface ContactMessage {
+  id: number;
+  category: ContactCategory;
+  subject: string;
+  body: string;
+  created_at: string;
+  handled_at: string | null;
+  user_name: string | null;
+  user_email: string | null;
+}

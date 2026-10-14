@@ -1,6 +1,6 @@
 import { errorLabel, he } from "../i18n/he";
 import type {
-  AdminStats, AuthConfig, BillingPrices, ExperienceLevel, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
+  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessage, ExperienceLevel, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
   GmailStatus, ManualJob, ManualJobInput, OutreachLogEntry, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
   ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
@@ -90,8 +90,13 @@ export const api = {
   gmailStatus: () => get<GmailStatus>("/gmail/status"),
   gmailDisconnect: () => post<void>("/gmail/disconnect"),
 
+  // contact the site admin
+  contactAdmin: (m: { category: ContactCategory; subject: string; body: string }) => post<{ id: number }>("/me/contact", m),
+
   // admin
   adminStats: () => get<AdminStats>("/admin/stats"),
+  adminMessages: (openOnly: boolean) => get<ContactMessage[]>("/admin/messages", { open_only: openOnly }),
+  adminSetMessageHandled: (id: number, handled: boolean) => put<void>(`/admin/messages/${id}`, { handled }),
   adminUsers: () => get<User[]>("/admin/users"),
   adminCreateUser: (u: { email: string; display_name: string; password: string; is_admin: boolean;
     experience_level: ExperienceLevel }) => post<User>("/admin/users", u),

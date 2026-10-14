@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { he } from "./i18n/he";
 import { AdminPage } from "./pages/AdminPage";
 import { BillingPage } from "./pages/BillingPage";
+import { ContactPage } from "./pages/ContactPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { JobDetailsPage } from "./pages/JobDetailsPage";
 import { JobsPage } from "./pages/JobsPage";
@@ -36,7 +37,7 @@ function ToLogin() {
   return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
 }
 
-const PRIVATE_PATHS = ["dashboard", "me", "jobs", "jobs/:id", "runs", "runs/:id", "sources", "admin", "recruiter", "billing"];
+const PRIVATE_PATHS = ["dashboard", "contact", "me", "jobs", "jobs/:id", "runs", "runs/:id", "sources", "admin", "recruiter", "billing"];
 
 function App() {
   const { user, loading } = useAuth();
@@ -80,6 +81,7 @@ function App() {
         <Route path="admin" element={user.is_admin ? <AdminPage /> : <Navigate to="/" replace />} />
         <Route path="recruiter" element={user.role !== "user" ? <RecruiterPage /> : <Navigate to="/" replace />} />
         <Route path="billing" element={<BillingPage />} />
+        <Route path="contact" element={<ContactPage />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
