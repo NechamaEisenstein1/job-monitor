@@ -223,10 +223,11 @@ def contact_admin(body: ContactIn, user: CurrentUser, session: DbSession) -> dic
     subject, text = body.subject.strip(), body.body.strip()
     if not subject or not text:
         raise HTTPException(status_code=400, detail="contact_empty")
-    messages, now = SqlContactRepository(session), utcnow()
-    if messages.count_by_user_since(user.id, now - timedelta(days=1)) >= CONTACT_DAILY_LIMIT:
+    now = utcnow()
+    message_id = SqlContactRepository(session).add_within_limit(
+        user.id, body.category, subject, text, now, since=now - timedelta(days=1), limit=CONTACT_DAILY_LIMIT)
+    if message_id is None:
         raise HTTPException(status_code=429, detail="contact_daily_limit")
-    message_id = messages.add(user.id, body.category, subject, text, now)
     log_event("contact_message", message_id=message_id, user_id=user.id, category=body.category)
     return {"id": message_id}
 

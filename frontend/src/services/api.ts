@@ -1,6 +1,6 @@
 import { errorLabel, he } from "../i18n/he";
 import type {
-  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessage, ExperienceLevel, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
+  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
   GmailStatus, ManualJob, ManualJobInput, OutreachLogEntry, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
   ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
@@ -95,7 +95,8 @@ export const api = {
 
   // admin
   adminStats: () => get<AdminStats>("/admin/stats"),
-  adminMessages: (openOnly: boolean) => get<ContactMessage[]>("/admin/messages", { open_only: openOnly }),
+  adminMessages: (openOnly: boolean, page: number) =>
+    get<ContactMessagePage>("/admin/messages", { open_only: openOnly, page, page_size: PAGE_SIZE }),
   adminSetMessageHandled: (id: number, handled: boolean) => put<void>(`/admin/messages/${id}`, { handled }),
   adminUsers: () => get<User[]>("/admin/users"),
   adminCreateUser: (u: { email: string; display_name: string; password: string; is_admin: boolean;

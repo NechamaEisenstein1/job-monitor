@@ -353,3 +353,11 @@ class ContactMessageDto(Dto):
     handled_at: UtcDatetime | None
     user_name: str | None
     user_email: str | None
+
+
+class ContactMessagePageDto(Dto):
+    items: list[ContactMessageDto]
+    total: int        # messages matching the filter (for paging)
+    open_count: int   # all unhandled messages, whatever page or filter is shown
+    page: int
+    page_size: int

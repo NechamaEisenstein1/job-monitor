@@ -216,6 +216,7 @@ export const he = {
     messagesOpen: (n: number) => `${n} פתוחות`,
     messagesShowHandled: "הצגת פניות שטופלו",
     messagesEmpty: "אין פניות פתוחות",
+    messagesNone: "אין פניות",
     markHandled: "סימון כטופלה",
     markOpen: "החזרה לפתוחות",
     handledAt: (when: string) => `טופלה ${when}`,

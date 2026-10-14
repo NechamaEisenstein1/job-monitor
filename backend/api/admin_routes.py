@@ -3,12 +3,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
 from backend.api.account_routes import _fail, user_dto
 from backend.api.deps import AdminUser, DbSession, csrf_protect
-from backend.application.dto import AdminStatsDto, ContactMessageDto, UserDto
+from backend.application.dto import AdminStatsDto, ContactMessagePageDto, UserDto
 from backend.application.use_cases.accounts import AccountError
 from backend.application.use_cases.admin import AdminQueries
 from backend.bootstrap import account_service, utcnow
@@ -81,9 +81,11 @@ def update_user(user_id: Annotated[int, Path(ge=1)], body: UserUpdateIn, admin: 
 
 # ------------------------------------------------------------------ contact messages from users
 
-@router.get("/messages", response_model=list[ContactMessageDto])
-def list_messages(_: AdminUser, session: DbSession, open_only: bool = False) -> list[ContactMessageDto]:
-    return SqlContactRepository(session).list(open_only=open_only)
+@router.get("/messages", response_model=ContactMessagePageDto)
+def list_messages(_: AdminUser, session: DbSession, open_only: bool = False,
+                  page: Annotated[int, Query(ge=1)] = 1,
+                  page_size: Annotated[int, Query(ge=1, le=100)] = 50) -> ContactMessagePageDto:
+    return SqlContactRepository(session).list(open_only=open_only, page=page, page_size=page_size)
 
 
 class MessageUpdateIn(BaseModel):

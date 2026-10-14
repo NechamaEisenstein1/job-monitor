@@ -375,3 +375,11 @@ export interface ContactMessage {
   user_name: string | null;
   user_email: string | null;
 }
+
+export interface ContactMessagePage {
+  items: ContactMessage[];
+  total: number;
+  open_count: number;
+  page: number;
+  page_size: number;
+}

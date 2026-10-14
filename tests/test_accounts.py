@@ -271,14 +271,17 @@ def test_users_write_to_the_admin_who_reads_and_handles_them(world):
                                                "body": "המשרה כבר לא קיימת באתר של החברה"})
     assert sent.status_code == 201
 
-    [message] = admin.get("/api/admin/messages").json()
+    listing = admin.get("/api/admin/messages").json()
+    assert listing["total"] == 1 and listing["open_count"] == 1
+    [message] = listing["items"]
     assert message["subject"] == "משרה לא רלוונטית" and message["category"] == "complaint"
     assert message["user_email"] == "junior@example.com" and message["handled_at"] is None
 
     assert admin.put(f"/api/admin/messages/{message['id']}", json={"handled": True}).status_code == 204
-    assert admin.get("/api/admin/messages", params={"open_only": True}).json() == []
+    assert admin.get("/api/admin/messages", params={"open_only": True}).json()["items"] == []
+    assert admin.get("/api/admin/messages").json()["open_count"] == 0
     assert admin.put(f"/api/admin/messages/{message['id']}", json={"handled": False}).status_code == 204
-    assert len(admin.get("/api/admin/messages", params={"open_only": True}).json()) == 1
+    assert len(admin.get("/api/admin/messages", params={"open_only": True}).json()["items"]) == 1
     assert admin.put("/api/admin/messages/9999", json={"handled": True}).status_code == 404
 
 
@@ -292,3 +295,25 @@ def test_contact_messages_are_private_validated_and_rate_limited(world):
     for _ in range(5):
         assert dana.post("/api/me/contact", json={"category": "question", "subject": "x", "body": "y"}).status_code == 201
     assert dana.post("/api/me/contact", json={"category": "question", "subject": "x", "body": "y"}).status_code == 429
+
+
+
+def test_admin_messages_are_paged_and_the_open_count_covers_every_page(world):
+    from datetime import timedelta
+
+    from backend.bootstrap import utcnow
+    from backend.infrastructure.repositories.contact import SqlContactRepository
+
+    admin = world.client("admin@example.com")
+    with world.app.state.session_factory() as s:
+        repo, now = SqlContactRepository(s), utcnow()
+        for i in range(7):  # oldest first, one per day so the daily limit never applies
+            sent_at = now - timedelta(days=7 - i)
+            assert repo.add_within_limit(world.junior.id, "question", f"m{i}", "x", sent_at,
+                                         since=sent_at - timedelta(hours=12), limit=1)
+    first = admin.get("/api/admin/messages", params={"page_size": 3}).json()
+    assert [m["subject"] for m in first["items"]] == ["m6", "m5", "m4"]
+    assert first["total"] == 7 and first["open_count"] == 7
+    last = admin.get("/api/admin/messages", params={"page_size": 3, "page": 3}).json()
+    assert [m["subject"] for m in last["items"]] == ["m0"]
+    assert admin.get("/api/admin/messages", params={"page_size": 101}).status_code == 422

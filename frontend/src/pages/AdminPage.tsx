@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { BarList, DailyBars } from "../components/Charts";
+import { Pagination } from "../components/Pagination";
 import { Card, PageHeader, td, th } from "../components/Layout";
 import { ErrorState, LoadingState } from "../components/States";
 import { Badge, StatusBadge } from "../components/StatusBadge";
@@ -146,8 +147,10 @@ function UsersCard() {
 
 function MessageItem({ message, onToggle }: { message: ContactMessage; onToggle: () => void }) {
   const handled = message.handled_at !== null;
+  // Both parts encoded: an address must not be able to add its own headers (?bcc=...) to the reply.
   const mailto = message.user_email
-    ? `mailto:${message.user_email}?subject=${encodeURIComponent(`Re: ${message.subject}`)}` : undefined;
+    ? `mailto:${encodeURIComponent(message.user_email)}?subject=${encodeURIComponent(`Re: ${message.subject}`)}`
+    : undefined;
   return (
     <li className={`space-y-2 px-4 py-3 ${handled ? "bg-slate-50 text-slate-500" : ""}`}>
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -172,28 +175,45 @@ function MessageItem({ message, onToggle }: { message: ContactMessage; onToggle:
 
 function MessagesCard() {
   const [showHandled, setShowHandled] = useState(false);
-  const messages = useApi(() => api.adminMessages(!showHandled), `admin-messages-${showHandled}`);
-  const open = messages.data?.filter((m) => m.handled_at === null).length ?? 0;
+  const [page, setPage] = useState(1);
+  const [actionError, setActionError] = useState<string>();
+  const messages = useApi(() => api.adminMessages(!showHandled, page), `admin-messages-${showHandled}-${page}`);
+  const data = messages.data;
 
   async function toggle(message: ContactMessage) {
-    await api.adminSetMessageHandled(message.id, message.handled_at === null);
+    setActionError(undefined);
+    try {
+      await api.adminSetMessageHandled(message.id, message.handled_at === null);
+      // Handling the last open message on a later page would leave that page empty.
+      if (!showHandled && data?.items.length === 1 && page > 1) {
+        setPage(page - 1);
+        return;
+      }
+    } catch (err) {
+      setActionError((err as Error).message);
+    }
     messages.reload();
   }
 
   return (
-    <Card title={`${a.messages}${messages.data ? ` · ${a.messagesOpen(open)}` : ""}`} flush actions={
+    <Card title={`${a.messages}${data ? ` · ${a.messagesOpen(data.open_count)}` : ""}`} flush actions={
       <label className="flex items-center gap-2 text-xs text-slate-600">
-        <input type="checkbox" className="size-4" checked={showHandled} onChange={(e) => setShowHandled(e.target.checked)} />
+        <input type="checkbox" className="size-4" checked={showHandled}
+               onChange={(e) => { setShowHandled(e.target.checked); setPage(1); }} />
         {a.messagesShowHandled}
       </label>
     }>
+      {actionError && <p role="alert" className="px-4 pt-3 text-sm text-rose-700">{actionError}</p>}
       {messages.error ? <div className="p-4"><ErrorState error={messages.error} onRetry={messages.reload} /></div>
-        : !messages.data ? <LoadingState rows={3} />
-        : !messages.data.length ? <p className="px-4 py-6 text-center text-sm text-slate-500">{a.messagesEmpty}</p>
+        : !data ? <LoadingState rows={3} />
+        : !data.items.length ? <p className="px-4 py-6 text-center text-sm text-slate-500">{showHandled ? a.messagesNone : a.messagesEmpty}</p>
         : (
-          <ul className="divide-y divide-slate-100">
-            {messages.data.map((msg) => <MessageItem key={msg.id} message={msg} onToggle={() => toggle(msg)} />)}
-          </ul>
+          <>
+            <ul className="divide-y divide-slate-100">
+              {data.items.map((msg) => <MessageItem key={msg.id} message={msg} onToggle={() => toggle(msg)} />)}
+            </ul>
+            <Pagination page={page} pageSize={data.page_size} total={data.total} onPage={setPage} />
+          </>
         )}
     </Card>
   );
