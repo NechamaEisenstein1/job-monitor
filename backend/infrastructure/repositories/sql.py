@@ -172,6 +172,16 @@ class SqlJobSourceRepository:
             for key in [k for k, r in rows.items() if r.id in removed]:
                 del rows[key]
 
+    def mark_stale(self, seen_before: datetime) -> set[int]:
+        """Active postings last seen before `seen_before` become not-seen-recently.
+        Returns the ids of the jobs they belong to."""
+        rows = list(self._s.scalars(select(JobSourceRow).where(
+            JobSourceRow.status == JobSourceStatus.ACTIVE.value, JobSourceRow.last_seen_at < seen_before)))
+        for row in rows:
+            row.status = JobSourceStatus.NOT_SEEN_RECENTLY.value
+        self._s.flush()
+        return {row.job_id for row in rows}
+
     def list_unseen_in_run(self, recruitment_company: str, run_id: str) -> list[JobSource]:
         rows = self._s.scalars(
             select(JobSourceRow).where(

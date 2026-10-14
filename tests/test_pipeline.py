@@ -15,7 +15,7 @@ from backend.domain.models import RawJob
 from backend.domain.services.evaluation import JobEvaluationService
 from backend.infrastructure.db.orm import JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, ScraperRunRow
 from backend.infrastructure.repositories.sql import SqlNotificationRepository, SqlUnitOfWork
-from backend.infrastructure.scrapers.base import BaseScraper, ScrapeTimeoutError
+from backend.infrastructure.scrapers.base import BaseScraper, HttpStatusError, ScrapeTimeoutError
 
 from tests.conftest import NOW
 
@@ -130,8 +130,34 @@ def test_failed_scraper_never_removes_jobs(harness):
     for day in range(1, 6):
         run = harness(FakeScraper("Matrix", error=ScrapeTimeoutError("slow")), days_later=day)
         assert run.status == RunStatus.FAILED
-    [source] = harness.query(select(JobSourceRow))
-    assert source.status == JobSourceStatus.ACTIVE.value
+    [source] = harness.query(select(JobSourceRow))  # kept, though no longer presented as active
+    assert source.status == JobSourceStatus.NOT_SEEN_RECENTLY.value
+
+
+def test_failing_site_postings_go_stale_after_three_days_and_recover(harness):
+    blocked = FakeScraper("HMS", error=HttpStatusError(403, "https://hms.example.com/jobs/"))
+
+    def status():
+        [row] = harness.query(select(JobRow))
+        return row.status
+
+    harness(FakeScraper("HMS", [job("H1")]))
+    harness(blocked, days_later=3)
+    assert status() == JobStatus.ACTIVE.value  # exactly 3 days: not yet
+    harness(blocked, days_later=4)
+    assert status() == JobStatus.NOT_SEEN_RECENTLY.value
+    harness(FakeScraper("HMS", [job("H1")]), days_later=5)  # the site works again
+    assert status() == JobStatus.ACTIVE.value
+
+
+def test_job_still_listed_elsewhere_stays_active_when_one_site_goes_stale(harness):
+    harness(FakeScraper("Matrix", [job("1")]), FakeScraper("HMS", [job("H1")]))
+    harness(FakeScraper("Matrix", [job("1")]), FakeScraper("HMS", error=HttpStatusError(403, "https://x")),
+            days_later=5)
+    [row] = harness.query(select(JobRow))
+    assert row.status == JobStatus.ACTIVE.value
+    statuses = {s.recruitment_company: s.status for s in harness.query(select(JobSourceRow))}
+    assert statuses == {"Matrix": "active", "HMS": "not_seen_recently"}
 
 
 def test_daily_refresh_removes_jobs_no_longer_listed(harness):
