@@ -20,9 +20,7 @@ class SqlApplicationRepository:
         job = self._s.get(JobRow, job_id)
         if job is None:
             return False
-        exists = self._s.scalar(select(JobApplicationRow.id).where(
-            JobApplicationRow.user_id == user_id, JobApplicationRow.job_id == job_id))
-        if exists is None:
+        if not self._exists(user_id, job_id):
             url = self._s.scalar(select(JobSourceRow.source_url).where(JobSourceRow.job_id == job_id)
                                  .order_by(JobSourceRow.id).limit(1))
             self._s.add(JobApplicationRow(user_id=user_id, job_id=job_id, title=job.title,
@@ -30,9 +28,18 @@ class SqlApplicationRepository:
                                           source_url=url, applied_at=now))
             try:
                 self._s.commit()
-            except IntegrityError:  # marked at the same moment from another tab
+            except IntegrityError:
                 self._s.rollback()
+                if self._exists(user_id, job_id):  # marked at the same moment from another tab
+                    return True
+                if self._s.get(JobRow, job_id) is None:  # the daily refresh removed the job meanwhile
+                    return False
+                raise
         return True
+
+    def _exists(self, user_id: int, job_id: int) -> bool:
+        return self._s.scalar(select(JobApplicationRow.id).where(
+            JobApplicationRow.user_id == user_id, JobApplicationRow.job_id == job_id)) is not None
 
     def unmark(self, user_id: int, job_id: int) -> None:
         self._s.execute(delete(JobApplicationRow).where(

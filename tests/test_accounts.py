@@ -384,3 +384,22 @@ def test_unmarking_an_application(world):
     dana.put(f"/api/me/applications/{job_id}")
     assert dana.delete(f"/api/me/applications/{job_id}").status_code == 204
     assert dana.get("/api/me/applications").json() == []
+
+
+
+def test_marking_a_job_that_disappears_meanwhile_reports_not_found(world, monkeypatch):
+    """The daily refresh may delete the job between the lookup and the insert."""
+    from backend.infrastructure.db.orm import JobRow
+    from backend.infrastructure.repositories.applications import SqlApplicationRepository
+
+    with world.app.state.session_factory() as s:
+        repo, real_get = SqlApplicationRepository(s), s.get
+        seen = {"n": 0}
+
+        def get_once(cls, ident, *a, **kw):  # the first lookup still sees the job, then it is gone
+            seen["n"] += 1
+            return JobRow(id=ident, title="gone", status="active") if cls is JobRow and seen["n"] == 1 \
+                else real_get(cls, ident, *a, **kw)
+
+        monkeypatch.setattr(s, "get", get_once)
+        assert repo.mark(world.junior.id, 99999, NOW) is False

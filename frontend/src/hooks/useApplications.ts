@@ -9,6 +9,7 @@ export interface Applications {
   /** Ids of jobs (still on the board) the user marked "I applied". */
   appliedIds: Set<number>;
   toggle: (jobId: number, applied: boolean) => Promise<void>;
+  /** A failed update, or a failed load of the list. */
   error: string | undefined;
 }
 
@@ -28,5 +29,6 @@ export function useApplications(): Applications {
     list.reload();
   }
 
-  return { list, appliedIds, toggle, error };
+  // A failed load must not look like "nothing applied": report it like a failed update.
+  return { list, appliedIds, toggle, error: error ?? list.error?.message };
 }

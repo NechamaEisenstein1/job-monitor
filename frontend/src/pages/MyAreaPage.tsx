@@ -257,7 +257,10 @@ function MatchesCard({ recruiterCount, gmailConnected, onSent, applications }: {
   recruiterCount: number; gmailConnected: boolean; onSent: () => void; applications: Applications;
 }) {
   const level = useUser().experience_level;  // matches follow the level saved in the profile
-  const [page, setPage] = useState(1);
+  // The page belongs to a level: after the level changes the list starts again at page 1.
+  const [paging, setPaging] = useState({ level, page: 1 });
+  const page = paging.level === level ? paging.page : 1;
+  const setPage = (next: number) => setPaging({ level, page: next });
   const [tendersOnly, setTendersOnly] = useState(false);
   const matches = useApi(() => api.matches(page, tendersOnly || undefined), `matches-${level}-${page}-${tendersOnly}`);
 
@@ -326,7 +329,10 @@ function AppliedCard({ applications }: { applications: Applications }) {
   return (
     <Card title={`${t.title}${list.data ? ` (${list.data.length})` : ""}`} flush>
       <p className="px-4 pt-3 text-xs text-slate-500">{t.hint}</p>
-      {(error ?? applications.error) && <p role="alert" className="px-4 pt-2 text-sm text-rose-700">{error ?? applications.error}</p>}
+      {/* A failed load is shown by the ErrorState below; here only failed updates. */}
+      {(error ?? (list.error ? undefined : applications.error)) && (
+        <p role="alert" className="px-4 pt-2 text-sm text-rose-700">{error ?? applications.error}</p>
+      )}
       {list.error ? <div className="p-4"><ErrorState error={list.error} onRetry={list.reload} /></div>
         : !list.data ? <LoadingState rows={3} />
         : !list.data.length ? <EmptyState title={t.empty} />
