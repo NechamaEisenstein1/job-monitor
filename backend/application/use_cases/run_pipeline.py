@@ -304,7 +304,10 @@ class RunPipeline:
         try:
             self._uow.runs.save(run)
             self._uow.commit()
-        except Exception as exc:  # noqa: BLE001 - a dropped connection must not leave the run unfinished
+        except Exception as exc:
+            if not self._uow.is_connection_lost(exc):
+                raise
+            # A dropped connection must not leave the run unfinished.
             log_event("run_finish_retry", logging.WARNING, run_id=run.id, error=repr(exc)[:300])
             self._uow.rollback()  # discards the dead connection; the pool opens a fresh one
             self._uow.runs.save(run)

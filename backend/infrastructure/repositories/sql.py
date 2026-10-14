@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from sqlalchemy import case, delete, func, insert, literal, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.domain.enums import (
@@ -385,6 +385,10 @@ class SqlPostingHistoryRepository:
         return result
 
 
+# idle_in_transaction_session_timeout, admin_shutdown, crash_shutdown, cannot_connect_now
+_CONNECTION_LOST_SQLSTATES = {"25P03", "57P01", "57P02", "57P03"}
+
+
 class SqlUnitOfWork:
     def __init__(self, session: Session):
         self.session = session
@@ -401,3 +405,11 @@ class SqlUnitOfWork:
 
     def rollback(self) -> None:
         self.session.rollback()
+
+    @staticmethod
+    def is_connection_lost(exc: Exception) -> bool:
+        """The server dropped the connection (a fresh one may succeed), as opposed to an
+        error in the statement itself."""
+        if not isinstance(exc, DBAPIError):
+            return False
+        return exc.connection_invalidated or getattr(exc.orig, "sqlstate", None) in _CONNECTION_LOST_SQLSTATES
