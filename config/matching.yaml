@@ -138,6 +138,7 @@ thresholds:
 # (a bigger drop is far likelier a broken scraper; the run page then shows a warning).
 retention:
   max_prune_ratio: 0.5
+  stale_after_days: 3       # postings not seen this long (site failing) -> "not seen recently"
 
 schedule:
   # The scheduled date of a run is the calendar date in this timezone.

@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from backend.application.dto import DigestItem
 from backend.application.ports import UnitOfWork
@@ -92,7 +92,8 @@ class RunPipeline:
         self._evaluate_touched_jobs(ctx)
         self._uow.evaluations.delete_superseded(run.id)
         still_listed = self._prune_unseen(ctx)
-        self._refresh_job_status(set(ctx.current_run_jobs) | still_listed)
+        went_stale = self._mark_stale()
+        self._refresh_job_status(set(ctx.current_run_jobs) | still_listed | went_stale)
         self._uow.commit()
 
         self._send_digest(ctx)
@@ -263,6 +264,14 @@ class RunPipeline:
         if orphaned:
             log_event("jobs_removed", count=len(orphaned))
         return affected - set(orphaned)
+
+    def _mark_stale(self) -> set[int]:
+        """Postings of a site that keeps failing are kept (a failure proves nothing), but
+        after a few days without being seen they are no longer shown as active."""
+        job_ids = self._uow.sources.mark_stale(self._clock() - timedelta(days=self._cfg.retention.stale_after_days))
+        if job_ids:
+            log_event("postings_stale", jobs=len(job_ids), days=self._cfg.retention.stale_after_days)
+        return job_ids
 
     def _refresh_job_status(self, job_ids: set[int]) -> None:
         """Job.status and Job.last_seen_at are derived from the job's sources."""

@@ -77,3 +77,27 @@ def test_parsing_error_is_not_retried():
     with pytest.raises(ParseError) as exc:
         run(scraper.fetch_jobs())
     assert len(calls) == 1 and exc.value.status == ScrapeStatus.PARSE_ERROR
+
+
+def test_403_names_the_protection_layer_without_retrying():
+    page = "<html><head><title>Just a moment...</title></head><body>challenge</body></html>"
+    http, calls, _ = client_for([httpx.Response(403, text=page, headers={
+        "server": "cloudflare", "cf-ray": "8f00-TLV", "cf-mitigated": "challenge", "set-cookie": "secret=1"})])
+    with pytest.raises(HttpStatusError) as exc:
+        run(http.get(URL))
+    assert len(calls) == 1 and exc.value.status_code == 403
+    assert str(exc.value) == f"HTTP 403 for {URL} (Cloudflare challenge; page title: Just a moment...)"
+
+
+def test_403_from_an_unknown_server_reports_its_name():
+    http, _, _ = client_for([httpx.Response(403, text="Forbidden", headers={"server": "nginx"})])
+    with pytest.raises(HttpStatusError) as exc:
+        run(http.get(URL))
+    assert str(exc.value).endswith("(server=nginx)")
+
+
+def test_404_message_is_unchanged():
+    http, _, _ = client_for([httpx.Response(404)])
+    with pytest.raises(HttpStatusError) as exc:
+        run(http.get(URL))
+    assert str(exc.value) == f"HTTP 404 for {URL}"

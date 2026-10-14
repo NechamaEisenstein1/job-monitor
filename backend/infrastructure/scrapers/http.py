@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -15,6 +16,40 @@ from backend.infrastructure.scrapers.base import HttpStatusError, NetworkError, 
 from backend.observability import log_event
 
 RETRYABLE_STATUS = frozenset({429, 502, 503, 504})
+_TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+
+
+# Headers that tell which protection layer answered a refused request. Cookies are never logged.
+_DIAGNOSTIC_HEADERS = ("server", "via", "x-cdn", "cf-ray", "cf-mitigated", "x-iinfo", "x-sucuri-id",
+                       "x-akamai-transformed", "akamai-grn", "x-amz-cf-id", "x-cache", "x-powered-by")
+# (header, value substring or None for "header present", name of the protection)
+_BLOCKERS = (
+    ("cf-mitigated", None, "Cloudflare challenge"),
+    ("cf-ray", None, "Cloudflare"),
+    ("x-iinfo", None, "Imperva/Incapsula"),
+    ("x-cdn", "imperva", "Imperva/Incapsula"),
+    ("x-sucuri-id", None, "Sucuri"),
+    ("akamai-grn", None, "Akamai"),
+    ("server", "akamaighost", "Akamai"),
+    ("x-amz-cf-id", None, "AWS CloudFront/WAF"),
+    ("server", "cloudflare", "Cloudflare"),
+)
+
+
+def _diagnostic_headers(headers: httpx.Headers) -> dict[str, str]:
+    return {k: headers[k][:120] for k in _DIAGNOSTIC_HEADERS if k in headers}
+
+
+def describe_block(response: httpx.Response) -> str:
+    """Best guess at what refused the request, from headers plus the page title."""
+    headers = response.headers
+    blocker = next((name for header, needle, name in _BLOCKERS
+                    if header in headers and (needle is None or needle in headers[header].lower())), None)
+    parts = [blocker or f"server={headers.get('server', 'unknown')[:40]}"]
+    match = _TITLE.search(response.text[:5000]) if response.content else None
+    if match and match.group(1).strip():
+        parts.append(f"page title: {' '.join(match.group(1).split())[:80]}")
+    return "; ".join(parts)
 
 
 @dataclass(frozen=True)
@@ -97,7 +132,12 @@ class RetryingHttpClient:
                             delay = min(retry_after, self._policy.max_backoff_seconds)
                     reason = f"http_{response.status_code}"
                 elif response.is_error:
-                    raise HttpStatusError(response.status_code, url)  # 404 etc: not retried
+                    detail = None
+                    if response.status_code in (401, 403):
+                        detail = describe_block(response)
+                        log_event("http_blocked", url=url, status=response.status_code, blocker=detail,
+                                  headers=_diagnostic_headers(response.headers))
+                    raise HttpStatusError(response.status_code, url, detail)  # 404 etc: not retried
                 else:
                     return response
             attempt += 1

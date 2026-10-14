@@ -17,8 +17,8 @@ class NetworkError(ScraperError):
 
 
 class HttpStatusError(NetworkError):
-    def __init__(self, status_code: int, url: str):
-        super().__init__(f"HTTP {status_code} for {url}")
+    def __init__(self, status_code: int, url: str, detail: str | None = None):
+        super().__init__(f"HTTP {status_code} for {url}" + (f" ({detail})" if detail else ""))
         self.status_code = status_code
 
 

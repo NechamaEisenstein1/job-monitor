@@ -94,6 +94,9 @@ class Thresholds:
 class RetentionConfig:
     # Skip pruning a site when one run would remove more than this share of its postings.
     max_prune_ratio: float = 0.5
+    # A posting its site has not shown for this long (the site keeps failing, e.g. it blocks
+    # the scraper) is no longer presented as active. It turns active again once seen.
+    stale_after_days: int = 3
 
 
 @dataclass(frozen=True)
