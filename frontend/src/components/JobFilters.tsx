@@ -8,12 +8,20 @@ const control =
   "rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500";
 const label = "flex flex-col gap-1 text-xs font-medium text-slate-500";
 
+const LEVELS: [string, string][] = [["a", f.levelShortA], ["b", f.levelShortB], ["c", f.levelShortC]];
+
+/** "a,c" + check "b" -> "a,b,c" (always in a-b-c order; "" = all levels). */
+function toggleLevel(current: string[], code: string, on: boolean): string {
+  return LEVELS.map(([c]) => c).filter((c) => (c === code ? on : current.includes(c))).join(",");
+}
+
 export function JobFilters({ value, sources, onChange }: {
   value: JobFilterValues;
   sources: string[];
   onChange: (next: Partial<JobFilterValues>) => void;
 }) {
   // Debounce free-text inputs so typing doesn't fire a request per keystroke.
+  const levels = value.level ? value.level.split(",") : [];
   const [q, setQ] = useState(value.q);
   const [location, setLocation] = useState(value.location);
   useEffect(() => setQ(value.q), [value.q]);
@@ -36,25 +44,19 @@ export function JobFilters({ value, sources, onChange }: {
         <input className={control} type="text" placeholder={f.locationPlaceholder} value={location}
                onChange={(e) => setLocation(e.target.value)} dir="auto" />
       </label>
-      <label className={label}>
-        {f.eligibility}
-        <select className={control} value={value.eligible}
-                onChange={(e) => onChange({ eligible: e.target.value as JobFilterValues["eligible"] })}>
-          <option value="">{f.all}</option>
-          <option value="true">{f.eligible}</option>
-          <option value="false">{f.notEligible}</option>
-        </select>
-      </label>
-      <label className={label}>
-        {f.level}
-        <select className={control} value={value.level}
-                onChange={(e) => onChange({ level: e.target.value as JobFilterValues["level"] })}>
-          <option value="">{f.all}</option>
-          <option value="a">{f.levelA}</option>
-          <option value="b">{f.levelB}</option>
-          <option value="c">{f.levelC}</option>
-        </select>
-      </label>
+      <fieldset className={label}>
+        <legend className="mb-1">{f.level}</legend>
+        {/* Several levels can be picked; none picked = all levels. */}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5">
+          {LEVELS.map(([code, text]) => (
+            <label key={code} className="flex items-center gap-1.5 text-sm font-normal text-slate-800">
+              <input type="checkbox" className="size-4" checked={levels.includes(code)}
+                     onChange={(e) => onChange({ level: toggleLevel(levels, code, e.target.checked) })} />
+              {text}
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <label className={label}>
         {f.status}
         <select className={control} value={value.status}
@@ -94,7 +96,6 @@ export function JobFilters({ value, sources, onChange }: {
           <option value="relevance">{f.sortRelevance}</option>
           <option value="newest">{f.sortNewest}</option>
           <option value="updated">{f.sortUpdated}</option>
-          <option value="score">{f.sortScore}</option>
         </select>
       </label>
     </div>

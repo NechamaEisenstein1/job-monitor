@@ -204,6 +204,7 @@ class UserDto(Dto):
     email_verified: bool
     has_password: bool
     google_linked: bool
+    preferred_regions: list[str] = []
     # Filled in the admin user list only.
     points_balance: int | None = None
     subscription_status: str | None = None
@@ -372,6 +373,11 @@ class JobApplicationDto(Dto):
     source_url: str | None
     applied_at: UtcDatetime
     job_removed: bool
+
+
+class RegionDto(Dto):
+    code: str
+    name: str
 
 
 # ------------------------------------------------------------------ forum

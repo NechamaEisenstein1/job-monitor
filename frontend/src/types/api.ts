@@ -182,7 +182,8 @@ export interface JobFilterValues {
   source: string;
   role_type: RoleType | "tech" | "all";
   government: "" | "true";
-  level: "" | "a" | "b" | "c";
+  /** Comma-separated levels, e.g. "a,b"; "" = all levels. */
+  level: string;
   sort: JobSort;
   page: number;
 }
@@ -203,6 +204,8 @@ export interface User {
   email_verified: boolean;
   has_password: boolean;
   google_linked: boolean;
+  /** Region codes for the personal area; [] = all of Israel. */
+  preferred_regions: string[];
   points_balance: number | null; // admin user list only
   subscription_status: SubscriptionStatus | null;
 }
@@ -395,6 +398,11 @@ export interface JobApplication {
   source_url: string | null;
   applied_at: string;
   job_removed: boolean;
+}
+
+export interface Region {
+  code: string;
+  name: string;
 }
 
 // ------------------------------------------------------------------ forum

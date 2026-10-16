@@ -12,7 +12,7 @@ export function ChangeList({ changes, showJob = true }: { changes: JobChange[]; 
         <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
           <StatusBadge status={c.change_type} />
           {showJob && (
-            <Link to={`/jobs/${c.job_id}`} className="min-w-0 flex-1 truncate font-medium text-slate-800 hover:underline" dir="auto">
+            <Link to={`/jobs/${c.job_id}`} target="_blank" rel="noopener" className="min-w-0 flex-1 truncate font-medium text-slate-800 hover:underline" dir="auto">
               {c.job_title}
             </Link>
           )}

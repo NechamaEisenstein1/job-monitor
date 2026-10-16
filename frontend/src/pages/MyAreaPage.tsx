@@ -5,7 +5,7 @@ import { AppliedCheckbox } from "../components/AppliedCheckbox";
 import { Card, PageHeader } from "../components/Layout";
 import { Pagination } from "../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
-import { JUNIOR_HIGHLIGHT, JuniorBadge, RoleBadge, TenderBadge } from "../components/StatusBadge";
+import { RoleBadge, TenderBadge } from "../components/StatusBadge";
 import { useApi } from "../hooks/useApi";
 import { type Applications, useApplications } from "../hooks/useApplications";
 import { useAuth, useUser } from "../hooks/useAuth";
@@ -43,6 +43,8 @@ function ProfileCard() {
   const [name, setName] = useState(user.display_name);
   const [level, setLevel] = useState<ExperienceLevel>(user.experience_level);
   const [alerts] = useState(user.alerts_enabled);  // email alerts are "coming soon": kept as is
+  const [regions, setRegions] = useState<string[]>(user.preferred_regions ?? []);
+  const regionList = useApi(api.regions, "regions");
   const [status, setStatus] = useState<{ error?: string; ok?: string }>({});
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -51,7 +53,8 @@ function ProfileCard() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     try {
-      setUser(await api.updateProfile({ display_name: name, experience_level: level, alerts_enabled: alerts }));
+      setUser(await api.updateProfile({ display_name: name, experience_level: level, alerts_enabled: alerts,
+        preferred_regions: regions }));
       setStatus({ ok: m.saved });
     } catch (err) {
       setStatus({ error: (err as Error).message });
@@ -83,6 +86,19 @@ function ProfileCard() {
             {Object.entries(m.levels).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
           </select>
         </Field>
+        <fieldset className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+          <legend className="mb-1">{m.regions}</legend>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+            {(regionList.data ?? []).map((r) => (
+              <label key={r.code} className="flex items-center gap-1.5 text-sm font-normal text-slate-800">
+                <input type="checkbox" className="size-4" checked={regions.includes(r.code)}
+                       onChange={(e) => setRegions(e.target.checked ? [...regions, r.code] : regions.filter((c) => c !== r.code))} />
+                {r.name}
+              </label>
+            ))}
+          </div>
+          <span className="font-normal text-slate-400">{m.regionsHint}</span>
+        </fieldset>
         <label className="flex items-center gap-2 text-sm text-slate-400" title={m.alertsSoonHint}>
           {/* Email alerts are not sent yet: the option stays visible but cannot be changed. */}
           <input type="checkbox" className="size-4" checked={false} disabled readOnly />
@@ -256,13 +272,15 @@ function OutreachButton({ job, recruiterCount, gmailConnected, onSent }: {
 function MatchesCard({ recruiterCount, gmailConnected, onSent, applications }: {
   recruiterCount: number; gmailConnected: boolean; onSent: () => void; applications: Applications;
 }) {
-  const level = useUser().experience_level;  // matches follow the level saved in the profile
-  // The page belongs to a level: after the level changes the list starts again at page 1.
-  const [paging, setPaging] = useState({ level, page: 1 });
-  const page = paging.level === level ? paging.page : 1;
-  const setPage = (next: number) => setPaging({ level, page: next });
+  const user = useUser();
+  // Matches follow the level and regions saved in the profile.
+  const profile = `${user.experience_level}-${(user.preferred_regions ?? []).join(",")}`;
+  // The page belongs to a profile: after the level or regions change the list starts again at page 1.
+  const [paging, setPaging] = useState({ profile, page: 1 });
+  const page = paging.profile === profile ? paging.page : 1;
+  const setPage = (next: number) => setPaging({ profile, page: next });
   const [tendersOnly, setTendersOnly] = useState(false);
-  const matches = useApi(() => api.matches(page, tendersOnly || undefined), `matches-${level}-${page}-${tendersOnly}`);
+  const matches = useApi(() => api.matches(page, tendersOnly || undefined), `matches-${profile}-${page}-${tendersOnly}`);
 
   return (
     <Card title={m.matches} flush actions={
@@ -280,11 +298,10 @@ function MatchesCard({ recruiterCount, gmailConnected, onSent, applications }: {
           <>
             <ul className="divide-y divide-slate-100">
               {matches.data.items.map((job) => (
-                <li key={job.id} className={`space-y-2 px-4 py-3 ${job.is_junior ? JUNIOR_HIGHLIGHT
-                  : job.is_government_tender ? "border-s-4 border-amber-400 bg-amber-50/40" : ""}`}>
+                <li key={job.id} className={`space-y-2 px-4 py-3 ${
+                  job.is_government_tender ? "border-s-4 border-amber-400 bg-amber-50/40" : ""}`}>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link to={`/jobs/${job.id}`} className="font-medium text-slate-900 hover:underline" dir="auto">{job.title}</Link>
-                    {job.is_junior && <JuniorBadge />}
+                    <Link to={`/jobs/${job.id}`} target="_blank" rel="noopener" className="font-medium text-slate-900 hover:underline" dir="auto">{job.title}</Link>
                     {job.is_government_tender && <TenderBadge />}
                     <RoleBadge role={job.role_type} />
                   </div>
@@ -342,7 +359,7 @@ function AppliedCard({ applications }: { applications: Applications }) {
               <li key={a.id} className="space-y-1 px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {a.job_id !== null
-                    ? <Link to={`/jobs/${a.job_id}`} className="font-medium text-slate-900 hover:underline" dir="auto">{a.title}</Link>
+                    ? <Link to={`/jobs/${a.job_id}`} target="_blank" rel="noopener" className="font-medium text-slate-900 hover:underline" dir="auto">{a.title}</Link>
                     : <span className="font-medium text-slate-700" dir="auto">{a.title}</span>}
                   {a.job_removed && (
                     <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{t.removed}</span>
@@ -429,7 +446,7 @@ function OutreachLogCard({ version }: { version: number }) {
               {log.data.map((e) => (
                 <li key={`${e.job_id}-${e.recruiter_name}-${e.sent_at}`} className="px-4 py-2.5 text-sm">
                   <div className="flex items-start justify-between gap-2">
-                    <Link to={`/jobs/${e.job_id}`} className="min-w-0 truncate font-medium text-slate-800 hover:underline" dir="auto">
+                    <Link to={`/jobs/${e.job_id}`} target="_blank" rel="noopener" className="min-w-0 truncate font-medium text-slate-800 hover:underline" dir="auto">
                       {e.job_title}
                     </Link>
                     <span className="shrink-0 text-xs text-slate-400">{formatRelative(e.sent_at)}</span>

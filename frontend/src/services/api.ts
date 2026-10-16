@@ -1,6 +1,6 @@
 import { errorLabel, he } from "../i18n/he";
 import type {
-  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, ForumCategory, ForumThread, ForumThreadPage, JobApplication, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
+  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, ForumCategory, ForumThread, ForumThreadPage, JobApplication, Region, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
   GmailStatus, ManualJob, ManualJobInput, OutreachLogEntry, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
   ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
@@ -76,7 +76,9 @@ export const api = {
   sources: () => get<SourceHealth[]>("/sources"),
 
   // personal area
-  updateProfile: (p: { display_name: string; experience_level: ExperienceLevel; alerts_enabled: boolean }) =>
+  regions: () => get<Region[]>("/regions"),
+  updateProfile: (p: { display_name: string; experience_level: ExperienceLevel; alerts_enabled: boolean;
+    preferred_regions: string[] }) =>
     put<User>("/me/profile", p),
   recruiters: () => get<Recruiter[]>("/me/recruiters"),
   addRecruiter: (r: RecruiterInput) => post<Recruiter>("/me/recruiters", r),

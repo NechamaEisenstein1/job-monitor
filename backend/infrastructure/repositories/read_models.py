@@ -77,8 +77,8 @@ class SqlReadRepository:
     def list_jobs(self, *, q: str | None = None, location: str | None = None, eligible: bool | None = None,
                   status: str | None = None, source: str | None = None, role_types: list[str] | None = None,
                   government: bool | None = None, junior: bool | None = None, location_matched: bool | None = None,
-                  level: str | None = None, level_years: tuple[float, float] = (2, 4),
-                  level_includes_unstated: bool = False,
+                  level: str | list[str] | None = None, level_years: tuple[float, float] = (2, 4),
+                  level_includes_unstated: bool = False, regions: list[str] | None = None,
                   sort: str = "relevance", page: int = 1, page_size: int = 25) -> JobListDto:
         latest_eval = _latest_evaluation_id()
         stmt = select(JobRow, JobEvaluationRow).outerjoin(JobEvaluationRow, JobEvaluationRow.id == latest_eval)
@@ -88,8 +88,12 @@ class SqlReadRepository:
             stmt = stmt.where(JobEvaluationRow.is_government_tender.is_(government))
         if junior is not None:
             stmt = stmt.where(JobEvaluationRow.is_junior.is_(junior))
-        if level:
-            stmt = stmt.where(_level_condition(level, *level_years, include_unstated=level_includes_unstated))
+        if level:  # one level, or several (any of them)
+            levels = [level] if isinstance(level, str) else level
+            stmt = stmt.where(or_(*(_level_condition(lv, *level_years, include_unstated=level_includes_unstated)
+                                    for lv in levels)))
+        if regions:  # jobs in any of these regions (evaluation.regions is "|jerusalem|center|")
+            stmt = stmt.where(or_(*(JobEvaluationRow.regions.like(f"%|{code}|%") for code in regions)))
         if location_matched is not None:
             stmt = stmt.where(JobEvaluationRow.location_matched.is_(location_matched))
         if q:

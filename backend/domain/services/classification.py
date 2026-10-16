@@ -60,8 +60,10 @@ class RankingPolicy:
     def __init__(self, cfg: RankingConfig):
         self._cfg = cfg
 
-    def rank(self, *, is_junior: bool, role_type: str, junior_score: float) -> float:
+    def rank(self, *, is_junior: bool, role_type: str, junior_score: float, is_government_tender: bool = False) -> float:
+        """Government tenders first (tender_bonus), then by role type; junior_bonus is 0 by default."""
         priority = self._cfg.role_priority
         position = priority.index(role_type) if role_type in priority else len(priority)
         role_points = (len(priority) - position) * self._cfg.role_step
-        return round((self._cfg.junior_bonus if is_junior else 0) + role_points + junior_score * 10, 4)
+        return round((self._cfg.tender_bonus if is_government_tender else 0)
+                     + (self._cfg.junior_bonus if is_junior else 0) + role_points + junior_score * 10, 4)

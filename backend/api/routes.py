@@ -47,15 +47,17 @@ def list_jobs(
     role_type: Annotated[str | None, Query(max_length=100, pattern=r"^[a-z_,]*$",
                                            description="comma-separated, e.g. software,qa; 'tech' = all tech roles")] = None,
     government: bool | None = None,
-    level: Annotated[Literal["a", "b", "c"] | None,
-                     Query(description="experience level: a = junior, b = 2+ to 4 years, c = above 4")] = None,
+    level: Annotated[str | None, Query(pattern=r"^[abc](,[abc]){0,2}$",
+                                       description="experience levels, comma-separated: a = junior, "
+                                                   "b = 2+ to 4 years, c = above 4 (any of them)")] = None,
     sort: Literal["relevance", "newest", "updated", "score"] = "relevance",
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=200)] = 25,
 ) -> JobListDto:
     return queries.list_jobs(q=q, location=location, eligible=eligible, status=status.value if status else None,
                              source=source, role_types=_role_types(role_type, request),
-                             government=government, level=level, level_years=_level_years(request),
+                             government=government, level=sorted(set(level.split(","))) if level else None,
+                             level_years=_level_years(request),
                              sort=sort, page=page, page_size=page_size)
 
 

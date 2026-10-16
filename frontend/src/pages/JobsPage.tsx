@@ -1,3 +1,4 @@
+import { useLayoutEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { JobFilters } from "../components/JobFilters";
@@ -17,13 +18,44 @@ const DEFAULTS: JobFilterValues = {
   level: "", sort: "relevance", page: 1,
 };
 
-/** Filters live in the URL so views are shareable and survive reloads. */
+const SAVED_FILTERS = "jobs-filters";
+
+function saveFilters(search: string) {
+  try {
+    localStorage.setItem(SAVED_FILTERS, search);
+  } catch {
+    // storage blocked (private mode): filters still live in the URL
+  }
+}
+
+function savedFilters(): string {
+  try {
+    return localStorage.getItem(SAVED_FILTERS) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** Filters live in the URL so views are shareable and survive reloads. The last search is
+ *  also remembered, so coming back to /jobs (menu, "back to jobs") restores filters and page. */
 function useJobFilters(): [JobFilterValues, (next: Partial<JobFilterValues>) => void] {
   const [params, setParams] = useSearchParams();
+  const search = params.toString();
+  // On every query change, not just on mount: a link or typed URL with a query is the new
+  // remembered search, and a bare /jobs (menu link while already here) restores it. Clearing
+  // the filters goes through update(), which stores "" first, so nothing is restored then.
+  useLayoutEffect(() => {
+    if (search) {
+      saveFilters(search);
+    } else {
+      const saved = savedFilters();
+      if (saved) setParams(new URLSearchParams(saved), { replace: true });
+    }
+  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: JobFilterValues = {
     q: params.get("q") ?? DEFAULTS.q,
     location: params.get("location") ?? DEFAULTS.location,
-    eligible: (params.get("eligible") ?? DEFAULTS.eligible) as JobFilterValues["eligible"],
+    eligible: DEFAULTS.eligible,  // the old "matching" filter is gone; ignore it in old links
     status: (params.get("status") ?? DEFAULTS.status) as JobFilterValues["status"],
     source: params.get("source") ?? DEFAULTS.source,
     role_type: (params.get("role_type") ?? DEFAULTS.role_type) as JobFilterValues["role_type"],
@@ -38,6 +70,7 @@ function useJobFilters(): [JobFilterValues, (next: Partial<JobFilterValues>) => 
     for (const [k, v] of Object.entries(merged)) {
       if (v !== DEFAULTS[k as keyof JobFilterValues] && v !== "") search.set(k, String(v));
     }
+    saveFilters(search.toString());
     setParams(search, { replace: true });
   };
   return [value, update];

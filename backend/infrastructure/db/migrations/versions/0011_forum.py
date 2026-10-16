@@ -1,17 +1,17 @@
 """forum: threads, posts and thanks between users (government tenders)
 
-Revision ID: 0010
-Revises: 0008
+Revision ID: 0011
+Revises: 0009
 Create Date: 2026-10-16
 
-NOTE: numbered 0010 because PR #8 adds 0009 (preferred regions). Whichever of the two
+NOTE: numbered 0011 because PR #10 adds 0010 (contact replies). Whichever of the two
 merges second must point its down_revision at the other, so the history stays one line.
 """
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0010"
-down_revision = "0008"
+revision = "0011"
+down_revision = "0009"
 branch_labels = None
 depends_on = None
 

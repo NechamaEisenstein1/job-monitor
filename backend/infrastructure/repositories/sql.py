@@ -235,6 +235,13 @@ class SqlJobEvaluationRepository:
         if evaluations:
             self._s.execute(insert(JobEvaluationRow), [to_values(e, exclude=()) for e in evaluations])
 
+    def replace_for_jobs(self, evaluations: list[JobEvaluation]) -> None:
+        """Each job's evaluations become just the given one (manual postings, which no run owns)."""
+        ids = [e.job_id for e in evaluations]
+        for start in range(0, len(ids), 500):
+            self._s.execute(delete(JobEvaluationRow).where(JobEvaluationRow.job_id.in_(ids[start:start + 500])))
+        self.add_many(evaluations)
+
     def list_for_run(self, run_id: str) -> list[JobEvaluation]:
         rows = self._s.scalars(select(JobEvaluationRow).where(JobEvaluationRow.scrape_run_id == run_id))
         return [to_domain(r, JobEvaluation) for r in rows]

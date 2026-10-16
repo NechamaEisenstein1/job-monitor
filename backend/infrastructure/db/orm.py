@@ -131,6 +131,8 @@ class JobEvaluationRow(Base):
     # migration 0005
     required_years: Mapped[float | None] = mapped_column(Float)
     junior_title_mismatch: Mapped[bool] = mapped_column(Boolean, default=False)
+    # migration 0009: "|jerusalem|center|" - the preferred-region codes the job is in
+    regions: Mapped[str] = mapped_column(String(200), default="", server_default="")
 
 
 class JobChangeRow(Base):
@@ -177,6 +179,8 @@ class UserRow(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
     google_sub: Mapped[str | None] = mapped_column(String(64), unique=True)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # migration 0009: preferred regions, "jerusalem,center" ("" = all of Israel)
+    preferred_regions: Mapped[str] = mapped_column(String(200), default="", server_default="")
     # Changed only through atomic UPDATEs in the billing repository.
     points_balance: Mapped[int] = mapped_column(Integer, default=0)
     subscription_status: Mapped[str] = mapped_column(String(16), default="inactive")
@@ -350,7 +354,7 @@ class JobApplicationRow(Base):
     applied_at: Mapped[datetime] = mapped_column(DateTime)
 
 
-# ------------------------------------------------------------------ forum (migration 0010)
+# ------------------------------------------------------------------ forum (migration 0011)
 
 class ForumThreadRow(Base):
     """A forum topic. Its opening message is the thread's first row in forum_posts;

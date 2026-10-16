@@ -18,7 +18,7 @@ from backend.application.services.notification import NotificationService
 from backend.application.services.scraper_executor import ScraperExecutor, ScraperResult
 from backend.application.use_cases.user_alerts import UserAlertService
 from backend.config.settings import MatchingConfig
-from backend.domain.enums import JobSourceStatus, ScrapeStatus
+from backend.domain.enums import JobSourceStatus, JobStatus, ScrapeStatus
 from backend.domain.models import (
     Job, JobChangeRecord, JobEvaluation, JobSource, NormalizedJob, PostingHistory, ScrapeRun, ScraperRun,
 )
@@ -91,6 +91,7 @@ class RunPipeline:
 
         self._evaluate_touched_jobs(ctx)
         self._uow.evaluations.delete_superseded(run.id)
+        self._reevaluate_manual_jobs()
         still_listed = self._prune_unseen(ctx)
         went_stale = self._mark_stale()
         self._refresh_job_status(set(ctx.current_run_jobs) | still_listed | went_stale)
@@ -236,6 +237,14 @@ class RunPipeline:
         for job_id in ctx.current_run_jobs:
             ctx.evaluations[job_id] = self._evaluator.evaluate(self._uow.jobs.get(job_id), ctx.run.id, now)
         self._uow.evaluations.add_many(list(ctx.evaluations.values()))
+
+    def _reevaluate_manual_jobs(self) -> None:
+        """Manual postings are never scraped, so without this their evaluations would keep
+        whatever matching.yaml said when they were published (e.g. no regions before 0009).
+        They stay out of the run's evaluations, so they are not alerted again."""
+        now = self._clock()
+        jobs = [j for j in self._uow.jobs.list_posted_by(None) if j.status != JobStatus.ARCHIVED]
+        self._uow.evaluations.replace_for_jobs([self._evaluator.evaluate(j, None, now) for j in jobs])
 
     def _prune_unseen(self, ctx: _RunContext) -> set[int]:
         """Daily refresh: delete postings a site no longer lists, then jobs left with no

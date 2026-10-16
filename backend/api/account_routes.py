@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from backend.api.deps import SESSION_COOKIE, CurrentUser, DbSession, csrf_protect
 from backend.application.dto import (
-    AuthConfigDto, JobApplicationDto, JobListDto, OutreachLogDto, OutreachResultDto, RecruiterDto, UserDto,
+    AuthConfigDto, JobApplicationDto, RegionDto, JobListDto, OutreachLogDto, OutreachResultDto, RecruiterDto, UserDto,
 )
 from backend.application.use_cases.accounts import AccountError, RecruiterInput
 from backend.bootstrap import account_service, outreach_service, recruiter_service, utcnow, verification_service
@@ -43,7 +43,7 @@ def user_dto(user: User) -> UserDto:
                    is_active=user.is_active, experience_level=user.experience_level.value,
                    alerts_enabled=user.alerts_enabled, created_at=user.created_at, last_login_at=user.last_login_at,
                    email_verified=user.email_verified, has_password=bool(user.password_hash),
-                   google_linked=bool(user.google_sub))
+                   google_linked=bool(user.google_sub), preferred_regions=user.region_codes)
 
 
 def _set_session_cookie(request: Request, response: Response, token: str) -> None:
@@ -196,16 +196,27 @@ class ProfileIn(BaseModel):
     display_name: str = Field(max_length=200)
     experience_level: ExperienceLevel
     alerts_enabled: bool
+    preferred_regions: list[str] | None = Field(default=None, max_length=20)  # None = unchanged, [] = all
 
 
 @router.put("/me/profile", response_model=UserDto)
 def update_profile(body: ProfileIn, user: CurrentUser, request: Request, session: DbSession) -> UserDto:
+    cfg = request.app.state.cfg
     try:
-        updated = account_service(session, request.app.state.cfg).update_profile(
-            user, display_name=body.display_name, level=body.experience_level, alerts_enabled=body.alerts_enabled)
+        updated = account_service(session, cfg).update_profile(
+            user, display_name=body.display_name, level=body.experience_level, alerts_enabled=body.alerts_enabled,
+            regions=body.preferred_regions, known_regions=[r.code for r in cfg.regions])
     except AccountError as exc:
         raise _fail(exc) from exc
     return user_dto(updated)
+
+
+# ------------------------------------------------------------------ regions
+
+@router.get("/regions", response_model=list[RegionDto])
+def regions(_: CurrentUser, request: Request) -> list[RegionDto]:
+    """The regions a user can pick as preferred (from matching.yaml)."""
+    return [RegionDto(code=r.code, name=r.name) for r in request.app.state.cfg.regions]
 
 
 # ------------------------------------------------------------------ jobs the user applied to
@@ -312,10 +323,11 @@ def my_matches(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> JobListDto:
-    """Active jobs that fit the user's profile, best first, with their known recruiters."""
+    """Active jobs in the user's preferred regions (all of Israel if none) and at their level,
+    best first, with their known recruiters."""
     cfg = request.app.state.cfg
     result = SqlReadRepository(session, request.app.state.cfg.signals).list_jobs(
-        status="active", role_types=cfg.roles.eligible_types, location_matched=True, government=government,
+        status="active", role_types=cfg.roles.eligible_types, regions=user.region_codes or None, government=government,
         level=user.experience_level.value, level_includes_unstated=True,
         level_years=(cfg.experience.junior_max_years, cfg.experience.level_b_max_years),
         sort="relevance", page=page, page_size=page_size,

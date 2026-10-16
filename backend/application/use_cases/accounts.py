@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -156,10 +156,17 @@ class AccountService:
                     email_verified=email_verified)
         return self._users.save(user)
 
-    def update_profile(self, user: User, *, display_name: str, level: ExperienceLevel, alerts_enabled: bool) -> User:
+    def update_profile(self, user: User, *, display_name: str, level: ExperienceLevel, alerts_enabled: bool,
+                       regions: list[str] | None = None, known_regions: Iterable[str] = ()) -> User:
+        """`regions` None leaves the preferred regions as they are; [] means all of Israel."""
         user.display_name = _text(display_name, "invalid_name")
         user.experience_level = level
         user.alerts_enabled = alerts_enabled
+        if regions is not None:
+            known = list(known_regions)
+            if any(r not in known for r in regions):
+                raise AccountError("invalid_region")
+            user.preferred_regions = ",".join(r for r in known if r in regions)  # config order, no repeats
         return self._users.save(user)
 
     def change_password(self, user: User, current: str, new: str) -> None:
