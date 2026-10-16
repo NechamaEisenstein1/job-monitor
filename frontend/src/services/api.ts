@@ -1,6 +1,6 @@
 import { errorLabel, he } from "../i18n/he";
 import type {
-  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, JobApplication, Region, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
+  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, ForumCategory, ForumThread, ForumThreadPage, JobApplication, Region, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
   GmailStatus, ManualJob, ManualJobInput, OutreachLogEntry, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
   ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
@@ -100,6 +100,22 @@ export const api = {
 
   // contact the site admin
   contactAdmin: (m: { category: ContactCategory; subject: string; body: string }) => post<{ id: number }>("/me/contact", m),
+
+  // forum
+  forumCategories: () => get<ForumCategory[]>("/forum/categories"),
+  forumThreads: (f: { category?: string; q?: string; page: number; page_size?: number }) =>
+    get<ForumThreadPage>("/forum/threads", { page_size: PAGE_SIZE, ...f }),
+  forumThread: (id: number, page: number, countView: boolean) =>
+    get<ForumThread>(`/forum/threads/${id}`, { page, count_view: countView ? undefined : false }),
+  forumCreateThread: (t: { category: string; title: string; body: string }) => post<{ id: number }>("/forum/threads", t),
+  forumUpdateThread: (id: number, t: { title?: string; category?: string; is_pinned?: boolean; is_locked?: boolean }) =>
+    put<void>(`/forum/threads/${id}`, t),
+  forumReply: (threadId: number, body: string) =>
+    post<{ id: number; page: number }>(`/forum/threads/${threadId}/posts`, { body }),
+  forumEditPost: (id: number, body: string) => put<void>(`/forum/posts/${id}`, { body }),
+  forumDeletePost: (id: number) => del<{ thread_deleted: boolean }>(`/forum/posts/${id}`),
+  forumThank: (id: number, thanked: boolean) =>
+    (thanked ? put<{ thanks_count: number }>(`/forum/posts/${id}/thanks`, {}) : del<{ thanks_count: number }>(`/forum/posts/${id}/thanks`)),
 
   // admin
   adminStats: () => get<AdminStats>("/admin/stats"),

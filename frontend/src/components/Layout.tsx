@@ -10,6 +10,7 @@ import { VerifyBanner } from "./VerifyBanner";
 const NAV = [
   { to: "/jobs", label: he.nav.jobs },
   { to: "/me", label: he.nav.myArea },
+  { to: "/forum", label: he.nav.forum },
   { to: "/dashboard", label: he.nav.dashboard },
 ];
 

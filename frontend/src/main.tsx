@@ -11,6 +11,9 @@ import { AdminPage } from "./pages/AdminPage";
 import { BillingPage } from "./pages/BillingPage";
 import { ContactPage } from "./pages/ContactPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { ForumCategoryPage, ForumHomePage } from "./pages/forum/ForumHomePage";
+import { ForumNewThreadPage } from "./pages/forum/ForumNewThreadPage";
+import { ForumThreadPage } from "./pages/forum/ForumThreadPage";
 import { JobDetailsPage } from "./pages/JobDetailsPage";
 import { JobsPage } from "./pages/JobsPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -37,7 +40,8 @@ function ToLogin() {
   return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
 }
 
-const PRIVATE_PATHS = ["dashboard", "contact", "me", "jobs", "jobs/:id", "runs", "runs/:id", "sources", "admin", "recruiter", "billing"];
+const PRIVATE_PATHS = ["dashboard", "contact", "me", "jobs", "jobs/:id", "runs", "runs/:id", "sources", "admin", "recruiter", "billing",
+  "forum", "forum/new", "forum/c/:code", "forum/t/:id"];
 
 function App() {
   const { user, loading } = useAuth();
@@ -82,6 +86,10 @@ function App() {
         <Route path="recruiter" element={user.role !== "user" ? <RecruiterPage /> : <Navigate to="/" replace />} />
         <Route path="billing" element={<BillingPage />} />
         <Route path="contact" element={<ContactPage />} />
+        <Route path="forum" element={<ForumHomePage />} />
+        <Route path="forum/new" element={<ForumNewThreadPage />} />
+        <Route path="forum/c/:code" element={<ForumCategoryPage />} />
+        <Route path="forum/t/:id" element={<ForumThreadPage />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

@@ -73,6 +73,15 @@ Without SMTP settings, digests are written to `outbox/` as HTML and per-user ale
   It is a signal, not proof: blocked images never report; Apple Mail preloads images.
 * Setup (Gmail API, redirect URI, scope, Google verification limits): DEPLOY.md §5א.
 
+## Forum (`/forum`)
+
+* Members-only forum about government tenders: categories (questions, sharing, requests,
+  offers, general), threads, replies, quoting, "thanks", search in titles and posts.
+* Authors edit or delete their own messages (deleting the opening message deletes the thread);
+  admins can edit/delete anything and pin or lock threads. Members see each other's display
+  name and role only, never the email. Limits: 10 new threads and 100 messages per user per day, counted from
+  `forum_submissions` so deleting a message does not free its place.
+
 ## Recruiters, points and subscriptions (config/matching.yaml -> billing)
 
 * **Roles**: `user`, `recruiter`, `admin` (one `role` column; migration 0004 turns every former
