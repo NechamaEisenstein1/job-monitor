@@ -1,9 +1,10 @@
+import { Star } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Card, PageHeader, td, th } from "../components/Layout";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
-import { Badge } from "../components/StatusBadge";
+import { Badge, Icon } from "../components/StatusBadge";
 import { useApi } from "../hooks/useApi";
 import { useUser } from "../hooks/useAuth";
 import { he } from "../i18n/he";
@@ -139,7 +140,7 @@ function PostingsCard({ all }: { all: boolean }) {
                       <td className={td}>
                         <Link to={`/jobs/${job.id}`} target="_blank" rel="noopener" className="font-medium text-slate-900 hover:text-sky-700 hover:underline" dir="auto">{job.title}</Link>
                         {featured && (
-                          <div className="mt-1"><Badge tone="violet">★ {r.featuredUntil} {formatDate(job.featured_until)}</Badge></div>
+                          <div className="mt-1"><Badge tone="violet"><Icon icon={Star} />{r.featuredUntil} {formatDate(job.featured_until)}</Badge></div>
                         )}
                       </td>
                       <td className={td}><span className="ltr">{job.tender_number ?? he.common.none}</span></td>

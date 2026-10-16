@@ -1,5 +1,12 @@
+import { AlertTriangle, Award, Ghost, Landmark, Sparkles, Sprout, Star, TrendingUp, type LucideIcon } from "lucide-react";
+
 import type { ChangeType, JobSignals, JobStatus, RunStatus, ScrapeStatus } from "../types/api";
 import { he } from "../i18n/he";
+
+/** Small inline icon for badges and buttons. */
+export function Icon({ icon: I, className = "size-3.5" }: { icon: LucideIcon; className?: string }) {
+  return <I aria-hidden className={`shrink-0 ${className}`} strokeWidth={2} />;
+}
 
 type Tone = "green" | "amber" | "red" | "slate" | "blue" | "violet";
 
@@ -33,7 +40,7 @@ const STATUS_TONE: Record<JobStatus | RunStatus | ScrapeStatus | ChangeType, Ton
 
 export function Badge({ tone, children }: { tone: Tone; children: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${TONES[tone]}`}>
+    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${TONES[tone]}`}>
       {children}
     </span>
   );
@@ -55,7 +62,7 @@ export function EligibilityBadge({ eligible }: { eligible: boolean | null | unde
 export function TenderBadge() {
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-amber-400 px-2 py-0.5 text-xs font-semibold text-amber-950">
-      <span aria-hidden>🏛</span>{he.tender}
+      <Icon icon={Landmark} />{he.tender}
     </span>
   );
 }
@@ -67,10 +74,10 @@ export function SignalBadges({ signals, fakeJunior, years }: {
   const t = he.signals;
   return (
     <>
-      {fakeJunior && <span title={t.fakeJuniorHint}><Badge tone="red">⚠ {t.fakeJunior(years ?? null)}</Badge></span>}
-      {signals?.is_new && <span title={t.newHint}><Badge tone="green">● {t.isNew}</Badge></span>}
+      {fakeJunior && <span title={t.fakeJuniorHint}><Badge tone="red"><Icon icon={AlertTriangle} />{t.fakeJunior(years ?? null)}</Badge></span>}
+      {signals?.is_new && <span title={t.newHint}><Badge tone="green"><Icon icon={Sparkles} />{t.isNew}</Badge></span>}
       {signals?.is_ghost && (
-        <span title={t.ghostHint(signals.days_open, signals.reposts)}><Badge tone="amber">👻 {t.ghost}</Badge></span>
+        <span title={t.ghostHint(signals.days_open, signals.reposts)}><Badge tone="amber"><Icon icon={Ghost} />{t.ghost}</Badge></span>
       )}
       {signals && signals.agency_count > 1 && (
         <span title={t.agenciesHint(signals.first_agency)}><Badge tone="blue">{t.agencies(signals.agency_count)}</Badge></span>
@@ -83,7 +90,7 @@ export function SignalBadges({ signals, fakeJunior, years }: {
 export function ManualBadges({ manual, featured }: { manual?: boolean; featured?: boolean }) {
   return (
     <>
-      {featured && <Badge tone="violet">★ {he.featured}</Badge>}
+      {featured && <Badge tone="violet"><Icon icon={Star} />{he.featured}</Badge>}
       {manual && <Badge tone="blue">{he.manual}</Badge>}
     </>
   );
@@ -94,14 +101,20 @@ export function RoleBadge({ role }: { role: string | null | undefined }) {
   return <Badge tone={role === "software" ? "blue" : "slate"}>{he.roles[role] ?? role}</Badge>;
 }
 
-/** Junior / entry-level: filled and bright - these jobs are the point of the product. */
-export function JuniorBadge() {
+/** Experience level, on every job: filled and bright so the mix of levels shows at a glance. */
+const LEVELS: Record<string, { icon: LucideIcon; className: string }> = {
+  a: { icon: Sprout, className: "bg-emerald-500 text-white" },
+  b: { icon: TrendingUp, className: "bg-sky-600 text-white" },
+  c: { icon: Award, className: "bg-violet-600 text-white" },
+};
+
+export function LevelBadge({ level }: { level: string | null | undefined }) {
+  const style = level ? LEVELS[level] : undefined;
+  if (!level || !style) return null;
   return (
-    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-emerald-500 px-2 py-0.5 text-xs font-semibold text-white">
-      <span aria-hidden>★</span>{he.junior}
+    <span title={he.myArea.levels[level]}
+          className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold ${style.className}`}>
+      <Icon icon={style.icon} />{he.levelBadge[level]}
     </span>
   );
 }
-
-/** Row/card highlight for junior jobs (used with the relevance sort, which pins them first). */
-export const JUNIOR_HIGHLIGHT = "bg-emerald-50 border-s-4 border-emerald-500";

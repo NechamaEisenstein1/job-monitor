@@ -31,6 +31,7 @@ class EvaluationDto(Dto):
     rank_score: float
     required_years: float | None = None
     junior_title_mismatch: bool = False
+    level: str | None = None  # "a" / "b" / "c" (experience.job_level); None = not stated
 
 
 class JobSignalsDto(Dto):
@@ -69,6 +70,7 @@ class JobListItemDto(Dto):
     signals: JobSignalsDto | None = None
     junior_title_mismatch: bool = False
     required_years: float | None = None
+    level: str | None = None  # "a" / "b" / "c" (experience.job_level); None = not stated
 
 
 class JobListDto(Dto):
@@ -354,6 +356,19 @@ class ContactMessageDto(Dto):
     handled_at: UtcDatetime | None
     user_name: str | None
     user_email: str | None
+    reply: str | None = None
+    replied_at: UtcDatetime | None = None
+
+
+class MyContactMessageDto(Dto):
+    """A user's own message to the admin and the admin's reply (personal area)."""
+    id: int
+    category: str
+    subject: str
+    body: str
+    created_at: UtcDatetime
+    reply: str | None
+    replied_at: UtcDatetime | None
 
 
 class ContactMessagePageDto(Dto):

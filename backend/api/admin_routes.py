@@ -97,3 +97,18 @@ def update_message(message_id: Annotated[int, Path(ge=1)], body: MessageUpdateIn
                    session: DbSession) -> None:
     if not SqlContactRepository(session).set_handled(message_id, utcnow() if body.handled else None):
         raise HTTPException(status_code=404, detail="not found")
+
+
+class MessageReplyIn(BaseModel):
+    reply: str = Field(min_length=1, max_length=5000)
+
+
+@router.put("/messages/{message_id}/reply", status_code=204)
+def reply_to_message(message_id: Annotated[int, Path(ge=1)], body: MessageReplyIn, _: AdminUser,
+                     session: DbSession) -> None:
+    """The reply is shown to the user in the personal area (and marks the message handled)."""
+    reply = body.reply.strip()
+    if not reply:
+        raise HTTPException(status_code=400, detail="contact_empty")
+    if not SqlContactRepository(session).set_reply(message_id, reply, utcnow()):
+        raise HTTPException(status_code=404, detail="not found")

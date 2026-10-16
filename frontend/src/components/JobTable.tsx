@@ -5,7 +5,9 @@ import type { JobListItem } from "../types/api";
 import { AppliedCheckbox } from "./AppliedCheckbox";
 import { he } from "../i18n/he";
 import { formatDate, formatRelative } from "../services/format";
-import { ManualBadges, RoleBadge, SignalBadges, StatusBadge, TenderBadge } from "./StatusBadge";
+import { MapPin } from "lucide-react";
+
+import { Icon, LevelBadge, ManualBadges, RoleBadge, SignalBadges, StatusBadge, TenderBadge } from "./StatusBadge";
 import { td, th } from "./Layout";
 
 const c = he.jobs.columns;
@@ -31,6 +33,7 @@ export function JobTable({ jobs, applications }: { jobs: JobListItem[]; applicat
                   {job.title}
                 </Link>
                 <div className="mt-1 flex flex-wrap gap-1">
+                  <LevelBadge level={job.level} />
                   <SignalBadges signals={job.signals} fakeJunior={job.junior_title_mismatch} years={job.required_years} />
                   <ManualBadges manual={job.is_manual} featured={job.is_featured} />
                   {job.is_government_tender && <TenderBadge />}
@@ -41,7 +44,11 @@ export function JobTable({ jobs, applications }: { jobs: JobListItem[]; applicat
                 {job.client_company ?? he.common.none}
                 {job.tender_number && <div className="text-xs text-slate-500">{he.recruiter.tenderNumber}: <span className="ltr">{job.tender_number}</span></div>}
               </td>
-              <td className={td} dir="auto">{job.location ?? he.common.none}</td>
+              <td className={td} dir="auto">
+                {job.location
+                  ? <span className="inline-flex items-center gap-1"><Icon icon={MapPin} className="size-3.5 text-slate-400" />{job.location}</span>
+                  : he.common.none}
+              </td>
               <td className={td}><StatusBadge status={job.status} /></td>
               <td className={td} title={job.recruitment_companies.join(", ")}>
                 <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">

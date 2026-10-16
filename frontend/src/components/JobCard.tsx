@@ -1,6 +1,8 @@
 import type { JobDetail } from "../types/api";
 import { he, reasonLabel, ruleLabel } from "../i18n/he";
-import { ManualBadges, RoleBadge, SignalBadges, StatusBadge, TenderBadge } from "./StatusBadge";
+import { Check, X } from "lucide-react";
+
+import { Icon, LevelBadge, ManualBadges, RoleBadge, SignalBadges, StatusBadge, TenderBadge } from "./StatusBadge";
 
 /** Header facts for a job, plus the backend's evaluation explanation. */
 export function JobCard({ job }: { job: JobDetail }) {
@@ -17,6 +19,7 @@ export function JobCard({ job }: { job: JobDetail }) {
     <div className="space-y-4">
       {ev && (
         <div className="flex flex-wrap gap-1.5">
+          <LevelBadge level={ev.level} />
           <SignalBadges signals={job.signals} fakeJunior={ev.junior_title_mismatch} years={ev.required_years} />
           <ManualBadges manual={job.is_manual} />
           {ev.is_government_tender && <TenderBadge />}
@@ -34,10 +37,10 @@ export function JobCard({ job }: { job: JobDetail }) {
       {ev && (ev.matched_rules.length > 0 || ev.rejection_reasons.length > 0) && (
         <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
           {ev.matched_rules.map((r) => (
-            <span key={r} className="rounded bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-800">✓ {ruleLabel(r)}</span>
+            <span key={r} className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-800"><Icon icon={Check} className="size-3" />{ruleLabel(r)}</span>
           ))}
           {ev.rejection_reasons.map((r) => (
-            <span key={r} className="rounded bg-rose-50 px-1.5 py-0.5 text-xs text-rose-800">✗ {reasonLabel(r)}</span>
+            <span key={r} className="inline-flex items-center gap-1 rounded bg-rose-50 px-1.5 py-0.5 text-xs text-rose-800"><Icon icon={X} className="size-3" />{reasonLabel(r)}</span>
           ))}
         </div>
       )}

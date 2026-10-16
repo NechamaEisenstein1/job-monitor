@@ -321,6 +321,31 @@ def test_admin_messages_are_paged_and_the_open_count_covers_every_page(world):
     assert admin.get("/api/admin/messages", params={"page_size": 101}).status_code == 422
 
 
+def test_users_see_their_own_messages_and_the_admins_reply(world):
+    dana, yossi, admin = (world.client(e) for e in ("junior@example.com", "senior@example.com", "admin@example.com"))
+    msg_id = dana.post("/api/me/contact", json={"category": "question", "subject": "שאלה", "body": "מתי?"}).json()["id"]
+    yossi.post("/api/me/contact", json={"category": "other", "subject": "אחר", "body": "x"})
+
+    mine = dana.get("/api/me/contact").json()
+    assert [(m["subject"], m["reply"]) for m in mine] == [("שאלה", None)]  # never another user's
+
+    assert dana.put(f"/api/admin/messages/{msg_id}/reply", json={"reply": "מחר"}).status_code == 403
+    assert admin.put(f"/api/admin/messages/{msg_id}/reply", json={"reply": "  "}).status_code == 400
+    assert admin.put("/api/admin/messages/9999/reply", json={"reply": "x"}).status_code == 404
+    assert admin.put(f"/api/admin/messages/{msg_id}/reply", json={"reply": "מחר"}).status_code == 204
+
+    mine = dana.get("/api/me/contact").json()
+    assert mine[0]["reply"] == "מחר" and mine[0]["replied_at"]
+    listed = {m["id"]: m for m in admin.get("/api/admin/messages").json()["items"]}
+    assert listed[msg_id]["reply"] == "מחר" and listed[msg_id]["handled_at"]  # a reply marks it handled
+    assert world.client().get("/api/me/contact").status_code == 401
+
+
+def test_personal_area_matches_default_to_ten_per_page(world):
+    body = world.client("junior@example.com").get("/api/me/matches").json()
+    assert body["page_size"] == 10
+
+
 # ------------------------------------------------------------------ level A / B / C in the personal area
 
 def test_matches_follow_the_users_level(world):
