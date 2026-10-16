@@ -328,12 +328,15 @@ class ContactMessageRow(Base):
     __tablename__ = "contact_messages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
     category: Mapped[str] = mapped_column(String(16))  # question | complaint | suggestion | other
     subject: Mapped[str] = mapped_column(String(200))
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     handled_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # The admin's answer, shown to the user in the personal area (migration 0012).
+    reply: Mapped[str | None] = mapped_column(Text)
+    replied_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 # ------------------------------------------------------------------ applications (migration 0008)

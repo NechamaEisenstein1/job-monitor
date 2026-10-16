@@ -11,6 +11,7 @@ from backend.application.dto import (
     ScrapeRunDto, ScraperRunDto,
 )
 from backend.config.settings import SignalsConfig
+from backend.domain.services.experience import job_level
 from backend.domain.services.signals import SignalPolicy
 from backend.domain.enums import JobSourceStatus, JobStatus, ScrapeStatus
 from backend.infrastructure.db.orm import (
@@ -142,6 +143,7 @@ class SqlReadRepository:
                 signals=signals.get(job.id),
                 junior_title_mismatch=bool(ev and ev.junior_title_mismatch),
                 required_years=ev.required_years if ev else None,
+                level=job_level(ev.is_junior, ev.required_years, *level_years) if ev else None,
             )
             for job, ev in rows
         ]
@@ -181,7 +183,7 @@ class SqlReadRepository:
             result.setdefault(job_id, []).append(company)
         return result
 
-    def get_job(self, job_id: int) -> JobDetailDto | None:
+    def get_job(self, job_id: int, level_years: tuple[float, float] = (2, 4)) -> JobDetailDto | None:
         job = self._s.get(JobRow, job_id)
         if job is None:
             return None
@@ -191,7 +193,9 @@ class SqlReadRepository:
         ).first()
         return JobDetailDto(
             **{c: getattr(job, c) for c in JobDetailDto.model_fields if c not in ("evaluation", "signals")},
-            evaluation=EvaluationDto.model_validate(evaluation) if evaluation else None,
+            evaluation=EvaluationDto.model_validate(evaluation).model_copy(update={
+                "level": job_level(evaluation.is_junior, evaluation.required_years, *level_years)})
+            if evaluation else None,
             signals=self._signals_for([job_id], _utcnow()).get(job_id),
         )
 

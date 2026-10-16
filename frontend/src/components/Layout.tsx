@@ -1,3 +1,6 @@
+import {
+  ArrowRight, Briefcase, Coins, Database, History, LayoutDashboard, Mail, Megaphone, MessagesSquare, ShieldCheck, UserRound, type LucideIcon,
+} from "lucide-react";
 import { useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
@@ -5,13 +8,16 @@ import { useUser, useAuth } from "../hooks/useAuth";
 import { he } from "../i18n/he";
 import { api } from "../services/api";
 import { SiteFooter } from "../pages/public/PublicLayout";
+import { Icon } from "./StatusBadge";
 import { VerifyBanner } from "./VerifyBanner";
 
-const NAV = [
-  { to: "/jobs", label: he.nav.jobs },
-  { to: "/me", label: he.nav.myArea },
-  { to: "/forum", label: he.nav.forum },
-  { to: "/dashboard", label: he.nav.dashboard },
+type NavItem = { to: string; label: string; icon: LucideIcon };
+
+const NAV: NavItem[] = [
+  { to: "/jobs", label: he.nav.jobs, icon: Briefcase },
+  { to: "/me", label: he.nav.myArea, icon: UserRound },
+  { to: "/forum", label: he.nav.forum, icon: MessagesSquare },
+  { to: "/dashboard", label: he.nav.dashboard, icon: LayoutDashboard },
 ];
 
 export function Layout() {
@@ -23,13 +29,14 @@ export function Layout() {
     api.pageView(location.pathname).catch(() => undefined); // admin traffic stats; never blocks the UI
   }, [location.pathname]);
 
-  const items = [
+  const items: NavItem[] = [
     ...NAV,
-    ...(user.is_admin ? [{ to: "/runs", label: he.nav.runs }, { to: "/sources", label: he.nav.sources }] : []),
-    ...(user.role !== "user" ? [{ to: "/recruiter", label: he.nav.recruiter }] : []),
-    { to: "/billing", label: he.nav.billing },
-    { to: "/contact", label: he.nav.contact },
-    ...(user.is_admin ? [{ to: "/admin", label: he.nav.admin }] : []),
+    ...(user.is_admin ? [{ to: "/runs", label: he.nav.runs, icon: History },
+                         { to: "/sources", label: he.nav.sources, icon: Database }] : []),
+    ...(user.role !== "user" ? [{ to: "/recruiter", label: he.nav.recruiter, icon: Megaphone }] : []),
+    { to: "/billing", label: he.nav.billing, icon: Coins },
+    { to: "/contact", label: he.nav.contact, icon: Mail },
+    ...(user.is_admin ? [{ to: "/admin", label: he.nav.admin, icon: ShieldCheck }] : []),
   ];
 
   return (
@@ -43,11 +50,12 @@ export function Layout() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `rounded-md px-3 py-1.5 text-sm font-medium ${
+                  `inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${
                     isActive ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`
                 }
               >
+                <Icon icon={item.icon} className="size-4 opacity-80" />
                 {item.label}
               </NavLink>
             ))}
@@ -99,7 +107,9 @@ export function PageHeader({ title, subtitle, children }: { title: string; subti
 
 export function BackLink({ to, label }: { to: string; label: string }) {
   return (
-    <NavLink to={to} className="text-sm text-slate-500 hover:text-slate-800">→ {label}</NavLink>
+    <NavLink to={to} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+      <Icon icon={ArrowRight} className="size-4" />{label}
+    </NavLink>
   );
 }
 

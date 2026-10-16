@@ -68,6 +68,7 @@ export const he = {
   },
   featured: "מקודמת",
   junior: "ג'וניור",
+  levelBadge: { a: "רמה א'", b: "רמה ב'", c: "רמה ג'" } as Record<string, string>,
 
   errors: {
     invalid_credentials: "אימייל או סיסמה שגויים",
@@ -115,6 +116,10 @@ export const he = {
   } as Record<string, string>,
 
   myArea: {
+    myMessages: "הפניות שלי למנהל האתר",
+    messageWaiting: "ממתינה לתשובה",
+    adminReply: (when: string) => `תשובת מנהל האתר · ${when}`,
+    newMessage: "פנייה חדשה",
     title: "האזור שלי",
     subtitle: "הפרופיל, אנשי הקשר והמשרות שמתאימות לך",
     profile: "פרופיל והתראות",
@@ -220,7 +225,7 @@ export const he = {
     bodyHint: "עד 5,000 תווים",
     send: "שליחה",
     sent: "הפנייה נשלחה. תודה!",
-    replyTo: (email: string) => `התשובה תישלח לכתובת ${email}`,
+    replyTo: (email: string) => `התשובה תופיע באזור האישי, ולעיתים גם תישלח לכתובת ${email}`,
   },
 
   forum: {
@@ -322,6 +327,11 @@ export const he = {
     markOpen: "החזרה לפתוחות",
     handledAt: (when: string) => `טופלה ${when}`,
     replyByEmail: "מענה במייל",
+    replyOnSite: "מענה באתר",
+    replyPlaceholder: "התשובה תוצג למשתמש/ת באזור האישי",
+    sendReply: "שליחת תשובה",
+    cancelReply: "ביטול",
+    yourReply: "התשובה שנשלחה:",
     deletedUser: "משתמש/ת שנמחק/ה",
     users: "משתמשים",
     newUser: "משתמש/ת חדש/ה",

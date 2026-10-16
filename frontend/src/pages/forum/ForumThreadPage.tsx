@@ -1,3 +1,4 @@
+import { Lock, LockOpen, Pin, PinOff, Quote, ThumbsUp } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
@@ -5,6 +6,7 @@ import {
   Avatar, Breadcrumbs, PostBody, RoleBadge, ThreadBadges, forumControl, forumPrimary, forumSecondary,
 } from "../../components/forum/ForumUi";
 import { Pagination } from "../../components/Pagination";
+import { Icon } from "../../components/StatusBadge";
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
 import { useApi } from "../../hooks/useApi";
 import { useUser } from "../../hooks/useAuth";
@@ -14,7 +16,7 @@ import { formatDate, formatDateTime, formatRelative } from "../../services/forma
 import type { ForumCategoryCode, ForumPost, ForumThread } from "../../types/api";
 
 const f = he.forum;
-const actionBtn = "rounded px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50";
+const actionBtn = "inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50";
 
 function quoteOf(post: ForumPost): string {
   const name = post.author?.display_name ?? f.deletedUser;
@@ -105,8 +107,8 @@ function PostCard({ post, onQuote, onChanged, onThreadDeleted }: {
         </div>
         <footer className="flex flex-wrap items-center gap-1 border-t border-slate-100 px-3 py-1.5">
           {thanks.count > 0 && (
-            <span className="me-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-              👍 {f.thanksCount(thanks.count)}
+            <span className="me-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+              <Icon icon={ThumbsUp} className="size-3" />{f.thanksCount(thanks.count)}
             </span>
           )}
           <div className="ms-auto flex flex-wrap items-center gap-1">
@@ -114,10 +116,10 @@ function PostCard({ post, onQuote, onChanged, onThreadDeleted }: {
             {author && author.id !== me.id && (
               <button className={`${actionBtn} ${thanks.mine ? "text-emerald-700" : ""}`} disabled={busy} onClick={toggleThanks}
                       aria-pressed={thanks.mine}>
-                👍 {thanks.mine ? f.thanked : f.thanks}
+                <Icon icon={ThumbsUp} className="size-3.5" />{thanks.mine ? f.thanked : f.thanks}
               </button>
             )}
-            <button className={actionBtn} onClick={() => onQuote(post)}>❝ {f.quote}</button>
+            <button className={actionBtn} onClick={() => onQuote(post)}><Icon icon={Quote} className="size-3.5" />{f.quote}</button>
             {post.can_edit && !editing && <button className={actionBtn} onClick={() => setEditing(true)}>{f.edit}</button>}
             {post.can_edit && <button className={`${actionBtn} hover:text-rose-700`} disabled={busy} onClick={remove}>{f.delete}</button>}
           </div>
@@ -172,8 +174,12 @@ function ThreadHeader({ data, onChanged }: { data: ForumThread; onChanged: () =>
           {canEdit && !editing && <button className={forumSecondary} onClick={() => setEditing(true)}>{f.editTitle}</button>}
           {data.can_moderate && (
             <>
-              <button className={forumSecondary} onClick={() => update({ is_pinned: !t.is_pinned })}>📌 {t.is_pinned ? f.unpin : f.pin}</button>
-              <button className={forumSecondary} onClick={() => update({ is_locked: !t.is_locked })}>🔒 {t.is_locked ? f.unlock : f.lock}</button>
+              <button className={`inline-flex items-center gap-1 ${forumSecondary}`} onClick={() => update({ is_pinned: !t.is_pinned })}>
+                <Icon icon={t.is_pinned ? PinOff : Pin} />{t.is_pinned ? f.unpin : f.pin}
+              </button>
+              <button className={`inline-flex items-center gap-1 ${forumSecondary}`} onClick={() => update({ is_locked: !t.is_locked })}>
+                <Icon icon={t.is_locked ? LockOpen : Lock} />{t.is_locked ? f.unlock : f.lock}
+              </button>
             </>
           )}
         </div>
@@ -287,7 +293,7 @@ export function ForumThreadPage() {
                       else setParams(p > 1 ? { page: String(p) } : {});
                     }} />
         ) : (
-          <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">🔒 {f.lockedNotice}</p>
+          <p className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"><Icon icon={Lock} className="size-4" />{f.lockedNotice}</p>
         )}
       </div>
       <div className="mt-4">

@@ -18,8 +18,8 @@ class DashboardQueries:
     def list_jobs(self, **filters) -> JobListDto:  # noqa: ANN003
         return self._read.list_jobs(**filters)
 
-    def get_job(self, job_id: int) -> JobDetailDto | None:
-        return self._read.get_job(job_id)
+    def get_job(self, job_id: int, level_years: tuple[float, float] = (2, 4)) -> JobDetailDto | None:
+        return self._read.get_job(job_id, level_years)
 
     def job_sources(self, job_id: int) -> list[JobSourceDto]:
         return self._read.job_sources(job_id)

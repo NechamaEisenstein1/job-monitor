@@ -69,6 +69,15 @@ def test_several_levels_at_once(world):
     assert client.get("/api/jobs", params={"level": "a,d"}).status_code == 422
 
 
+def test_each_job_carries_its_level_for_the_badge(world):
+    client = world.client("junior@example.com")
+    for level in "abc":
+        items = client.get("/api/jobs", params={"level": level, "page_size": 200}).json()["items"]
+        assert all(j["level"] == level for j in items)
+        for j in items[:1]:
+            assert client.get(f"/api/jobs/{j['id']}").json()["evaluation"]["level"] == level
+
+
 def test_provider_postgres_urls_use_the_installed_driver():
     from backend.config.settings import normalize_database_url
     assert normalize_database_url("postgres://u:p@h/db") == "postgresql+psycopg://u:p@h/db"

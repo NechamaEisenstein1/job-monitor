@@ -1,6 +1,6 @@
 import { errorLabel, he } from "../i18n/he";
 import type {
-  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, ForumCategory, ForumThread, ForumThreadPage, JobApplication, Region, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
+  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, ForumCategory, ForumThread, ForumThreadPage, MyContactMessagePage, JobApplication, Region, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
   GmailStatus, ManualJob, ManualJobInput, OutreachLogEntry, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
   ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
@@ -50,6 +50,8 @@ const put = <T>(path: string, body: unknown) => request<T>("PUT", path, { body }
 const del = <T = void>(path: string) => request<T>("DELETE", path);
 
 export const PAGE_SIZE = 25;
+/** Personal area matches: a shorter page. */
+export const MATCHES_PAGE_SIZE = 10;
 
 export const api = {
   // auth
@@ -85,7 +87,7 @@ export const api = {
   updateRecruiter: (id: number, r: RecruiterInput) => put<Recruiter>(`/me/recruiters/${id}`, r),
   deleteRecruiter: (id: number) => del(`/me/recruiters/${id}`),
   matches: (page: number, government?: boolean) =>
-    get<JobList>("/me/matches", { page, page_size: PAGE_SIZE, government }),
+    get<JobList>("/me/matches", { page, page_size: MATCHES_PAGE_SIZE, government }),
   outreachStatus: (jobId: number) => get<OutreachResult[]>(`/me/jobs/${jobId}/outreach`),
   sendOutreach: (jobId: number) => post<OutreachResult[]>(`/me/jobs/${jobId}/outreach`),
   outreachLog: () => get<OutreachLogEntry[]>("/me/outreach"),
@@ -100,6 +102,7 @@ export const api = {
 
   // contact the site admin
   contactAdmin: (m: { category: ContactCategory; subject: string; body: string }) => post<{ id: number }>("/me/contact", m),
+  myMessages: (page: number) => get<MyContactMessagePage>("/me/contact", { page, page_size: MATCHES_PAGE_SIZE }),
 
   // forum
   forumCategories: () => get<ForumCategory[]>("/forum/categories"),
@@ -122,6 +125,7 @@ export const api = {
   adminMessages: (openOnly: boolean, page: number) =>
     get<ContactMessagePage>("/admin/messages", { open_only: openOnly, page, page_size: PAGE_SIZE }),
   adminSetMessageHandled: (id: number, handled: boolean) => put<void>(`/admin/messages/${id}`, { handled }),
+  adminReplyToMessage: (id: number, reply: string) => put<void>(`/admin/messages/${id}/reply`, { reply }),
   adminUsers: () => get<User[]>("/admin/users"),
   adminCreateUser: (u: { email: string; display_name: string; password: string; is_admin: boolean;
     experience_level: ExperienceLevel }) => post<User>("/admin/users", u),

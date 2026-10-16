@@ -12,7 +12,8 @@ from pydantic import BaseModel, Field
 
 from backend.api.deps import SESSION_COOKIE, CurrentUser, DbSession, csrf_protect
 from backend.application.dto import (
-    AuthConfigDto, JobApplicationDto, RegionDto, JobListDto, OutreachLogDto, OutreachResultDto, RecruiterDto, UserDto,
+    AuthConfigDto, JobApplicationDto, RegionDto, JobListDto, MyContactMessagePageDto, OutreachLogDto, OutreachResultDto,
+    RecruiterDto, UserDto,
 )
 from backend.application.use_cases.accounts import AccountError, RecruiterInput
 from backend.bootstrap import account_service, outreach_service, recruiter_service, utcnow, verification_service
@@ -269,6 +270,13 @@ def contact_admin(body: ContactIn, user: CurrentUser, session: DbSession) -> dic
     return {"id": message_id}
 
 
+@router.get("/me/contact", response_model=MyContactMessagePageDto)
+def my_contact_messages(user: CurrentUser, session: DbSession, page: Annotated[int, Query(ge=1)] = 1,
+                        page_size: Annotated[int, Query(ge=1, le=50)] = 10) -> MyContactMessagePageDto:
+    """The user's own messages to the admin, with the admin's replies (latest activity first)."""
+    return SqlContactRepository(session).list_for_user(user.id, page, page_size)
+
+
 # ------------------------------------------------------------------ recruiters
 
 class RecruiterIn(BaseModel):
@@ -321,7 +329,7 @@ def my_matches(
     user: CurrentUser, request: Request, session: DbSession,
     government: bool | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=100)] = 25,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> JobListDto:
     """Active jobs in the user's preferred regions (all of Israel if none) and at their level,
     best first, with their known recruiters."""

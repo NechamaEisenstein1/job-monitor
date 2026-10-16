@@ -1,19 +1,21 @@
 // Small building blocks shared by the forum pages.
+import { HandHelping, HelpCircle, Lightbulb, Lock, MessageCircle, Pin, Users, type LucideIcon } from "lucide-react";
 import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { Icon } from "../StatusBadge";
 import { he } from "../../i18n/he";
 import { formatRelative } from "../../services/format";
 import type { ForumThreadSummary } from "../../types/api";
 
 const f = he.forum;
 
-export const CATEGORY_STYLE: Record<string, { icon: string; tone: string }> = {
-  questions: { icon: "❓", tone: "bg-sky-50 ring-sky-200" },
-  sharing: { icon: "💡", tone: "bg-amber-50 ring-amber-200" },
-  requests: { icon: "🙋", tone: "bg-violet-50 ring-violet-200" },
-  offers: { icon: "🤝", tone: "bg-emerald-50 ring-emerald-200" },
-  general: { icon: "💬", tone: "bg-slate-50 ring-slate-200" },
+export const CATEGORY_STYLE: Record<string, { icon: LucideIcon; tone: string }> = {
+  questions: { icon: HelpCircle, tone: "bg-sky-50 text-sky-700 ring-sky-200" },
+  sharing: { icon: Lightbulb, tone: "bg-amber-50 text-amber-700 ring-amber-200" },
+  requests: { icon: HandHelping, tone: "bg-violet-50 text-violet-700 ring-violet-200" },
+  offers: { icon: Users, tone: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
+  general: { icon: MessageCircle, tone: "bg-slate-50 text-slate-600 ring-slate-200" },
 };
 
 export const forumControl =
@@ -25,10 +27,10 @@ export const forumSecondary =
 
 export function CategoryIcon({ code, size = "md" }: { code: string; size?: "sm" | "md" }) {
   const style = CATEGORY_STYLE[code] ?? CATEGORY_STYLE.general;
-  const box = size === "sm" ? "h-7 w-7 text-sm" : "h-11 w-11 text-xl";
+  const box = size === "sm" ? "h-7 w-7" : "h-11 w-11";
   return (
     <span aria-hidden className={`inline-flex shrink-0 items-center justify-center rounded-lg ring-1 ${style.tone} ${box}`}>
-      {style.icon}
+      <Icon icon={style.icon} className={size === "sm" ? "size-4" : "size-5"} />
     </span>
   );
 }
@@ -60,10 +62,10 @@ export function ThreadBadges({ thread }: { thread: Pick<ForumThreadSummary, "is_
   return (
     <>
       {thread.is_pinned && (
-        <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">📌 {f.pinned}</span>
+        <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200"><Icon icon={Pin} className="size-3" />{f.pinned}</span>
       )}
       {thread.is_locked && (
-        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200">🔒 {f.locked}</span>
+        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200"><Icon icon={Lock} className="size-3" />{f.locked}</span>
       )}
     </>
   );

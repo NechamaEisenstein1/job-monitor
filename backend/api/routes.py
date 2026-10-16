@@ -75,8 +75,8 @@ def _role_types(role_type: str | None, request: Request) -> list[str] | None:
 
 
 @router.get("/jobs/{job_id}", response_model=JobDetailDto)
-def get_job(job_id: JobId, queries: Queries) -> JobDetailDto:
-    return _found(queries.get_job(job_id))
+def get_job(job_id: JobId, queries: Queries, request: Request) -> JobDetailDto:
+    return _found(queries.get_job(job_id, _level_years(request)))
 
 
 @router.get("/jobs/{job_id}/sources", response_model=list[JobSourceDto])
