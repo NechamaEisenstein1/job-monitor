@@ -326,7 +326,7 @@ def test_users_see_their_own_messages_and_the_admins_reply(world):
     msg_id = dana.post("/api/me/contact", json={"category": "question", "subject": "שאלה", "body": "מתי?"}).json()["id"]
     yossi.post("/api/me/contact", json={"category": "other", "subject": "אחר", "body": "x"})
 
-    mine = dana.get("/api/me/contact").json()
+    mine = dana.get("/api/me/contact").json()["items"]
     assert [(m["subject"], m["reply"]) for m in mine] == [("שאלה", None)]  # never another user's
 
     assert dana.put(f"/api/admin/messages/{msg_id}/reply", json={"reply": "מחר"}).status_code == 403
@@ -334,11 +334,33 @@ def test_users_see_their_own_messages_and_the_admins_reply(world):
     assert admin.put("/api/admin/messages/9999/reply", json={"reply": "x"}).status_code == 404
     assert admin.put(f"/api/admin/messages/{msg_id}/reply", json={"reply": "מחר"}).status_code == 204
 
-    mine = dana.get("/api/me/contact").json()
+    mine = dana.get("/api/me/contact").json()["items"]
     assert mine[0]["reply"] == "מחר" and mine[0]["replied_at"]
     listed = {m["id"]: m for m in admin.get("/api/admin/messages").json()["items"]}
     assert listed[msg_id]["reply"] == "מחר" and listed[msg_id]["handled_at"]  # a reply marks it handled
     assert world.client().get("/api/me/contact").status_code == 401
+
+
+def test_my_messages_are_paged_and_a_new_reply_comes_first(world):
+    from datetime import timedelta
+
+    from backend.bootstrap import utcnow
+    from backend.infrastructure.repositories.contact import SqlContactRepository
+
+    with world.app.state.session_factory() as s:
+        repo, now = SqlContactRepository(s), utcnow()
+        ids = []
+        for i in range(12):  # oldest first, one per day so the daily limit never applies
+            sent_at = now - timedelta(days=12 - i)
+            ids.append(repo.add_within_limit(world.junior.id, "question", f"m{i}", "x", sent_at,
+                                             since=sent_at - timedelta(hours=12), limit=1))
+    dana, admin = world.client("junior@example.com"), world.client("admin@example.com")
+    first = dana.get("/api/me/contact").json()
+    assert first["total"] == 12 and first["page_size"] == 10 and first["items"][0]["subject"] == "m11"
+    assert [m["subject"] for m in dana.get("/api/me/contact", params={"page": 2}).json()["items"]] == ["m1", "m0"]
+    # Answering the oldest message brings it back to the top of the first page.
+    assert admin.put(f"/api/admin/messages/{ids[0]}/reply", json={"reply": "סוף סוף"}).status_code == 204
+    assert dana.get("/api/me/contact").json()["items"][0]["subject"] == "m0"
 
 
 def test_personal_area_matches_default_to_ten_per_page(world):

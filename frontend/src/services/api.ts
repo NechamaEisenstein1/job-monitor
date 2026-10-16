@@ -1,6 +1,6 @@
 import { errorLabel, he } from "../i18n/he";
 import type {
-  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, ForumCategory, ForumThread, ForumThreadPage, MyContactMessage, JobApplication, Region, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
+  AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, ForumCategory, ForumThread, ForumThreadPage, MyContactMessagePage, JobApplication, Region, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
   GmailStatus, ManualJob, ManualJobInput, OutreachLogEntry, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
   ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
@@ -102,7 +102,7 @@ export const api = {
 
   // contact the site admin
   contactAdmin: (m: { category: ContactCategory; subject: string; body: string }) => post<{ id: number }>("/me/contact", m),
-  myMessages: () => get<MyContactMessage[]>("/me/contact"),
+  myMessages: (page: number) => get<MyContactMessagePage>("/me/contact", { page, page_size: MATCHES_PAGE_SIZE }),
 
   // forum
   forumCategories: () => get<ForumCategory[]>("/forum/categories"),

@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from backend.api.deps import SESSION_COOKIE, CurrentUser, DbSession, csrf_protect
 from backend.application.dto import (
-    AuthConfigDto, JobApplicationDto, RegionDto, JobListDto, MyContactMessageDto, OutreachLogDto, OutreachResultDto,
+    AuthConfigDto, JobApplicationDto, RegionDto, JobListDto, MyContactMessagePageDto, OutreachLogDto, OutreachResultDto,
     RecruiterDto, UserDto,
 )
 from backend.application.use_cases.accounts import AccountError, RecruiterInput
@@ -270,10 +270,11 @@ def contact_admin(body: ContactIn, user: CurrentUser, session: DbSession) -> dic
     return {"id": message_id}
 
 
-@router.get("/me/contact", response_model=list[MyContactMessageDto])
-def my_contact_messages(user: CurrentUser, session: DbSession) -> list[MyContactMessageDto]:
-    """The user's own messages to the admin, with the admin's replies (newest first)."""
-    return SqlContactRepository(session).list_for_user(user.id)
+@router.get("/me/contact", response_model=MyContactMessagePageDto)
+def my_contact_messages(user: CurrentUser, session: DbSession, page: Annotated[int, Query(ge=1)] = 1,
+                        page_size: Annotated[int, Query(ge=1, le=50)] = 10) -> MyContactMessagePageDto:
+    """The user's own messages to the admin, with the admin's replies (latest activity first)."""
+    return SqlContactRepository(session).list_for_user(user.id, page, page_size)
 
 
 # ------------------------------------------------------------------ recruiters

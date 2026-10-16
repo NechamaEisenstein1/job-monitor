@@ -7,7 +7,9 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from backend.application.dto import ContactMessageDto, ContactMessagePageDto, MyContactMessageDto
+from backend.application.dto import (
+    ContactMessageDto, ContactMessagePageDto, MyContactMessageDto, MyContactMessagePageDto,
+)
 from backend.infrastructure.db.orm import ContactMessageRow, UserRow
 
 
@@ -73,9 +75,14 @@ class SqlContactRepository:
         self._s.commit()
         return True
 
-    def list_for_user(self, user_id: int, limit: int = 50) -> list[MyContactMessageDto]:
-        """The user's own messages, newest first. Scoped to `user_id`: never another user's."""
-        rows = self._s.scalars(select(ContactMessageRow).where(ContactMessageRow.user_id == user_id)
-                               .order_by(ContactMessageRow.created_at.desc(), ContactMessageRow.id.desc())
-                               .limit(limit))
-        return [MyContactMessageDto.model_validate(r) for r in rows]
+    def list_for_user(self, user_id: int, page: int = 1, page_size: int = 10) -> MyContactMessagePageDto:
+        """The user's own messages, latest activity first (a new reply brings an old message
+        back to the top). Scoped to `user_id`: never another user's."""
+        where = ContactMessageRow.user_id == user_id
+        total = self._s.scalar(select(func.count()).select_from(ContactMessageRow).where(where)) or 0
+        activity = func.coalesce(ContactMessageRow.replied_at, ContactMessageRow.created_at)
+        rows = self._s.scalars(select(ContactMessageRow).where(where)
+                               .order_by(activity.desc(), ContactMessageRow.id.desc())
+                               .offset((page - 1) * page_size).limit(page_size))
+        return MyContactMessagePageDto(items=[MyContactMessageDto.model_validate(r) for r in rows],
+                                       total=total, page=page, page_size=page_size)

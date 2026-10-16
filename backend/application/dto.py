@@ -371,6 +371,13 @@ class MyContactMessageDto(Dto):
     replied_at: UtcDatetime | None
 
 
+class MyContactMessagePageDto(Dto):
+    items: list[MyContactMessageDto]
+    total: int
+    page: int
+    page_size: int
+
+
 class ContactMessagePageDto(Dto):
     items: list[ContactMessageDto]
     total: int        # messages matching the filter (for paging)

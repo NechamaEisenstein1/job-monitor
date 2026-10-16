@@ -476,7 +476,13 @@ function OutreachLogCard({ version }: { version: number }) {
 
 // ------------------------------------------------------------------ my messages to the site admin
 
-function MyMessagesCard({ messages }: { messages: MyContactMessage[] }) {
+/** Shown only to users who wrote to the admin; latest activity first, so a new reply comes to the top. */
+function MyMessagesCard() {
+  const [page, setPage] = useState(1);
+  const result = useApi(() => api.myMessages(page), `my-messages-${page}`);
+  const data = result.data;
+  if (!data?.total) return null;
+  const messages: MyContactMessage[] = data.items;
   return (
     <Card title={m.myMessages} flush actions={
       <Link to="/contact" className="text-xs font-medium text-sky-700 hover:underline">{m.newMessage}</Link>
@@ -504,6 +510,9 @@ function MyMessagesCard({ messages }: { messages: MyContactMessage[] }) {
           </li>
         ))}
       </ul>
+      {data.total > data.page_size && (
+        <Pagination page={page} pageSize={data.page_size} total={data.total} onPage={setPage} />
+      )}
     </Card>
   );
 }
@@ -524,7 +533,6 @@ function Notice() {
 export function MyAreaPage() {
   const recruiters = useApi(api.recruiters, "recruiters");
   const gmail = useApi(api.gmailStatus, "gmail-status");
-  const myMessages = useApi(api.myMessages, "my-messages");
   const [sentVersion, setSentVersion] = useState(0);
   const applications = useApplications();
   const { setUser } = useAuth();
@@ -547,7 +555,7 @@ export function MyAreaPage() {
         </div>
         <div className="min-w-0 space-y-6">
           {gmail.data && <GmailCard status={gmail.data} reload={gmail.reload} />}
-          {!!myMessages.data?.length && <MyMessagesCard messages={myMessages.data} />}
+          <MyMessagesCard />
           <ProfileCard />
           {recruiters.error ? <ErrorState error={recruiters.error} onRetry={recruiters.reload} />
             : recruiters.data ? <RecruitersCard recruiters={recruiters.data} reload={recruiters.reload} />

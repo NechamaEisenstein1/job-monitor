@@ -226,19 +226,23 @@ function MessagesCard() {
   const messages = useApi(() => api.adminMessages(!showHandled, page), `admin-messages-${showHandled}-${page}`);
   const data = messages.data;
 
+  /** Handling (or replying to) the last open message on a later page would leave that page
+   *  empty, so step back a page instead of reloading it. */
+  function afterChange() {
+    if (!showHandled && data?.items.length === 1 && page > 1) setPage(page - 1);
+    else messages.reload();
+  }
+
   async function toggle(message: ContactMessage) {
     setActionError(undefined);
     try {
       await api.adminSetMessageHandled(message.id, message.handled_at === null);
-      // Handling the last open message on a later page would leave that page empty.
-      if (!showHandled && data?.items.length === 1 && page > 1) {
-        setPage(page - 1);
-        return;
-      }
     } catch (err) {
       setActionError((err as Error).message);
+      messages.reload();
+      return;
     }
-    messages.reload();
+    afterChange();
   }
 
   return (
@@ -257,7 +261,7 @@ function MessagesCard() {
           <>
             <ul className="divide-y divide-slate-100">
               {data.items.map((msg) => <MessageItem key={msg.id} message={msg} onToggle={() => toggle(msg)}
-                                                         onReplied={messages.reload} />)}
+                                                         onReplied={afterChange} />)}
             </ul>
             <Pagination page={page} pageSize={data.page_size} total={data.total} onPage={setPage} />
           </>

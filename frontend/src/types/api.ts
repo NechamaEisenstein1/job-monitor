@@ -397,6 +397,13 @@ export interface MyContactMessage {
   replied_at: string | null;
 }
 
+export interface MyContactMessagePage {
+  items: MyContactMessage[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export interface ContactMessagePage {
   items: ContactMessage[];
   total: number;
