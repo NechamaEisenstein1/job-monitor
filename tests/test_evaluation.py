@@ -122,11 +122,50 @@ def test_government_tender_detection(cfg):
     assert not s.evaluate(make_job(title="Junior Developer"), "run", NOW).is_government_tender
 
 
-def test_rank_puts_junior_first_then_software(cfg):
+def test_rank_puts_tenders_first_then_software_and_junior_gets_no_bonus(cfg):
     s = service(cfg)
-    rank = lambda title: s.evaluate(make_job(title=title), "run", NOW).rank_score  # noqa: E731
-    junior_qa, senior_dev, junior_dev = rank("Junior QA Engineer"), rank("Senior Developer"), rank("Junior Developer")
-    assert junior_dev > junior_qa > senior_dev
+    rank = lambda title, **kw: s.evaluate(make_job(title=title, **kw), "run", NOW).rank_score  # noqa: E731
+    tender_qa = rank("QA Engineer", description="במסגרת מכרז")
+    senior_dev, junior_dev, junior_qa = rank("Senior Developer"), rank("Junior Developer"), rank("Junior QA Engineer")
+    assert tender_qa > senior_dev and tender_qa > junior_dev  # tenders first, whatever the role or level
+    assert junior_dev > junior_qa                             # then software before QA
+    assert abs(junior_dev - senior_dev) < 100                 # a junior job is not pinned above a senior one
+
+
+@pytest.mark.parametrize("metadata", [{"tender_number": "2026-17"}, {"government_ministry": "משרד הבריאות"}])
+def test_explicit_tender_metadata_counts_in_the_rank(cfg, metadata):
+    # No tender keyword in the text: the recruiter's tender number / ministry decides.
+    s = service(cfg)
+    manual_qa = s.evaluate(make_job(title="QA Engineer", client_company=None, is_manual=True, **metadata), "run", NOW)
+    senior_dev = s.evaluate(make_job(title="Senior Developer"), "run", NOW)
+    assert manual_qa.is_government_tender and "government_tender" in manual_qa.matched_rules
+    assert manual_qa.rank_score > senior_dev.rank_score
+
+
+@pytest.mark.parametrize("location, region, text, expected", [
+    ("ירושלים", None, "", ["jerusalem"]),
+    ("בית שמש", None, "", ["jerusalem"]),
+    ("תל אביב - יפו", None, "", ["center"]),
+    (None, "מרכז", "", ["center"]),                           # the site's own region label
+    ("הרצליה פיתוח", None, "", ["sharon"]),
+    ("חיפה", "צפון", "", ["north"]),
+    (None, None, "המשרה ממוקמת בבאר שבע", ["south"]),        # no location field: the text
+    (None, None, "מרכז שירות לקוחות", []),                     # area words only count in location fields
+    ("עבודה מהבית", None, "", []),
+    (None, "יהודה ושומרון", "", ["judea_samaria"]),          # not the centre city יהוד
+    ("יהוד", None, "", ["center"]),
+    ("אור יהודה", None, "", ["center"]),
+    (None, None, "כתיבת שאילתות SQL", []),                    # not אילת
+    (None, None, "הגדרה ותחזוקה של מערכות", []),             # not גדרה
+    (None, None, "המשרד ממוקם בגדרה", ["shfela"]),
+    (None, None, "עבודה בירושלים ובתל אביב", ["jerusalem", "center"]),
+    ("Tel Aviv-Yafo", None, "", ["center"]),
+    ("Ariel", None, "", ["judea_samaria"]),
+    ("Arielle Street", None, "", []),
+])
+def test_jobs_are_placed_in_regions(cfg, location, region, text, expected):
+    ev = service(cfg).evaluate(make_job(location=location, region=region, description=text), "run", NOW)
+    assert ev.regions == ("|" + "|".join(expected) + "|" if expected else "")
 
 
 # ------------------------------------------------------------------ experience (junior = 0-2 years)

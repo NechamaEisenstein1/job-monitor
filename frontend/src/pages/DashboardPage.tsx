@@ -40,7 +40,6 @@ export function DashboardPage() {
         <StatCard label={d.cards.activeJobs} value={num(s?.active_jobs)} to="/jobs?status=active" />
         <StatCard label={d.cards.newJobs} value={num(s?.new_jobs)} />
         <StatCard label={d.cards.updatedJobs} value={num(s?.updated_jobs)} />
-        <StatCard label={d.cards.eligible} value={num(s?.eligible_jobs)} to="/jobs?eligible=true&status=active" />
         {isAdmin && <>
           <StatCard label={d.cards.lastRun} value={run ? <StatusBadge status={run.status} /> : he.common.none} />
           <StatCard label={d.cards.scrapersOk} value={run ? <span className="ltr">{run.sites_succeeded}/{run.sites_total}</span> : he.common.none} to="/sources" />

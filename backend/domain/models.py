@@ -233,6 +233,8 @@ class JobEvaluation:
     required_years: float | None = None
     # The title promises a junior role but the posting requires more than junior years.
     junior_title_mismatch: bool = False
+    # Regions (users' preferred living areas) the job is in, as "|jerusalem|center|" ("" = none known).
+    regions: str = ""
 
 
 @dataclass
@@ -323,6 +325,12 @@ class User:
     google_sub: str | None = None
     # Alerts and recruiter outreach are sent only for verified addresses.
     email_verified: bool = False
+    # Preferred regions for the personal area, as "jerusalem,center" ("" = all of Israel).
+    preferred_regions: str = ""
+
+    @property
+    def region_codes(self) -> list[str]:
+        return [c for c in self.preferred_regions.split(",") if c]
     # NOTE: points_balance and subscription_status live on the users row but are NOT
     # fields here: they change only through atomic SQL updates (billing repository), so
     # saving a stale User can never overwrite them.

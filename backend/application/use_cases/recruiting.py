@@ -102,13 +102,7 @@ class ManualJobService:
             self._billing.rollback()
             raise RecruitingError("duplicate_tender_number", 409) from exc
 
-        evaluation = self._evaluator.evaluate(job, None, now)
-        if tender or ministry:
-            # A ministry/tender number is an explicit statement, stronger than keyword detection.
-            evaluation.is_government_tender = True
-            if "government_tender" not in evaluation.matched_rules:
-                evaluation.matched_rules.append("government_tender")
-        self._evaluations.add(evaluation)
+        self._evaluations.add(self._evaluator.evaluate(job, None, now))
 
         awarded = 0
         day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)

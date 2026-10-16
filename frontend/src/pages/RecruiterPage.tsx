@@ -137,7 +137,7 @@ function PostingsCard({ all }: { all: boolean }) {
                   return (
                     <tr key={job.id}>
                       <td className={td}>
-                        <Link to={`/jobs/${job.id}`} className="font-medium text-slate-900 hover:text-sky-700 hover:underline" dir="auto">{job.title}</Link>
+                        <Link to={`/jobs/${job.id}`} target="_blank" rel="noopener" className="font-medium text-slate-900 hover:text-sky-700 hover:underline" dir="auto">{job.title}</Link>
                         {featured && (
                           <div className="mt-1"><Badge tone="violet">★ {r.featuredUntil} {formatDate(job.featured_until)}</Badge></div>
                         )}

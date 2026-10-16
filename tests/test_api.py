@@ -51,16 +51,22 @@ def test_experience_level_filter(world):
     assert client.get("/api/jobs", params={"level": "d"}).status_code == 422
 
 
-def test_relevance_sort_and_role_filter(world):
+def test_relevance_sort_puts_tenders_first_and_role_filter(world):
     client = world.client("junior@example.com")
     items = client.get("/api/jobs").json()["items"]  # default sort = relevance
-    ranks = [(i["is_junior"], i["role_type"]) for i in items]
-    # Junior roles first; among juniors, software before QA / other.
-    first_non_junior = next(n for n, (junior, _) in enumerate(ranks) if not junior)
-    assert all(junior for junior, _ in ranks[:first_non_junior])
-    assert ranks[0] == (True, "software")
+    tenders = [i["is_government_tender"] for i in items]
+    assert tenders == sorted(tenders, reverse=True)  # every tender before every other job
     only_qa = client.get("/api/jobs", params={"role_type": "qa"}).json()["items"]
     assert only_qa and all(i["role_type"] == "qa" for i in only_qa)
+
+
+def test_several_levels_at_once(world):
+    client = world.client("junior@example.com")
+    def ids(level):
+        return {j["id"] for j in client.get("/api/jobs", params={"level": level, "page_size": 200}).json()["items"]}
+    assert ids("a,b,c") == ids("a") | ids("b") | ids("c")
+    assert ids("b,a") == ids("a") | ids("b")
+    assert client.get("/api/jobs", params={"level": "a,d"}).status_code == 422
 
 
 def test_provider_postgres_urls_use_the_installed_driver():

@@ -1,9 +1,11 @@
 """Junior / entry-level eligibility. The only business scoring in the system."""
 from __future__ import annotations
 
+import re
+from collections.abc import Iterable
 from datetime import datetime
 
-from backend.config.settings import JuniorKeywords, JuniorScoring, LocationsConfig, MatchingConfig
+from backend.config.settings import JuniorKeywords, JuniorScoring, LocationsConfig, MatchingConfig, RegionConfig
 from backend.domain.models import Job, JobEvaluation
 from backend.domain.services.classification import (
     GovernmentTenderDetector, RankingPolicy, RoleClassifier, keyword_pattern,
@@ -40,6 +42,47 @@ class LocationMatcher:
         return self.match_rule(job) is not None
 
 
+_HEBREW = re.compile(r"[\u0590-\u05ff]")
+
+
+def place_pattern(phrase: str) -> re.Pattern[str] | None:
+    """Whole-word match of a place or area phrase in comparison_key() text.
+
+    "יהוד" must not hit "יהודה", nor "אילת" hit "שאילתות". A Hebrew phrase may carry
+    the prefixes ו/ב/ל/מ ("בבאר שבע", "ומתל אביב"), but not ה/ש/כ, which turn
+    places into ordinary words ("הגדרה" is not "גדרה")."""
+    key = comparison_key(phrase)
+    if not key:
+        return None
+    prefix = "ו?[בלמ]?" if _HEBREW.match(key) else ""
+    return re.compile(rf"(?<!\S){prefix}{re.escape(key)}(?!\S)")
+
+
+class RegionMatcher:
+    """Which of the configured regions a job is in (see `regions` in matching.yaml)."""
+
+    def __init__(self, regions: Iterable[RegionConfig], search_text_when_missing: bool = True):
+        compile_all = lambda phrases: [p for p in map(place_pattern, phrases) if p]  # noqa: E731
+        self._regions = [(r.code, compile_all(r.places), compile_all(r.area_words)) for r in regions]
+        self._search_text = search_text_when_missing
+
+    def regions(self, job: Job) -> list[str]:
+        if job.location or job.region:
+            text = f"{comparison_key(job.location)} {comparison_key(job.region)}"
+            return [code for code, places, words in self._regions
+                    if any(p.search(text) for p in (*places, *words))]
+        if not self._search_text:
+            return []
+        text = " ".join(comparison_key(t) for t in (job.title, job.description, job.requirements))
+        return [code for code, places, _ in self._regions if any(p.search(text) for p in places)]
+
+
+def regions_field(codes: Iterable[str]) -> str:
+    """["jerusalem", "center"] -> "|jerusalem|center|" (searchable with LIKE '%|code|%')."""
+    codes = list(codes)
+    return f"|{'|'.join(codes)}|" if codes else ""
+
+
 class JobEvaluationService:
     """is_eligible = location matches AND junior_score >= threshold AND role type is eligible.
     The individual facets are stored too, so per-user matching can reuse them."""
@@ -55,6 +98,7 @@ class JobEvaluationService:
         ranking: RankingPolicy,
         junior_max_years: float = 2,
         junior_title_keywords: tuple[str, ...] = (),
+        region_matcher: RegionMatcher | None = None,
     ):
         self._groups = [
             ("strong_positive", scoring.strong_positive, keywords.strong_positive),
@@ -70,6 +114,7 @@ class JobEvaluationService:
         self._ranking = ranking
         self._max_years = junior_max_years
         self._title_patterns = [keyword_pattern(k) for k in junior_title_keywords]
+        self._regions = region_matcher or RegionMatcher(())
 
     @classmethod
     def from_config(cls, cfg: MatchingConfig, threshold: float | None = None) -> "JobEvaluationService":
@@ -79,6 +124,7 @@ class JobEvaluationService:
             LocationMatcher(cfg.locations), RoleClassifier(cfg.roles),
             GovernmentTenderDetector(cfg.government), RankingPolicy(cfg.ranking),
             cfg.experience.junior_max_years, cfg.experience.junior_title_keywords,
+            RegionMatcher(cfg.regions, cfg.locations.search_text_when_missing),
         )
 
     def junior_score(self, job: Job) -> tuple[float, list[str]]:
@@ -134,7 +180,9 @@ class JobEvaluationService:
         if not self._roles.is_eligible_type(role_type):
             rejections.append(f"role_not_eligible ({role_type})")
 
-        is_tender = self._tenders.is_tender(job)
+        # A tender number or ministry (manual postings) is an explicit statement, stronger
+        # than keyword detection, and must count before the rank is computed.
+        is_tender = bool(job.tender_number or job.government_ministry) or self._tenders.is_tender(job)
         if is_tender:
             matched.append("government_tender")
 
@@ -154,7 +202,9 @@ class JobEvaluationService:
             location_matched=location_rule is not None,
             role_type=role_type,
             is_government_tender=is_tender,
-            rank_score=self._ranking.rank(is_junior=is_junior, role_type=role_type, junior_score=score),
+            rank_score=self._ranking.rank(is_junior=is_junior, role_type=role_type, junior_score=score,
+                                          is_government_tender=is_tender),
             required_years=years,
             junior_title_mismatch=title_mismatch,
+            regions=regions_field(self._regions.regions(job)),
         )

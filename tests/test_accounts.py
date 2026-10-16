@@ -403,3 +403,41 @@ def test_marking_a_job_that_disappears_meanwhile_reports_not_found(world, monkey
 
         monkeypatch.setattr(s, "get", get_once)
         assert repo.mark(world.junior.id, 99999, NOW) is False
+
+
+# ------------------------------------------------------------------ preferred regions
+
+def _profile(client, **changes):
+    me = client.get("/api/auth/me").json()
+    body = {"display_name": me["display_name"], "experience_level": me["experience_level"],
+            "alerts_enabled": me["alerts_enabled"], **changes}
+    return client.put("/api/me/profile", json=body)
+
+
+def test_personal_area_follows_the_preferred_regions(world):
+    dana = world.client("junior@example.com")
+    assert [r["code"] for r in dana.get("/api/regions").json()][:2] == ["jerusalem", "center"]
+    everywhere = {j["id"] for j in dana.get("/api/me/matches").json()["items"]}  # no regions picked = all of Israel
+
+    assert _profile(dana, preferred_regions=["jerusalem"]).json()["preferred_regions"] == ["jerusalem"]
+    jerusalem = dana.get("/api/me/matches").json()["items"]
+    assert jerusalem and {j["id"] for j in jerusalem} <= everywhere
+    assert all(any(p in (j["location"] or "") for p in ("ירושלים", "Jerusalem", "בית שמש")) for j in jerusalem)
+
+    assert _profile(dana, preferred_regions=["south"]).status_code == 200
+    assert dana.get("/api/me/matches").json()["items"] == []  # the demo jobs have none in the south
+    assert _profile(dana).json()["preferred_regions"] == ["south"]  # not sent = unchanged
+    assert _profile(dana, preferred_regions=[]).json()["preferred_regions"] == []
+    assert _profile(dana, preferred_regions=["mars"]).status_code == 400
+
+
+def test_alerts_use_the_preferred_regions(cfg):
+    from backend.domain.enums import ExperienceLevel
+    from backend.domain.models import JobEvaluation
+    from backend.domain.services.user_matching import matches_profile
+    ev = JobEvaluation(job_id=1, scrape_run_id="r", junior_score=0.5, is_eligible=True, matched_rules=[],
+                       rejection_reasons=[], created_at=NOW, role_type="software", is_junior=True,
+                       regions="|jerusalem|")
+    assert matches_profile(ev, ExperienceLevel.A, ["software"])                         # all of Israel
+    assert matches_profile(ev, ExperienceLevel.A, ["software"], regions=["center", "jerusalem"])
+    assert not matches_profile(ev, ExperienceLevel.A, ["software"], regions=["center"])
