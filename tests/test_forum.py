@@ -125,6 +125,12 @@ def test_pin_and_lock_are_admin_only(world):
     assert admin.put(f"/api/forum/threads/{old}", json={"is_pinned": True, "is_locked": True}).status_code == 204
     assert [t["id"] for t in dana.get("/api/forum/threads").json()["items"]] == [old, new]
 
+    # A rejected request changes nothing, even the parts that were allowed.
+    bad = admin.put(f"/api/forum/threads/{new}", json={"is_locked": True, "title": "א"})
+    assert bad.status_code == 400 and dana.get(f"/api/forum/threads/{new}").json()["thread"]["is_locked"] is False
+    assert dana.put(f"/api/forum/threads/{new}", json={"title": "כותרת מעודכנת", "is_pinned": True}).status_code == 403
+    assert dana.get(f"/api/forum/threads/{new}").json()["thread"]["title"] == "נושא חדש"
+
     locked = yossi.post(f"/api/forum/threads/{old}/posts", json={"body": "אפשר?"})
     assert locked.status_code == 403 and locked.json()["detail"] == "forum_locked"
     assert yossi.get(f"/api/forum/threads/{old}").json()["can_reply"] is False
@@ -181,6 +187,11 @@ def test_daily_limits(world, session_factory):
             service.reply(world.junior, thread_id, "עוד תגובה")
         assert exc.value.code == "forum_post_limit"
         service.reply(world.senior, thread_id, "לאחרים מותר")
+        # An opening post is a message too: a new thread cannot get around the message quota.
+        other = ForumService(SqlForumRepository(s), lambda: NOW, ForumLimits(threads_per_day=5, posts_per_day=1))
+        with pytest.raises(ForumError) as exc:
+            other.create_thread(world.senior, "general", "נושא נוסף", "ד")
+        assert exc.value.code == "forum_post_limit"
 
 
 def test_deleted_author_keeps_posts(world, session_factory):

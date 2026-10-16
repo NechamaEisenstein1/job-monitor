@@ -9,7 +9,7 @@ from backend.application.dto import ForumCategoryDto, ForumThreadDto, ForumThrea
 from backend.domain.enums import ForumCategory
 from backend.domain.models import User
 from backend.domain.services.forum import ForumError, ForumLimits, can_modify, can_reply, clean_body, clean_title
-from backend.infrastructure.repositories.forum import PostRef, SqlForumRepository
+from backend.infrastructure.repositories.forum import PostRef, QuotaExceeded, SqlForumRepository
 
 POSTS_PAGE_SIZE = 20
 
@@ -58,11 +58,12 @@ class ForumService:
     def create_thread(self, user: User, category: str, title: str, body: str) -> int:
         category, title, body = _category(category), clean_title(title), clean_body(body)
         now = self._now()
-        thread_id = self._repo.create_thread_within_limit(
-            user.id, category, title, body, now, since=now - timedelta(days=1), limit=self._limits.threads_per_day)
-        if thread_id is None:
-            raise ForumError("forum_thread_limit", 429)
-        return thread_id
+        try:
+            return self._repo.create_thread_within_limit(
+                user.id, category, title, body, now, since=now - timedelta(days=1),
+                thread_limit=self._limits.threads_per_day, post_limit=self._limits.posts_per_day)
+        except QuotaExceeded as exc:
+            raise ForumError("forum_thread_limit" if exc.kind == "threads" else "forum_post_limit", 429) from exc
 
     def reply(self, user: User, thread_id: int, body: str) -> tuple[int, int]:
         """Returns (post id, the page it landed on)."""
@@ -73,31 +74,31 @@ class ForumService:
             raise ForumError("forum_locked", 403)
         body = clean_body(body)
         now = self._now()
-        post_id = self._repo.add_post_within_limit(
-            thread_id, user.id, body, now, since=now - timedelta(days=1), limit=self._limits.posts_per_day)
-        if post_id is None:
-            raise ForumError("forum_post_limit", 429)
+        try:
+            post_id = self._repo.add_post_within_limit(
+                thread_id, user.id, body, now, since=now - timedelta(days=1), limit=self._limits.posts_per_day)
+        except QuotaExceeded as exc:
+            raise ForumError("forum_post_limit", 429) from exc
         return post_id, self._page_of(PostRef(post_id, thread_id, user.id, False))
 
     def edit_post(self, user: User, post_id: int, body: str) -> None:
         post = self._own_post(user, post_id)
         self._repo.edit_post(post.id, clean_body(body), self._now())
 
-    def edit_thread(self, user: User, thread_id: int, *, title: str | None, category: str | None) -> None:
+    def update_thread(self, user: User, thread_id: int, *, title: str | None = None, category: str | None = None,
+                      is_pinned: bool | None = None, is_locked: bool | None = None) -> None:
+        """Title/category by the author or an admin; pin/lock by admins only. Everything is
+        checked before anything is written, so a rejected request changes nothing."""
         state = self._repo.thread_state(thread_id)
         if state is None:
             raise ForumError("not_found", 404)
-        if not can_modify(user, state[0]):
+        if (is_pinned is not None or is_locked is not None) and not user.is_admin:
+            raise ForumError("admin_only", 403)
+        if (title is not None or category is not None) and not can_modify(user, state[0]):
             raise ForumError("forbidden", 403)
         self._repo.edit_thread(thread_id, title=clean_title(title) if title is not None else None,
-                               category=_category(category) if category is not None else None)
-
-    def moderate(self, user: User, thread_id: int, *, is_pinned: bool | None, is_locked: bool | None) -> None:
-        if not user.is_admin:
-            raise ForumError("admin_only", 403)
-        if self._repo.thread_state(thread_id) is None:
-            raise ForumError("not_found", 404)
-        self._repo.edit_thread(thread_id, is_pinned=is_pinned, is_locked=is_locked)
+                               category=_category(category) if category is not None else None,
+                               is_pinned=is_pinned, is_locked=is_locked)
 
     def delete_post(self, user: User, post_id: int) -> bool:
         """Deleting the opening message deletes the whole thread. Returns True when it did."""

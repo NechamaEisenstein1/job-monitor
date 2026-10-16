@@ -7,6 +7,7 @@ import {
 import { Pagination } from "../../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
 import { useApi } from "../../hooks/useApi";
+import { useUser } from "../../hooks/useAuth";
 import { he } from "../../i18n/he";
 import { api } from "../../services/api";
 import { formatDate, formatDateTime, formatRelative } from "../../services/format";
@@ -31,6 +32,7 @@ function PostCard({ post, onQuote, onChanged, onThreadDeleted }: {
   const [error, setError] = useState<string>();
   const [thanks, setThanks] = useState({ count: post.thanks_count, mine: post.thanked_by_me });
   const author = post.author;
+  const me = useUser();
 
   useEffect(() => setThanks({ count: post.thanks_count, mine: post.thanked_by_me }), [post.thanks_count, post.thanked_by_me]);
 
@@ -90,7 +92,7 @@ function PostCard({ post, onQuote, onChanged, onThreadDeleted }: {
         <div className="flex-1 px-4 py-4">
           {editing ? (
             <div className="space-y-2">
-              <textarea className={`${forumControl} min-h-40`} value={draft} maxLength={10000} dir="auto"
+              <textarea className={`${forumControl} min-h-40`} value={draft} maxLength={10000} dir="auto" aria-label={f.body}
                         onChange={(e) => setDraft(e.target.value)} />
               <div className="flex gap-2">
                 <button className={forumPrimary} disabled={busy} onClick={save}>{f.save}</button>
@@ -109,7 +111,7 @@ function PostCard({ post, onQuote, onChanged, onThreadDeleted }: {
           )}
           <div className="ms-auto flex flex-wrap items-center gap-1">
             {error && <span role="alert" className="text-xs text-rose-700">{error}</span>}
-            {!post.can_edit && author && (
+            {author && author.id !== me.id && (
               <button className={`${actionBtn} ${thanks.mine ? "text-emerald-700" : ""}`} disabled={busy} onClick={toggleThanks}
                       aria-pressed={thanks.mine}>
                 👍 {thanks.mine ? f.thanked : f.thanks}
@@ -281,7 +283,7 @@ export function ForumThreadPage() {
           <ReplyBox threadId={t.id} text={reply} setText={setReply} inputRef={replyRef}
                     onPosted={(postId, p) => {
                       setScrollTo(postId);
-                      if (p === data.page) thread.reload();
+                      if (p === page) thread.reload(); // compare with the URL's page: the one actually requested
                       else setParams(p > 1 ? { page: String(p) } : {});
                     }} />
         ) : (

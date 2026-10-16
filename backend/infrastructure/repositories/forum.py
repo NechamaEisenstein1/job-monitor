@@ -15,6 +15,14 @@ from backend.application.dto import (
 from backend.infrastructure.db.orm import ForumPostRow, ForumThanksRow, ForumThreadRow, UserRow
 
 
+class QuotaExceeded(Exception):
+    """The user reached a daily limit; `kind` is "threads" or "posts"."""
+
+    def __init__(self, kind: str):
+        super().__init__(kind)
+        self.kind = kind
+
+
 @dataclass(frozen=True)
 class PostRef:
     id: int
@@ -149,22 +157,42 @@ class SqlForumRepository:
 
     # ------------------------------------------------------------------ writes
 
-    def _over_limit(self, user_id: int, since: datetime, limit: int, *, threads: bool) -> bool:
+    def _check_quota(self, user_id: int, since: datetime, *, thread_limit: int | None, post_limit: int) -> None:
         """Locks the user's row first (SELECT ... FOR UPDATE) so on PostgreSQL concurrent
-        submissions by one user are counted one after another (SQLite ignores the lock)."""
+        submissions by one user are counted one after another (SQLite ignores the lock).
+        Raises QuotaExceeded("threads" | "posts")."""
         self._s.execute(select(UserRow.id).where(UserRow.id == user_id).with_for_update())
-        table = ForumThreadRow if threads else ForumPostRow
-        sent = self._s.scalar(select(func.count()).select_from(table).where(
-            table.user_id == user_id, table.created_at >= since)) or 0
-        return sent >= limit
+        if thread_limit is not None:
+            threads = self._s.scalar(select(func.count()).select_from(ForumThreadRow).where(
+                ForumThreadRow.user_id == user_id, ForumThreadRow.created_at >= since)) or 0
+            if threads >= thread_limit:
+                raise QuotaExceeded("threads")
+        posts = self._s.scalar(select(func.count()).select_from(ForumPostRow).where(
+            ForumPostRow.user_id == user_id, ForumPostRow.created_at >= since)) or 0
+        if posts >= post_limit:
+            raise QuotaExceeded("posts")
+
+    def _lock_thread(self, thread_id: int) -> None:
+        """Replies to one thread are added and removed one after another (PostgreSQL row lock),
+        so the counters below are always recomputed from committed posts."""
+        self._s.execute(select(ForumThreadRow.id).where(ForumThreadRow.id == thread_id).with_for_update())
+
+    def _refresh_counters(self, thread_id: int) -> None:
+        """reply_count and last_post_* straight from the posts, never incremented blindly."""
+        last = self._s.execute(
+            select(ForumPostRow.created_at, ForumPostRow.user_id).where(ForumPostRow.thread_id == thread_id)
+            .order_by(ForumPostRow.created_at.desc(), ForumPostRow.id.desc()).limit(1)).first()
+        if last is None:
+            return
+        self._s.execute(update(ForumThreadRow).where(ForumThreadRow.id == thread_id).values(
+            reply_count=max(0, self.post_count(thread_id) - 1), last_post_at=last[0], last_post_user_id=last[1]))
 
     def create_thread_within_limit(self, user_id: int, category: str, title: str, body: str, now: datetime,
-                                   since: datetime, limit: int) -> int | None:
-        """The thread and its opening post in one transaction; None = the user reached the daily limit."""
+                                   since: datetime, thread_limit: int, post_limit: int) -> int:
+        """The thread and its opening post in one transaction. The opening post counts
+        towards the message quota too."""
         try:
-            if self._over_limit(user_id, since, limit, threads=True):
-                self._s.rollback()
-                return None
+            self._check_quota(user_id, since, thread_limit=thread_limit, post_limit=post_limit)
             thread = ForumThreadRow(category=category, user_id=user_id, title=title, created_at=now,
                                     last_post_at=now, last_post_user_id=user_id, reply_count=0, view_count=0,
                                     is_pinned=False, is_locked=False)
@@ -178,15 +206,15 @@ class SqlForumRepository:
             raise
 
     def add_post_within_limit(self, thread_id: int, user_id: int, body: str, now: datetime,
-                              since: datetime, limit: int) -> int | None:
+                              since: datetime, limit: int) -> int:
+        """Lock order: the user's row, then the thread's (delete_reply takes only the thread's)."""
         try:
-            if self._over_limit(user_id, since, limit, threads=False):
-                self._s.rollback()
-                return None
+            self._check_quota(user_id, since, thread_limit=None, post_limit=limit)
+            self._lock_thread(thread_id)
             post = ForumPostRow(thread_id=thread_id, user_id=user_id, body=body, created_at=now)
             self._s.add(post)
-            self._s.execute(update(ForumThreadRow).where(ForumThreadRow.id == thread_id).values(
-                reply_count=ForumThreadRow.reply_count + 1, last_post_at=now, last_post_user_id=user_id))
+            self._s.flush()
+            self._refresh_counters(thread_id)
             self._s.commit()
             return post.id
         except Exception:
@@ -212,13 +240,9 @@ class SqlForumRepository:
     def delete_reply(self, post: PostRef) -> None:
         """Removes a reply and recomputes the thread's counters from what is left."""
         try:
+            self._lock_thread(post.thread_id)
             self._s.execute(delete(ForumPostRow).where(ForumPostRow.id == post.id))
-            last = self._s.execute(
-                select(ForumPostRow.created_at, ForumPostRow.user_id).where(ForumPostRow.thread_id == post.thread_id)
-                .order_by(ForumPostRow.created_at.desc(), ForumPostRow.id.desc()).limit(1)).first()
-            remaining = self.post_count(post.thread_id)
-            self._s.execute(update(ForumThreadRow).where(ForumThreadRow.id == post.thread_id).values(
-                reply_count=max(0, remaining - 1), last_post_at=last[0], last_post_user_id=last[1]))
+            self._refresh_counters(post.thread_id)
             self._s.commit()
         except Exception:
             self._s.rollback()

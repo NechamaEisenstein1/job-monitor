@@ -83,10 +83,8 @@ class ThreadUpdateIn(BaseModel):
 @router.put("/threads/{thread_id}", status_code=204)
 def update_thread(thread_id: ThreadId, body: ThreadUpdateIn, user: CurrentUser, forum: Forum) -> None:
     try:
-        if body.is_pinned is not None or body.is_locked is not None:
-            forum.moderate(user, thread_id, is_pinned=body.is_pinned, is_locked=body.is_locked)
-        if body.title is not None or body.category is not None:
-            forum.edit_thread(user, thread_id, title=body.title, category=body.category)
+        forum.update_thread(user, thread_id, title=body.title, category=body.category,
+                            is_pinned=body.is_pinned, is_locked=body.is_locked)
     except ForumError as exc:
         raise _fail(exc) from exc
 
