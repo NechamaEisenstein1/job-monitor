@@ -54,8 +54,20 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
     )
 
+    # The daily limits count from here, so deleting content does not free quota.
+    op.create_table(
+        "forum_submissions",
+        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("kind", sa.String(8), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+    )
+    op.create_index("ix_forum_submissions_user_created", "forum_submissions", ["user_id", "created_at"])
+
 
 def downgrade() -> None:
+    op.drop_index("ix_forum_submissions_user_created", table_name="forum_submissions")
+    op.drop_table("forum_submissions")
     op.drop_table("forum_thanks")
     op.drop_index("ix_forum_posts_user_created", table_name="forum_posts")
     op.drop_index("ix_forum_posts_thread_created", table_name="forum_posts")

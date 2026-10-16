@@ -400,3 +400,15 @@ class ForumThanksRow(Base):
     post_id: Mapped[int] = mapped_column(ForeignKey("forum_posts.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class ForumSubmissionRow(Base):
+    """One row per thread / message a user published, kept when the content is deleted,
+    so the daily limits cannot be reset by deleting and posting again."""
+    __tablename__ = "forum_submissions"
+    __table_args__ = (Index("ix_forum_submissions_user_created", "user_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(8))  # thread | post
+    created_at: Mapped[datetime] = mapped_column(DateTime)

@@ -186,6 +186,15 @@ def test_daily_limits(world, session_factory):
         with pytest.raises(ForumError) as exc:
             service.reply(world.junior, thread_id, "עוד תגובה")
         assert exc.value.code == "forum_post_limit"
+
+        # Deleting a message does not give its place in the quota back.
+        third = ForumService(SqlForumRepository(s), lambda: NOW, ForumLimits(threads_per_day=1, posts_per_day=10))
+        gone = third.create_thread(world.admin, "general", "יימחק", "תוכן")
+        assert third.delete_post(world.admin, third.thread(world.admin, gone, 1).posts[0].id) is True
+        with pytest.raises(ForumError) as exc:
+            third.create_thread(world.admin, "general", "נושא חדש", "תוכן")
+        assert exc.value.code == "forum_thread_limit"
+
         service.reply(world.senior, thread_id, "לאחרים מותר")
         # An opening post is a message too: a new thread cannot get around the message quota.
         other = ForumService(SqlForumRepository(s), lambda: NOW, ForumLimits(threads_per_day=5, posts_per_day=1))

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, aliased
 from backend.application.dto import (
     ForumAuthorDto, ForumCategoryDto, ForumLastPostDto, ForumPostDto, ForumThreadPageDto, ForumThreadSummaryDto,
 )
-from backend.infrastructure.db.orm import ForumPostRow, ForumThanksRow, ForumThreadRow, UserRow
+from backend.infrastructure.db.orm import ForumPostRow, ForumSubmissionRow, ForumThanksRow, ForumThreadRow, UserRow
 
 
 class QuotaExceeded(Exception):
@@ -162,15 +162,19 @@ class SqlForumRepository:
         submissions by one user are counted one after another (SQLite ignores the lock).
         Raises QuotaExceeded("threads" | "posts")."""
         self._s.execute(select(UserRow.id).where(UserRow.id == user_id).with_for_update())
-        if thread_limit is not None:
-            threads = self._s.scalar(select(func.count()).select_from(ForumThreadRow).where(
-                ForumThreadRow.user_id == user_id, ForumThreadRow.created_at >= since)) or 0
-            if threads >= thread_limit:
-                raise QuotaExceeded("threads")
-        posts = self._s.scalar(select(func.count()).select_from(ForumPostRow).where(
-            ForumPostRow.user_id == user_id, ForumPostRow.created_at >= since)) or 0
-        if posts >= post_limit:
+        # Counted from the submissions log, not from forum_posts: deleting a message does not
+        # give back its place in the quota.
+        used = dict(self._s.execute(
+            select(ForumSubmissionRow.kind, func.count()).where(
+                ForumSubmissionRow.user_id == user_id, ForumSubmissionRow.created_at >= since)
+            .group_by(ForumSubmissionRow.kind)).all())
+        if thread_limit is not None and used.get("thread", 0) >= thread_limit:
+            raise QuotaExceeded("threads")
+        if used.get("post", 0) >= post_limit:
             raise QuotaExceeded("posts")
+
+    def _log_submission(self, user_id: int, now: datetime, *kinds: str) -> None:
+        self._s.add_all(ForumSubmissionRow(user_id=user_id, kind=k, created_at=now) for k in kinds)
 
     def _lock_thread(self, thread_id: int) -> None:
         """Replies to one thread are added and removed one after another (PostgreSQL row lock),
@@ -199,6 +203,7 @@ class SqlForumRepository:
             self._s.add(thread)
             self._s.flush()
             self._s.add(ForumPostRow(thread_id=thread.id, user_id=user_id, body=body, created_at=now))
+            self._log_submission(user_id, now, "thread", "post")
             self._s.commit()
             return thread.id
         except Exception:
@@ -213,6 +218,7 @@ class SqlForumRepository:
             self._lock_thread(thread_id)
             post = ForumPostRow(thread_id=thread_id, user_id=user_id, body=body, created_at=now)
             self._s.add(post)
+            self._log_submission(user_id, now, "post")
             self._s.flush()
             self._refresh_counters(thread_id)
             self._s.commit()
