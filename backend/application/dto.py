@@ -393,3 +393,72 @@ class JobApplicationDto(Dto):
 class RegionDto(Dto):
     code: str
     name: str
+
+
+# ------------------------------------------------------------------ forum
+
+class ForumAuthorDto(Dto):
+    """What other members see about a writer: never the email address."""
+    id: int
+    display_name: str
+    role: str                 # user | recruiter | admin (shown as a badge)
+    joined_at: UtcDatetime
+    post_count: int
+
+
+class ForumLastPostDto(Dto):
+    thread_id: int
+    thread_title: str
+    at: UtcDatetime
+    user_name: str | None     # None once the account is deleted
+
+
+class ForumCategoryDto(Dto):
+    code: str
+    thread_count: int
+    post_count: int
+    last_post: ForumLastPostDto | None
+
+
+class ForumThreadSummaryDto(Dto):
+    id: int
+    category: str
+    title: str
+    author_id: int | None
+    author_name: str | None
+    created_at: UtcDatetime
+    last_post_at: UtcDatetime
+    last_post_user_name: str | None
+    reply_count: int
+    view_count: int
+    is_pinned: bool
+    is_locked: bool
+
+
+class ForumThreadPageDto(Dto):
+    items: list[ForumThreadSummaryDto]
+    total: int
+    page: int
+    page_size: int
+
+
+class ForumPostDto(Dto):
+    id: int
+    number: int               # 1 = the opening message, then 2, 3, ... (for links and quoting)
+    body: str
+    created_at: UtcDatetime
+    edited_at: UtcDatetime | None
+    author: ForumAuthorDto | None   # None once the account is deleted
+    thanks_count: int
+    thanked_by_me: bool
+    can_edit: bool
+
+
+class ForumThreadDto(Dto):
+    thread: ForumThreadSummaryDto
+    posts: list[ForumPostDto]
+    total_posts: int
+    page: int
+    page_size: int
+    can_reply: bool
+    can_moderate: bool

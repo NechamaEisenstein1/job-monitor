@@ -1,5 +1,5 @@
 import {
-  ArrowRight, Briefcase, Coins, Database, History, LayoutDashboard, Mail, Megaphone, ShieldCheck, UserRound, type LucideIcon,
+  ArrowRight, Briefcase, Coins, Database, History, LayoutDashboard, Mail, Megaphone, MessagesSquare, ShieldCheck, UserRound, type LucideIcon,
 } from "lucide-react";
 import { useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
@@ -16,6 +16,7 @@ type NavItem = { to: string; label: string; icon: LucideIcon };
 const NAV: NavItem[] = [
   { to: "/jobs", label: he.nav.jobs, icon: Briefcase },
   { to: "/me", label: he.nav.myArea, icon: UserRound },
+  { to: "/forum", label: he.nav.forum, icon: MessagesSquare },
   { to: "/dashboard", label: he.nav.dashboard, icon: LayoutDashboard },
 ];
 
