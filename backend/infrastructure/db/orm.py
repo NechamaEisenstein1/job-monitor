@@ -348,3 +348,51 @@ class JobApplicationRow(Base):
     location: Mapped[str | None] = mapped_column(String(300))
     source_url: Mapped[str | None] = mapped_column(Text)
     applied_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+# ------------------------------------------------------------------ forum (migration 0010)
+
+class ForumThreadRow(Base):
+    """A forum topic. Its opening message is the thread's first row in forum_posts;
+    reply_count / last_post_* are kept up to date by the forum repository."""
+    __tablename__ = "forum_threads"
+    __table_args__ = (
+        Index("ix_forum_threads_category_last_post", "category", "last_post_at"),
+        Index("ix_forum_threads_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    category: Mapped[str] = mapped_column(String(16))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    title: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    last_post_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    last_post_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    reply_count: Mapped[int] = mapped_column(Integer, default=0)
+    view_count: Mapped[int] = mapped_column(Integer, default=0)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_locked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class ForumPostRow(Base):
+    __tablename__ = "forum_posts"
+    __table_args__ = (
+        Index("ix_forum_posts_thread_created", "thread_id", "created_at"),
+        Index("ix_forum_posts_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    thread_id: Mapped[int] = mapped_column(ForeignKey("forum_threads.id", ondelete="CASCADE"))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class ForumThanksRow(Base):
+    """One "thank you" per user per post."""
+    __tablename__ = "forum_thanks"
+
+    post_id: Mapped[int] = mapped_column(ForeignKey("forum_posts.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)

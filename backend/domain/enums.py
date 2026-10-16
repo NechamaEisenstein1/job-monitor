@@ -76,3 +76,12 @@ class PointAction(Enum):
 class PaymentMethod(Enum):
     FREE = "free"      # allowed only while the configured price is 0
     POINTS = "points"
+
+
+class ForumCategory(Enum):
+    """Forum sections about government tenders. The order here is the order shown on the site."""
+    QUESTIONS = "questions"   # שאלות
+    SHARING = "sharing"       # שיתופים וניסיון
+    REQUESTS = "requests"     # בקשות
+    OFFERS = "offers"         # הצעות ושיתופי פעולה
+    GENERAL = "general"       # כללי

@@ -396,3 +396,66 @@ export interface JobApplication {
   applied_at: string;
   job_removed: boolean;
 }
+
+// ------------------------------------------------------------------ forum
+
+export type ForumCategoryCode = "questions" | "sharing" | "requests" | "offers" | "general";
+
+export interface ForumCategory {
+  code: ForumCategoryCode;
+  thread_count: number;
+  post_count: number;
+  last_post: { thread_id: number; thread_title: string; at: string; user_name: string | null } | null;
+}
+
+export interface ForumThreadSummary {
+  id: number;
+  category: ForumCategoryCode;
+  title: string;
+  author_id: number | null;
+  author_name: string | null;
+  created_at: string;
+  last_post_at: string;
+  last_post_user_name: string | null;
+  reply_count: number;
+  view_count: number;
+  is_pinned: boolean;
+  is_locked: boolean;
+}
+
+export interface ForumThreadPage {
+  items: ForumThreadSummary[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface ForumAuthor {
+  id: number;
+  display_name: string;
+  role: UserRole;
+  joined_at: string;
+  post_count: number;
+}
+
+export interface ForumPost {
+  id: number;
+  number: number;
+  body: string;
+  created_at: string;
+  edited_at: string | null;
+  author: ForumAuthor | null;
+  thanks_count: number;
+  thanked_by_me: boolean;
+  can_edit: boolean;
+}
+
+export interface ForumThread {
+  thread: ForumThreadSummary;
+  posts: ForumPost[];
+  total_posts: number;
+  page: number;
+  page_size: number;
+  can_reply: boolean;
+  can_moderate: boolean;
+}
