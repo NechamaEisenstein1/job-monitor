@@ -15,6 +15,48 @@ locations:
   # look for the configured locations in the title/description/requirements instead.
   search_text_when_missing: true
 
+# Regions a user can pick as preferred in the personal area. A job belongs to a region when
+# its location (or the site's own region label) mentions one of the places; jobs with no
+# location field are matched on their text, using the places only (area words such as
+# "מרכז" are too common in ordinary text).
+regions:
+  - code: jerusalem
+    name: "ירושלים והסביבה"
+    places: ["ירושלים", "jerusalem", "מבשרת", "בית שמש", "beit shemesh", "מעלה אדומים", "גבעת זאב", "צור הדסה", "אבו גוש"]
+    area_words: ["ירושלים", "אזור ירושלים"]
+  - code: center
+    name: "תל אביב והמרכז"
+    places: ["תל אביב", "tel aviv", "רמת גן", "ramat gan", "גבעתיים", "בני ברק", "bnei brak", "חולון", "holon",
+             "בת ים", "פתח תקווה", "פתח תקוה", "petah tikva", "ראש העין", "rosh haayin", "אור יהודה", "יהוד",
+             "קרית אונו", "גני תקווה", "אלעד", "שוהם", "airport city", "אירפורט סיטי", "בורסה"]
+    area_words: ["מרכז", "גוש דן", "center", "central"]
+  - code: sharon
+    name: "השרון"
+    places: ["הרצליה", "herzliya", "רעננה", "raanana", "כפר סבא", "kfar saba", "הוד השרון", "hod hasharon",
+             "נתניה", "netanya", "רמת השרון", "ramat hasharon", "כפר יונה", "אבן יהודה", "קדימה", "צור יגאל", "חדרה", "hadera"]
+    area_words: ["שרון", "השרון", "sharon"]
+  - code: shfela
+    name: "השפלה"
+    places: ["ראשון לציון", "rishon", "רחובות", "rehovot", "נס ציונה", "ness ziona", "לוד", "lod", "רמלה", "ramla",
+             "מודיעין", "modiin", "יבנה", "yavne", "גדרה", "באר יעקב", "מזכרת בתיה", "קרית עקרון"]
+    area_words: ["שפלה", "השפלה", "shfela"]
+  - code: north
+    name: "חיפה והצפון"
+    places: ["חיפה", "haifa", "יקנעם", "yokneam", "נשר", "קרית אתא", "קרית ביאליק", "קרית מוצקין", "קרית ים",
+             "עכו", "acre", "נהריה", "כרמיאל", "karmiel", "נצרת", "nazareth", "עפולה", "afula", "טבריה", "צפת",
+             "מגדל העמק", "קיסריה", "caesarea", "זכרון יעקב", "תפן", "מעלות", "קרית שמונה"]
+    area_words: ["צפון", "הצפון", "north"]
+  - code: south
+    name: "הדרום"
+    places: ["באר שבע", "beer sheva", "be'er sheva", "אשדוד", "ashdod", "אשקלון", "ashkelon", "אילת", "eilat",
+             "דימונה", "קרית גת", "kiryat gat", "שדרות", "נתיבות", "אופקים", "ערד", "ירוחם"]
+    area_words: ["דרום", "הדרום", "south"]
+  - code: judea_samaria
+    name: "יהודה ושומרון"
+    places: ["אריאל", "ariel", "ביתר עילית", "מודיעין עילית", "אפרת", "קרני שומרון", "אלקנה", "עמנואל", "קדומים",
+             "בית אל", "גוש עציון"]
+    area_words: ["יהודה ושומרון", "יו\"ש", "שומרון"]
+
 keywords:
   junior:
     strong_positive:
@@ -97,9 +139,10 @@ government:
   keywords: ["מכרז", "משרד ממשלתי", "משרד ממשלה", "משרדי ממשלה", "ארגון ממשלתי", "גוף ממשלתי",
              "רשות ממשלתית", "למשרד ממשלתי", "government", "ministry"]
 
-# Relevance order (the default Jobs sort): junior roles first, then by role type, then score.
+# Relevance order (the default Jobs sort): government tenders first, then by role type.
 ranking:
-  junior_bonus: 1000
+  tender_bonus: 1000
+  junior_bonus: 0
   role_priority: ["software", "data", "devops", "cyber", "qa", "embedded", "hardware", "product", "it", "other"]
   role_step: 100
 

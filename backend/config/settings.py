@@ -136,6 +136,21 @@ class RankingConfig:
     junior_bonus: float
     role_priority: list[str]
     role_step: float
+    tender_bonus: float = 0
+
+
+@dataclass(frozen=True)
+class RegionConfig:
+    """A region users can prefer. `places` (cities) are matched in the location fields and,
+    for jobs without one, in the text; `area_words` ("מרכז", "צפון") only in location fields."""
+    code: str
+    name: str
+    places: tuple[str, ...] = ()
+    area_words: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "places", tuple(self.places))
+        object.__setattr__(self, "area_words", tuple(self.area_words))
 
 
 @dataclass(frozen=True)
@@ -219,12 +234,14 @@ class MatchingConfig:
     users: UsersConfig
     billing: BillingConfig = BillingConfig()
     signals: SignalsConfig = SignalsConfig()
+    regions: tuple[RegionConfig, ...] = ()
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "MatchingConfig":
         return cls(
             run_status=RunStatusConfig(**raw["run_status"]),
             locations=LocationsConfig(**raw["locations"]),
+            regions=tuple(RegionConfig(**r) for r in raw.get("regions", [])),
             junior_keywords=JuniorKeywords(**raw["keywords"]["junior"]),
             junior_scoring=JuniorScoring(**raw["junior_scoring"]),
             experience=ExperienceConfig(**{k: tuple(v) if isinstance(v, list) else v

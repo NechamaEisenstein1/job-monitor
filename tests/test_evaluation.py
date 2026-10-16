@@ -122,11 +122,30 @@ def test_government_tender_detection(cfg):
     assert not s.evaluate(make_job(title="Junior Developer"), "run", NOW).is_government_tender
 
 
-def test_rank_puts_junior_first_then_software(cfg):
+def test_rank_puts_tenders_first_then_software_and_junior_gets_no_bonus(cfg):
     s = service(cfg)
-    rank = lambda title: s.evaluate(make_job(title=title), "run", NOW).rank_score  # noqa: E731
-    junior_qa, senior_dev, junior_dev = rank("Junior QA Engineer"), rank("Senior Developer"), rank("Junior Developer")
-    assert junior_dev > junior_qa > senior_dev
+    rank = lambda title, **kw: s.evaluate(make_job(title=title, **kw), "run", NOW).rank_score  # noqa: E731
+    tender_qa = rank("QA Engineer", description="במסגרת מכרז")
+    senior_dev, junior_dev, junior_qa = rank("Senior Developer"), rank("Junior Developer"), rank("Junior QA Engineer")
+    assert tender_qa > senior_dev and tender_qa > junior_dev  # tenders first, whatever the role or level
+    assert junior_dev > junior_qa                             # then software before QA
+    assert abs(junior_dev - senior_dev) < 100                 # a junior job is not pinned above a senior one
+
+
+@pytest.mark.parametrize("location, region, text, expected", [
+    ("ירושלים", None, "", ["jerusalem"]),
+    ("בית שמש", None, "", ["jerusalem"]),
+    ("תל אביב - יפו", None, "", ["center"]),
+    (None, "מרכז", "", ["center"]),                           # the site's own region label
+    ("הרצליה פיתוח", None, "", ["sharon"]),
+    ("חיפה", "צפון", "", ["north"]),
+    (None, None, "המשרה ממוקמת בבאר שבע", ["south"]),        # no location field: the text
+    (None, None, "מרכז שירות לקוחות", []),                     # area words only count in location fields
+    ("עבודה מהבית", None, "", []),
+])
+def test_jobs_are_placed_in_regions(cfg, location, region, text, expected):
+    ev = service(cfg).evaluate(make_job(location=location, region=region, description=text), "run", NOW)
+    assert ev.regions == ("|" + "|".join(expected) + "|" if expected else "")
 
 
 # ------------------------------------------------------------------ experience (junior = 0-2 years)

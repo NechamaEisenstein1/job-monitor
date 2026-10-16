@@ -11,10 +11,13 @@ from backend.domain.services.normalization import company_key
 
 
 def matches_profile(evaluation: JobEvaluation, level: ExperienceLevel, eligible_role_types: Iterable[str],
-                    junior_max: float = 2, b_max: float = 4) -> bool:
-    """Location and role type always apply, then the user's level (A / B / C). Postings that
-    state no experience and are not junior count for B and C."""
-    if not evaluation.location_matched or evaluation.role_type not in set(eligible_role_types):
+                    junior_max: float = 2, b_max: float = 4, regions: Iterable[str] = ()) -> bool:
+    """Role type, the user's preferred regions (none = all of Israel) and their level (A / B / C).
+    Postings that state no experience and are not junior count for B and C."""
+    if evaluation.role_type not in set(eligible_role_types):
+        return False
+    wanted = list(regions)
+    if wanted and not any(f"|{code}|" in evaluation.regions for code in wanted):
         return False
     return in_level(level.value, evaluation.is_junior, evaluation.required_years, junior_max, b_max,
                     include_unstated=True)

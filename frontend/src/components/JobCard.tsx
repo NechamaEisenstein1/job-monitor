@@ -1,7 +1,6 @@
 import type { JobDetail } from "../types/api";
 import { he, reasonLabel, ruleLabel } from "../i18n/he";
-import { EligibilityBadge, JuniorBadge, ManualBadges, RoleBadge, SignalBadges, StatusBadge, TenderBadge } from "./StatusBadge";
-import { ScoreBadge } from "./ScoreBadge";
+import { ManualBadges, RoleBadge, SignalBadges, StatusBadge, TenderBadge } from "./StatusBadge";
 
 /** Header facts for a job, plus the backend's evaluation explanation. */
 export function JobCard({ job }: { job: JobDetail }) {
@@ -11,8 +10,6 @@ export function JobCard({ job }: { job: JobDetail }) {
     [he.job.location, [job.location, job.region].filter(Boolean).join(", ") || he.common.none],
     [he.job.employmentType, job.employment_type ?? he.common.none],
     [he.job.status, <StatusBadge status={job.status} />],
-    [he.job.score, <ScoreBadge score={ev?.junior_score} eligible={ev?.is_eligible} />],
-    [he.job.eligibility, <EligibilityBadge eligible={ev?.is_eligible} />],
   ];
   if (job.government_ministry) facts.unshift([he.recruiter.ministry, job.government_ministry]);
   if (job.tender_number) facts.unshift([he.recruiter.tenderNumber, <span className="ltr">{job.tender_number}</span>]);
@@ -23,7 +20,6 @@ export function JobCard({ job }: { job: JobDetail }) {
           <SignalBadges signals={job.signals} fakeJunior={ev.junior_title_mismatch} years={ev.required_years} />
           <ManualBadges manual={job.is_manual} />
           {ev.is_government_tender && <TenderBadge />}
-          {ev.is_junior && <JuniorBadge />}
           <RoleBadge role={ev.role_type} />
         </div>
       )}
