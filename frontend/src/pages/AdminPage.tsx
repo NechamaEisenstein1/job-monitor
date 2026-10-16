@@ -145,8 +145,43 @@ function UsersCard() {
   );
 }
 
-function MessageItem({ message, onToggle }: { message: ContactMessage; onToggle: () => void }) {
+function ReplyForm({ message, onDone, onCancel }: { message: ContactMessage; onDone: () => void; onCancel: () => void }) {
+  const [text, setText] = useState(message.reply ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(undefined);
+    try {
+      await api.adminReplyToMessage(message.id, text);
+      onDone();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={send} className="space-y-2">
+      <textarea value={text} onChange={(e) => setText(e.target.value)} required maxLength={5000} rows={3} dir="auto"
+                placeholder={a.replyPlaceholder}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-sky-500 focus:outline-none" />
+      <div className="flex items-center gap-2 text-xs">
+        <button type="submit" disabled={busy || !text.trim()}
+                className="rounded-md bg-slate-900 px-3 py-1.5 font-medium text-white disabled:opacity-50">{a.sendReply}</button>
+        <button type="button" onClick={onCancel} className="font-medium text-slate-600 hover:underline">{a.cancelReply}</button>
+        {error && <span role="alert" className="text-rose-700">{error}</span>}
+      </div>
+    </form>
+  );
+}
+
+function MessageItem({ message, onToggle, onReplied }: { message: ContactMessage; onToggle: () => void; onReplied: () => void }) {
   const handled = message.handled_at !== null;
+  const [replying, setReplying] = useState(false);
   // Both parts encoded: an address must not be able to add its own headers (?bcc=...) to the reply.
   const mailto = message.user_email
     ? `mailto:${encodeURIComponent(message.user_email)}?subject=${encodeURIComponent(`Re: ${message.subject}`)}`
@@ -162,7 +197,18 @@ function MessageItem({ message, onToggle }: { message: ContactMessage; onToggle:
         </span>
       </div>
       <p className="whitespace-pre-wrap text-sm text-slate-700" dir="auto">{message.body}</p>
+      {message.reply && !replying && (
+        <div className="rounded-md border-s-4 border-sky-500 bg-sky-50 px-3 py-2 text-sm">
+          <div className="mb-1 text-xs font-medium text-sky-800">{a.yourReply} {formatDateTime(message.replied_at)}</div>
+          <p className="whitespace-pre-wrap text-slate-800" dir="auto">{message.reply}</p>
+        </div>
+      )}
+      {replying && <ReplyForm message={message} onCancel={() => setReplying(false)}
+                              onDone={() => { setReplying(false); onReplied(); }} />}
       <div className="flex flex-wrap items-center gap-3 text-xs">
+        {message.user_email !== null && !replying && (
+          <button onClick={() => setReplying(true)} className="font-medium text-sky-700 hover:underline">{a.replyOnSite}</button>
+        )}
         {mailto && <a href={mailto} className="font-medium text-sky-700 hover:underline">{a.replyByEmail}</a>}
         <button onClick={onToggle} className="font-medium text-slate-700 hover:underline">
           {handled ? a.markOpen : a.markHandled}
@@ -210,7 +256,8 @@ function MessagesCard() {
         : (
           <>
             <ul className="divide-y divide-slate-100">
-              {data.items.map((msg) => <MessageItem key={msg.id} message={msg} onToggle={() => toggle(msg)} />)}
+              {data.items.map((msg) => <MessageItem key={msg.id} message={msg} onToggle={() => toggle(msg)}
+                                                         onReplied={messages.reload} />)}
             </ul>
             <Pagination page={page} pageSize={data.page_size} total={data.total} onPage={setPage} />
           </>

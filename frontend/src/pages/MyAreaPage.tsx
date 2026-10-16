@@ -1,3 +1,4 @@
+import { Check, CheckCheck, Clock, Mail, MapPin, MessageSquareReply } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -5,14 +6,14 @@ import { AppliedCheckbox } from "../components/AppliedCheckbox";
 import { Card, PageHeader } from "../components/Layout";
 import { Pagination } from "../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
-import { RoleBadge, TenderBadge } from "../components/StatusBadge";
+import { Icon, LevelBadge, RoleBadge, TenderBadge } from "../components/StatusBadge";
 import { useApi } from "../hooks/useApi";
 import { type Applications, useApplications } from "../hooks/useApplications";
 import { useAuth, useUser } from "../hooks/useAuth";
 import { he } from "../i18n/he";
-import { api, PAGE_SIZE } from "../services/api";
+import { api, MATCHES_PAGE_SIZE } from "../services/api";
 import { formatDateTime, formatRelative } from "../services/format";
-import type { ExperienceLevel, GmailStatus, JobListItem, OutreachResult, Recruiter, RecruiterInput } from "../types/api";
+import type { ExperienceLevel, GmailStatus, MyContactMessage, JobListItem, OutreachResult, Recruiter, RecruiterInput } from "../types/api";
 
 const m = he.myArea;
 const control =
@@ -262,7 +263,7 @@ function OutreachButton({ job, recruiterCount, gmailConnected, onSent }: {
     <div className="flex flex-wrap items-center gap-2">
       <button className={secondary} disabled={recruiterCount === 0 || !canSend} onClick={() => setStage("confirm")}
               title={!canSend ? he.errors.email_not_verified : recruiterCount === 0 ? he.errors.no_recruiters : undefined}>
-        ✉ {m.askRecruiters}
+        <span className="inline-flex items-center gap-1.5"><Icon icon={Mail} />{m.askRecruiters}</span>
       </button>
       {error && <span role="alert" className="text-sm text-rose-700">{error}</span>}
     </div>
@@ -302,11 +303,12 @@ function MatchesCard({ recruiterCount, gmailConnected, onSent, applications }: {
                   job.is_government_tender ? "border-s-4 border-amber-400 bg-amber-50/40" : ""}`}>
                   <div className="flex flex-wrap items-center gap-2">
                     <Link to={`/jobs/${job.id}`} target="_blank" rel="noopener" className="font-medium text-slate-900 hover:underline" dir="auto">{job.title}</Link>
+                    <LevelBadge level={job.level} />
                     {job.is_government_tender && <TenderBadge />}
                     <RoleBadge role={job.role_type} />
                   </div>
                   <div className="flex flex-wrap gap-x-3 text-xs text-slate-500">
-                    <span dir="auto">{job.location ?? he.common.none}</span>
+                    <span dir="auto" className="inline-flex items-center gap-1"><Icon icon={MapPin} className="size-3" />{job.location ?? he.common.none}</span>
                     <span>{job.recruitment_companies.join(", ")}</span>
                     {job.known_recruiters.length > 0 && (
                       <span className="font-medium text-emerald-700">{m.knownRecruiters(job.known_recruiters.join(", "))}</span>
@@ -319,7 +321,7 @@ function MatchesCard({ recruiterCount, gmailConnected, onSent, applications }: {
                 </li>
               ))}
             </ul>
-            <Pagination page={page} pageSize={PAGE_SIZE} total={matches.data.total} onPage={setPage} />
+            <Pagination page={page} pageSize={MATCHES_PAGE_SIZE} total={matches.data.total} onPage={setPage} />
           </>
         )}
     </Card>
@@ -409,7 +411,7 @@ function GmailCard({ status, reload }: { status: GmailStatus; reload: () => void
         <div className="space-y-3 text-sm">
           {status.connected ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-medium text-emerald-700">✓ {g.connectedAs(status.email ?? "")}</span>
+              <span className="inline-flex items-center gap-1 font-medium text-emerald-700"><Icon icon={Check} />{g.connectedAs(status.email ?? "")}</span>
               <button className={secondary} onClick={disconnect}>{g.disconnect}</button>
             </div>
           ) : (
@@ -429,7 +431,7 @@ function GmailCard({ status, reload }: { status: GmailStatus; reload: () => void
 
 /** WhatsApp-style: one grey tick = sent, two blue ticks = opened. */
 function ReadMark({ opened }: { opened: boolean }) {
-  return <span aria-hidden className={opened ? "font-bold text-sky-600" : "text-slate-400"}>{opened ? "✓✓" : "✓"}</span>;
+  return <Icon icon={opened ? CheckCheck : Check} className={`size-4 ${opened ? "text-sky-600" : "text-slate-400"}`} />;
 }
 
 function OutreachLogCard({ version }: { version: number }) {
@@ -472,6 +474,40 @@ function OutreachLogCard({ version }: { version: number }) {
   );
 }
 
+// ------------------------------------------------------------------ my messages to the site admin
+
+function MyMessagesCard({ messages }: { messages: MyContactMessage[] }) {
+  return (
+    <Card title={m.myMessages} flush actions={
+      <Link to="/contact" className="text-xs font-medium text-sky-700 hover:underline">{m.newMessage}</Link>
+    }>
+      <ul className="divide-y divide-slate-100">
+        {messages.map((msg) => (
+          <li key={msg.id} className="space-y-2 px-4 py-3 text-sm">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-medium text-slate-900" dir="auto">{msg.subject}</span>
+              <span className="text-xs text-slate-500">
+                {he.contact.categories[msg.category]} · {formatDateTime(msg.created_at)}
+              </span>
+            </div>
+            <p className="whitespace-pre-wrap text-slate-700" dir="auto">{msg.body}</p>
+            {msg.reply ? (
+              <div className="rounded-md border-s-4 border-sky-500 bg-sky-50 px-3 py-2">
+                <div className="mb-1 flex items-center gap-1 text-xs font-medium text-sky-800">
+                  <Icon icon={MessageSquareReply} />{m.adminReply(formatDateTime(msg.replied_at))}
+                </div>
+                <p className="whitespace-pre-wrap text-slate-800" dir="auto">{msg.reply}</p>
+              </div>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs text-slate-500"><Icon icon={Clock} />{m.messageWaiting}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 function Notice() {
   const params = new URLSearchParams(window.location.search);
   const verified = params.get("verified");
@@ -488,6 +524,7 @@ function Notice() {
 export function MyAreaPage() {
   const recruiters = useApi(api.recruiters, "recruiters");
   const gmail = useApi(api.gmailStatus, "gmail-status");
+  const myMessages = useApi(api.myMessages, "my-messages");
   const [sentVersion, setSentVersion] = useState(0);
   const applications = useApplications();
   const { setUser } = useAuth();
@@ -510,6 +547,7 @@ export function MyAreaPage() {
         </div>
         <div className="min-w-0 space-y-6">
           {gmail.data && <GmailCard status={gmail.data} reload={gmail.reload} />}
+          {!!myMessages.data?.length && <MyMessagesCard messages={myMessages.data} />}
           <ProfileCard />
           {recruiters.error ? <ErrorState error={recruiters.error} onRetry={recruiters.reload} />
             : recruiters.data ? <RecruitersCard recruiters={recruiters.data} reload={recruiters.reload} />

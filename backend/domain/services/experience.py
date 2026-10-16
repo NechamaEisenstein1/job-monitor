@@ -89,6 +89,14 @@ def format_years(years: float) -> str:
     return f"{base:g}+" if abs(years - base - OPEN_ENDED) < 1e-9 else f"{years:g}"
 
 
+def job_level(is_junior: bool | None, years: float | None, junior_max: float, b_max: float) -> str | None:
+    """The one level a job is shown with: "a" / "b" / "c", or None for a non-junior
+    posting that states no requirement (see in_level)."""
+    if is_junior is None:
+        return None
+    return next((lv for lv in ("a", "b", "c") if in_level(lv, is_junior, years, junior_max, b_max)), None)
+
+
 def in_level(level: str, is_junior: bool, years: float | None, junior_max: float, b_max: float,
              include_unstated: bool = False) -> bool:
     """A = junior; B / C = not junior and required years in (junior_max, b_max] / above b_max.

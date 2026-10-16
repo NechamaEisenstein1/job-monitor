@@ -30,6 +30,8 @@ export interface Evaluation {
   rank_score: number;
   required_years: number | null;
   junior_title_mismatch: boolean;
+  /** "a" / "b" / "c"; null when the posting states no requirement. */
+  level: string | null;
 }
 
 export interface JobSignals {
@@ -66,6 +68,8 @@ export interface JobListItem {
   signals: JobSignals | null;
   junior_title_mismatch: boolean;
   required_years: number | null;
+  /** "a" / "b" / "c"; null when the posting states no requirement. */
+  level: string | null;
 }
 
 export interface JobList {
@@ -378,6 +382,19 @@ export interface ContactMessage {
   handled_at: string | null;
   user_name: string | null;
   user_email: string | null;
+  reply: string | null;
+  replied_at: string | null;
+}
+
+/** The user's own message to the admin, with the admin's reply (personal area). */
+export interface MyContactMessage {
+  id: number;
+  category: ContactCategory;
+  subject: string;
+  body: string;
+  created_at: string;
+  reply: string | null;
+  replied_at: string | null;
 }
 
 export interface ContactMessagePage {

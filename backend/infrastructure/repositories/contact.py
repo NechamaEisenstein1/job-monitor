@@ -1,4 +1,5 @@
-"""Contact messages: users write to the site admin; admins read them and mark them handled."""
+"""Contact messages: users write to the site admin; admins read, reply and mark them handled;
+users read their own messages and the replies in the personal area."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -6,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from backend.application.dto import ContactMessageDto, ContactMessagePageDto
+from backend.application.dto import ContactMessageDto, ContactMessagePageDto, MyContactMessageDto
 from backend.infrastructure.db.orm import ContactMessageRow, UserRow
 
 
@@ -45,7 +46,7 @@ class SqlContactRepository:
                 .offset((page - 1) * page_size).limit(page_size))
         items = [ContactMessageDto(id=m.id, category=m.category, subject=m.subject, body=m.body,
                                    created_at=m.created_at, handled_at=m.handled_at,
-                                   user_name=name, user_email=email)
+                                   user_name=name, user_email=email, reply=m.reply, replied_at=m.replied_at)
                  for m, name, email in self._s.execute(stmt)]
         return ContactMessagePageDto(items=items, total=total, open_count=self.count_open(),
                                      page=page, page_size=page_size)
@@ -61,3 +62,20 @@ class SqlContactRepository:
         row.handled_at = handled_at
         self._s.commit()
         return True
+
+    def set_reply(self, message_id: int, reply: str, now: datetime) -> bool:
+        """Answer a message; answering also marks it handled."""
+        row = self._s.get(ContactMessageRow, message_id)
+        if row is None:
+            return False
+        row.reply, row.replied_at = reply, now
+        row.handled_at = row.handled_at or now
+        self._s.commit()
+        return True
+
+    def list_for_user(self, user_id: int, limit: int = 50) -> list[MyContactMessageDto]:
+        """The user's own messages, newest first. Scoped to `user_id`: never another user's."""
+        rows = self._s.scalars(select(ContactMessageRow).where(ContactMessageRow.user_id == user_id)
+                               .order_by(ContactMessageRow.created_at.desc(), ContactMessageRow.id.desc())
+                               .limit(limit))
+        return [MyContactMessageDto.model_validate(r) for r in rows]

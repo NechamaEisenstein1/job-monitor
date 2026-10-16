@@ -223,3 +223,12 @@ def test_open_ended_experience_is_more_than_n(text, shown):
 def test_two_plus_years_is_not_junior(cfg):
     ev = service(cfg).evaluate(make_job(title="מפתח/ת תוכנה", requirements="2+ שנות ניסיון"), "run", NOW)
     assert not ev.is_junior and "experience_required (2+ > 2 years)" in ev.rejection_reasons
+
+
+@pytest.mark.parametrize("is_junior, years, expected", [
+    (True, None, "a"), (True, 2, "a"), (False, 3, "b"), (False, 4, "b"), (False, 5, "c"), (False, None, None),
+    (None, 3, None),
+])
+def test_job_level_for_the_badge(is_junior, years, expected):
+    from backend.domain.services.experience import job_level
+    assert job_level(is_junior, years, 2, 4) == expected
