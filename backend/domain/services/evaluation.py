@@ -1,6 +1,7 @@
 """Junior / entry-level eligibility. The only business scoring in the system."""
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from datetime import datetime
 
@@ -41,22 +42,39 @@ class LocationMatcher:
         return self.match_rule(job) is not None
 
 
+_HEBREW = re.compile(r"[\u0590-\u05ff]")
+
+
+def place_pattern(phrase: str) -> re.Pattern[str] | None:
+    """Whole-word match of a place or area phrase in comparison_key() text.
+
+    "יהוד" must not hit "יהודה", nor "אילת" hit "שאילתות". A Hebrew phrase may carry
+    the prefixes ו/ב/ל/מ ("בבאר שבע", "ומתל אביב"), but not ה/ש/כ, which turn
+    places into ordinary words ("הגדרה" is not "גדרה")."""
+    key = comparison_key(phrase)
+    if not key:
+        return None
+    prefix = "ו?[בלמ]?" if _HEBREW.match(key) else ""
+    return re.compile(rf"(?<!\S){prefix}{re.escape(key)}(?!\S)")
+
+
 class RegionMatcher:
     """Which of the configured regions a job is in (see `regions` in matching.yaml)."""
 
     def __init__(self, regions: Iterable[RegionConfig], search_text_when_missing: bool = True):
-        self._regions = [(r.code, [comparison_key(p) for p in r.places if comparison_key(p)],
-                          [comparison_key(w) for w in r.area_words if comparison_key(w)]) for r in regions]
+        compile_all = lambda phrases: [p for p in map(place_pattern, phrases) if p]  # noqa: E731
+        self._regions = [(r.code, compile_all(r.places), compile_all(r.area_words)) for r in regions]
         self._search_text = search_text_when_missing
 
     def regions(self, job: Job) -> list[str]:
         if job.location or job.region:
             text = f"{comparison_key(job.location)} {comparison_key(job.region)}"
-            return [code for code, places, words in self._regions if any(k in text for k in (*places, *words))]
+            return [code for code, places, words in self._regions
+                    if any(p.search(text) for p in (*places, *words))]
         if not self._search_text:
             return []
         text = " ".join(comparison_key(t) for t in (job.title, job.description, job.requirements))
-        return [code for code, places, _ in self._regions if any(k in text for k in places)]
+        return [code for code, places, _ in self._regions if any(p.search(text) for p in places)]
 
 
 def regions_field(codes: Iterable[str]) -> str:
@@ -162,7 +180,9 @@ class JobEvaluationService:
         if not self._roles.is_eligible_type(role_type):
             rejections.append(f"role_not_eligible ({role_type})")
 
-        is_tender = self._tenders.is_tender(job)
+        # A tender number or ministry (manual postings) is an explicit statement, stronger
+        # than keyword detection, and must count before the rank is computed.
+        is_tender = bool(job.tender_number or job.government_ministry) or self._tenders.is_tender(job)
         if is_tender:
             matched.append("government_tender")
 

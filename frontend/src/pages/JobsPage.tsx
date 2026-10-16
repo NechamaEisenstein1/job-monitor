@@ -41,12 +41,17 @@ function savedFilters(): string {
 function useJobFilters(): [JobFilterValues, (next: Partial<JobFilterValues>) => void] {
   const [params, setParams] = useSearchParams();
   const search = params.toString();
+  // On every query change, not just on mount: a link or typed URL with a query is the new
+  // remembered search, and a bare /jobs (menu link while already here) restores it. Clearing
+  // the filters goes through update(), which stores "" first, so nothing is restored then.
   useLayoutEffect(() => {
-    if (!search) {
+    if (search) {
+      saveFilters(search);
+    } else {
       const saved = savedFilters();
       if (saved) setParams(new URLSearchParams(saved), { replace: true });
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
   const value: JobFilterValues = {
     q: params.get("q") ?? DEFAULTS.q,
     location: params.get("location") ?? DEFAULTS.location,

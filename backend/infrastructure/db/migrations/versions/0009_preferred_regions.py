@@ -14,7 +14,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Filled by the next scrape run, which re-evaluates every listed job.
+    # Filled by the next scrape run, which re-evaluates every listed job and every manual posting.
     with op.batch_alter_table("job_evaluations") as batch:
         batch.add_column(sa.Column("regions", sa.String(200), nullable=False, server_default=""))
     # "" = all of Israel; each user picks their regions in the personal area.

@@ -293,3 +293,24 @@ def test_experience_levels_split_at_two_and_four_years(harness, session_factory)
     assert titles("a") == ["A0", "A2"]
     assert titles("b") == ["B2+", "B3", "B4"]
     assert titles("c") == ["C4+", "C6"]
+
+
+def test_run_backfills_manual_postings_evaluations(harness, cfg, session_factory):
+    # A manual posting published before migration 0009: its evaluation has no regions,
+    # and the scrape never lists it, so the run must re-evaluate it on its own.
+    from dataclasses import replace as dc_replace
+
+    from backend.infrastructure.repositories.sql import SqlJobEvaluationRepository, SqlJobRepository
+    from tests.conftest import make_job
+
+    with session_factory() as s:
+        manual = SqlJobRepository(s).save(make_job(id=None, title="QA Engineer", location="באר שבע", is_manual=True))
+        old = JobEvaluationService.from_config(cfg).evaluate(manual, None, NOW)
+        SqlJobEvaluationRepository(s).add(dc_replace(old, regions=""))
+        s.commit()
+
+    run = harness(FakeScraper("Matrix", [job("1")]))
+    evals = harness.query(select(JobEvaluationRow).where(JobEvaluationRow.job_id == manual.id))
+    assert [(e.regions, e.scrape_run_id) for e in evals] == [("|south|", None)]
+    # Not part of the run's own evaluations (no repeat alerts, no run counters).
+    assert run.canonical_jobs_touched == 1
