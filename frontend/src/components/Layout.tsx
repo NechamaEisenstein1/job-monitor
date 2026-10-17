@@ -41,16 +41,17 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-8 gap-y-2 px-4 py-3 sm:px-6">
           <span className="text-sm font-semibold tracking-tight">{he.appName}</span>
-          <nav className="flex flex-wrap gap-1" aria-label="ניווט ראשי">
+          {/* Below lg the nav gets its own horizontally scrolling row so the pinned header stays short on phones */}
+          <nav className="order-last -mx-4 flex w-full gap-1 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:order-none lg:mx-0 lg:w-auto lg:flex-wrap lg:overflow-visible lg:px-0" aria-label="ניווט ראשי">
             {items.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${
+                  `inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ${
                     isActive ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`
                 }
