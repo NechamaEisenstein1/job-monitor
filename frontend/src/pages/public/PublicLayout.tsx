@@ -8,6 +8,7 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-slate-500 sm:px-6">
         <span>© {new Date().getFullYear()} {he.appName}</span>
         <nav className="flex gap-4" aria-label={he.site.footerNav}>
+          <Link to="/tenders" className="hover:text-slate-800">{he.site.tendersNav}</Link>
           <Link to="/privacy" className="hover:text-slate-800">{he.site.privacy}</Link>
           <Link to="/terms" className="hover:text-slate-800">{he.site.terms}</Link>
         </nav>
@@ -27,6 +28,7 @@ export function PublicLayout() {
             {he.appName}
           </Link>
           <nav className="flex items-center gap-2 text-sm">
+            <Link to="/tenders" className="rounded-md px-3 py-1.5 text-slate-700 hover:bg-slate-100">{he.site.tendersNav}</Link>
             <Link to="/login" className="rounded-md px-3 py-1.5 text-slate-700 hover:bg-slate-100">{he.auth.loginTab}</Link>
             <Link to="/login?mode=register" className="rounded-md bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-700">
               {he.auth.registerTab}

@@ -36,6 +36,16 @@ export function LandingPage() {
         </div>
       </section>
 
+      <section className="border-t border-amber-200 bg-amber-50">
+        <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
+          <h2 className="text-xl font-semibold text-amber-950">{s.tendersTitle}</h2>
+          <p className="mt-2 max-w-3xl leading-7 text-amber-900">{s.tendersBody}</p>
+          <Link to="/tenders" className="mt-4 inline-block font-medium text-amber-900 underline underline-offset-4 hover:text-amber-950">
+            {s.tendersLink}
+          </Link>
+        </div>
+      </section>
+
       <section className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
         <h2 className="text-xl font-semibold">{s.featuresTitle}</h2>
         <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

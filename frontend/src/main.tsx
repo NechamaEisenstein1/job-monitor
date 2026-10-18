@@ -21,6 +21,7 @@ import { MyAreaPage } from "./pages/MyAreaPage";
 import { LandingPage } from "./pages/public/LandingPage";
 import { PrivacyPage, TermsPage } from "./pages/public/LegalPages";
 import { PublicLayout } from "./pages/public/PublicLayout";
+import { TendersPage } from "./pages/public/TendersPage";
 import { RecruiterPage } from "./pages/RecruiterPage";
 import { RunDetailsPage, RunsPage } from "./pages/RunsPage";
 import { SourcesPage } from "./pages/SourcesPage";
@@ -53,6 +54,7 @@ function App() {
       <Routes>
         <Route element={<PublicLayout />}>
           <Route index element={<LandingPage />} />
+          <Route path="tenders" element={<TendersPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="terms" element={<TermsPage />} />
           {PRIVATE_PATHS.map((p) => <Route key={p} path={p} element={<ToLogin />} />)}
@@ -79,6 +81,7 @@ function App() {
         <Route path="runs" element={user.is_admin ? <RunsPage /> : <Navigate to="/jobs" replace />} />
         <Route path="runs/:id" element={user.is_admin ? <RunDetailsPage /> : <Navigate to="/jobs" replace />} />
         <Route path="sources" element={user.is_admin ? <SourcesPage /> : <Navigate to="/jobs" replace />} />
+        <Route path="tenders" element={<TendersPage />} />
         <Route path="privacy" element={<PrivacyPage />} />
         <Route path="terms" element={<TermsPage />} />
         {/* The server enforces admin-only too; this just hides the page. */}
