@@ -4,9 +4,12 @@ from __future__ import annotations
 from dataclasses import replace
 from xml.etree import ElementTree
 
+import json
+import re
+
 import pytest
 
-from backend.api.seo import PUBLIC_PAGES, PageRenderer, classify, robots_txt, sitemap_xml
+from backend.api.seo import PUBLIC_PAGES, TENDERS_FAQ, PageRenderer, classify, robots_txt, sitemap_xml
 from backend.config.settings import PROJECT_ROOT, Settings
 
 TEMPLATE = """<!doctype html><html lang="he"><head>
@@ -30,7 +33,7 @@ def renderer(tmp_path, settings):
 
 
 @pytest.mark.parametrize("path, kind", [
-    ("/", "public"), ("/login", "public"), ("/privacy", "public"), ("/terms/", "public"),
+    ("/", "public"), ("/tenders", "public"), ("/login", "public"), ("/privacy", "public"), ("/terms/", "public"),
     ("/me", "private"), ("/jobs", "private"), ("/jobs/123", "private"), ("/admin", "private"),
     ("/runs/2e833407-4d74-4f91-86e1-dbd47b69bc8e", "private"), ("/recruiter", "private"), ("/billing", "private"),
     ("/wp-admin", "unknown"), ("/jobs/abc", "unknown"),
@@ -81,3 +84,44 @@ def test_endpoints_and_api_noindex(world):
     assert client.get("/robots.txt").headers["content-type"].startswith("text/plain")
     assert client.get("/sitemap.xml").headers["content-type"] == "application/xml"
     assert client.get("/api/auth/config").headers["X-Robots-Tag"] == "noindex, nofollow"
+
+
+def _json_ld(html: str) -> dict:
+    match = re.search(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)
+    assert match, "no structured data"
+    return json.loads(match.group(1))
+
+
+def test_home_page_is_about_government_software_tenders(renderer):
+    html = renderer.render("/")
+    title = re.search(r"<title>(.*?)</title>", html).group(1)
+    assert "מכרזים ממשלתיים" in title and "תוכנה" in title
+    # Crawlers that skip JavaScript still see the heading inside #root.
+    assert re.search(r'<div id="root"><h1>[^<]*מכרזים ממשלתיים[^<]*</h1>', html)
+    graph = _json_ld(html)["@graph"]
+    assert {node["@type"] for node in graph} == {"WebSite", "WebPage"}
+
+
+def test_tenders_page_has_faq_structured_data(renderer):
+    html = renderer.render("/tenders")
+    faq = next(node for node in _json_ld(html)["@graph"] if node["@type"] == "FAQPage")
+    assert [q["name"] for q in faq["mainEntity"]] == [q for q, _ in TENDERS_FAQ]
+    assert all(f"<h2>{q}</h2>" in html for q, _ in TENDERS_FAQ)
+
+
+def test_tenders_faq_matches_the_visible_page():
+    """Structured data must repeat what the page shows: the FAQ in he.ts and in seo.py stay identical."""
+    he_ts = (PROJECT_ROOT / "frontend" / "src" / "i18n" / "he.ts").read_text(encoding="utf-8")
+    block = he_ts[he_ts.index("faq: ["):]
+    block = block[:block.index("\n      ],")]
+    shown = [(_ts_string(q), _ts_string(a)) for q, a in
+             re.findall(r'q: ((?:"(?:[^"\\]|\\.)*"\s*\+?\s*)+),\s*a: ((?:"(?:[^"\\]|\\.)*"\s*\+?\s*)+)\s*}', block)]
+    assert shown == list(TENDERS_FAQ)
+
+
+def _ts_string(expr: str) -> str:
+    return "".join(json.loads(part) for part in re.findall(r'"(?:[^"\\]|\\.)*"', expr))
+
+
+def test_private_page_has_no_fallback_text(renderer):
+    assert '<div id="root"></div>' in renderer.render("/me")
