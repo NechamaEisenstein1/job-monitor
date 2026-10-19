@@ -192,18 +192,29 @@ Every path used was checked against the site's robots.txt; requests are throttle
 | Matrix | WP archive `/jobs/משרה/page/N/` | ~500 jobs |
 | HMS | JSON embedded in `/jobs/` | no per-job pages; links go to the board |
 | Tigbur | admin-ajax JSON (`tb_get_jobs`) | general staffing: `categories` in config scopes it to IT |
-| Aman | paged cards + detail page per job | |
+| Aman | paged cards + detail page per job | falls back to its Drushim page when Cloudflare blocks the site |
 | Horizon | one list page + detail page per job | |
 | Comblack | `/categories/all/` (single page) | |
 | Consist | `/jobs/?page=N` | |
 | Yael | `/jobs/` (single page) | includes Koren Tech |
 | GAV Systems (גב מערכות) | WP REST `jobs` + detail page | |
 | Ness | public JSON API `GetAllItems` | recruiter names/emails not stored |
-| ProLogic | ~50 category pages | no location field -> location read from text |
+| ProLogic | ~50 category pages | no location field -> location read from text; JobNet fallback |
 | SQLink | category pages | no location field -> location read from text |
-| One (+ Taldor) | `/careers/` + POST `load_more_jobs` | |
+| One (+ Taldor) | `/careers/` + POST `load_more_jobs` | JobNet fallback |
 | Log-On | b.log-on.com: "Ajax Load More" endpoint (`alm_get_posts`, 100 per page) | ~760 jobs; full posting in each block |
-| Malam Team | **disabled** | Cloudflare bot challenge (403) - needs an official feed |
+| Malam Team | JobNet company pages (4 companyIDs) | its own site is behind a Cloudflare bot challenge |
+| Logica | `/jobs/` list + detail page per job | WP REST `job-listings` is a stale archive, not used |
+| Experis | `sitemap.xml` -> `/job/<code>` pages (`__NEXT_DATA__`) | search runs on a separate GraphQL host |
+| Top Soft (Top Ramdor) | WP REST `job` + detail page | |
+| Binat Samech, TCM, Elad, Unilink, Razel, BDO Ziv Haft | Drushim company pages | `type: drushim`; detail page per job for requirements |
+| SPL (Software AG) | JobNet company page | `type: jobnet`; full postings on the page, 15 per page |
+
+**Job boards.** `drushim` and `jobnet` sources read one recruitment company's page(s) on the
+board (`pages:` in sources.yaml); jobs are recorded under the source's name. A `site` source
+can name one as its `fallback`: it is used only when the company's own site refuses the request
+(HTTP error, network error, timeout), never on a parse error. Drushim's robots.txt forbids its
+search API (`/api/jobs/search?...area=`), so only the public company and job pages are read.
 
 **Behind NetFree or another TLS-inspecting filter?** Certificates are verified with the OS
 trust store (`truststore`), so the filter's root CA installed in Windows is honoured.
