@@ -29,6 +29,10 @@ services:
         sync: false
       - key: GMAIL_TOKEN_KEY   # encrypts stored Gmail tokens; Render generates it once
         generateValue: true
+      - key: BREVO_API_KEY     # the free plan blocks SMTP ports; Brevo sends over HTTPS
+        sync: false
+      - key: EMAIL_FROM        # sender address verified in Brevo
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_USER

@@ -7,12 +7,18 @@ from email.message import EmailMessage
 from pathlib import Path
 from typing import Protocol
 
+import httpx
+
 from backend.config.settings import SmtpSettings
 from backend.infrastructure.email.renderer import RenderedEmail
 
 
 class EmailSender(Protocol):
     def send(self, recipient: str, email: RenderedEmail) -> None: ...
+
+
+class EmailNotConfiguredError(RuntimeError):
+    """No email provider is set up, so nothing can actually be delivered."""
 
 
 class SmtpEmailSender:
@@ -35,6 +41,34 @@ class SmtpEmailSender:
             if self._cfg.user:
                 smtp.login(self._cfg.user, self._cfg.password)
             smtp.send_message(msg)
+
+
+class BrevoEmailSender:
+    """Sends through Brevo's HTTPS API. Hosts that block outbound SMTP ports (Render's free
+    plan blocks 25, 465 and 587) can still reach it on port 443."""
+
+    API_URL = "https://api.brevo.com/v3/smtp/email"
+
+    def __init__(self, api_key: str, sender_email: str, sender_name: str, timeout_seconds: float = 30):
+        self._api_key = api_key
+        self._sender = {"email": sender_email, "name": sender_name} if sender_name else {"email": sender_email}
+        self._timeout = timeout_seconds
+
+    def send(self, recipient: str, email: RenderedEmail) -> None:
+        payload = {"sender": self._sender, "to": [{"email": recipient}], "subject": email.subject,
+                   "htmlContent": email.html, "textContent": email.text}
+        if email.reply_to:
+            payload["replyTo"] = {"email": email.reply_to}
+        response = httpx.post(self.API_URL, json=payload, timeout=self._timeout,
+                              headers={"api-key": self._api_key, "Accept": "application/json"})
+        response.raise_for_status()
+
+
+class DisabledEmailSender:
+    """Production without a provider: fail loudly instead of pretending the email went out."""
+
+    def send(self, recipient: str, email: RenderedEmail) -> None:
+        raise EmailNotConfiguredError("set BREVO_API_KEY or SMTP_HOST")
 
 
 class FileEmailSender:

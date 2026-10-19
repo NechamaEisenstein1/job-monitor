@@ -1,6 +1,7 @@
 """FastAPI application. Run with:  uvicorn backend.main:app --reload"""
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 from fastapi import FastAPI, Request, Response
@@ -14,7 +15,7 @@ from backend.api.seo import PageRenderer, classify, robots_txt, sitemap_xml
 from backend.bootstrap import build_email_sender, gmail_client, google_oauth, token_cipher
 from backend.config.settings import PROJECT_ROOT, Settings, load_matching_config, load_sources_config
 from backend.infrastructure.db.session import make_engine, make_session_factory
-from backend.observability import configure_logging
+from backend.observability import configure_logging, log_event
 
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
 SITE_UPDATED = date(2026, 10, 18)  # <lastmod> of the public pages; bump when their content changes
@@ -35,6 +36,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.cfg = load_matching_config(settings.config_dir)
     app.state.sender = build_email_sender(settings)
+    log_event("email_sender", logging.INFO if settings.email_enabled else logging.WARNING,
+              kind=type(app.state.sender).__name__)
     app.state.google = google_oauth(settings)  # None unless GOOGLE_CLIENT_ID/SECRET are set
     app.state.gmail = gmail_client(settings)    # also needs GMAIL_TOKEN_KEY
     app.state.cipher = token_cipher(settings)

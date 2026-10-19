@@ -97,6 +97,8 @@ export const he = {
     signup_disabled: "ההרשמה סגורה כרגע",
     email_not_verified: "יש לאמת את כתובת המייל לפני פנייה למגייסים",
     verification_recently_sent: "קישור נשלח זה עתה. נסו שוב בעוד דקה.",
+    email_not_configured: "שליחת מיילים עדיין לא הוגדרה באתר. פנו למנהל/ת.",
+    email_send_failed: "שליחת המייל נכשלה. נסו שוב מאוחר יותר.",
     google_failed: "הכניסה עם Google לא הצליחה. נסו שוב.",
     google_email_unverified: "חשבון ה-Google אינו מאומת לכתובת הזו",
     recruiter_only: "פרסום משרות זמין למגייסים בלבד",
@@ -172,6 +174,7 @@ export const he = {
     outreachDetail: {
       already_sent: "כבר נשלח בעבר", daily_limit: "הגעת למכסה היומית",
       gmail_disconnected: "החיבור ל-Gmail בוטל. חברו מחדש ונסו שוב",
+      EmailNotConfiguredError: "שליחת מיילים עדיין לא הוגדרה באתר",
     } as Record<string, string>,
     gmail: {
       title: "שליחה מה-Gmail שלך",

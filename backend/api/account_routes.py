@@ -26,6 +26,7 @@ from backend.infrastructure.repositories.read_models import SqlReadRepository
 from backend.infrastructure.repositories.sql import SqlJobRepository
 from backend.infrastructure.oauth.google import OAuthError, PkcePair
 from backend.infrastructure.repositories.users import DuplicateError, SqlAnalyticsRepository, SqlOutreachRepository
+from backend.infrastructure.email.senders import EmailNotConfiguredError
 from backend.observability import log_event
 
 router = APIRouter(prefix="/api", dependencies=[Depends(csrf_protect)])
@@ -110,6 +111,11 @@ def resend_verification(user: CurrentUser, request: Request, session: DbSession)
         verification_service(session, request.app.state.settings, request.app.state.sender).send(user)
     except AccountError as exc:
         raise _fail(exc) from exc
+    except EmailNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail="email_not_configured") from exc
+    except Exception as exc:  # noqa: BLE001 - the provider refused or was unreachable
+        log_event("verification_email_failed", logging.ERROR, user_id=user.id, error=type(exc).__name__)
+        raise HTTPException(status_code=502, detail="email_send_failed") from exc
 
 
 @router.get("/auth/verify", include_in_schema=False)
