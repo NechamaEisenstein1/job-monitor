@@ -52,6 +52,8 @@ jobs:
       # Production state lives in PostgreSQL - never in workflow artifacts.
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+      BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
       SMTP_HOST: ${{ secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}

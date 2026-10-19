@@ -309,6 +309,16 @@ class Settings:
     # Secret (32+ random characters) that encrypts stored Gmail refresh tokens. Without it
     # "send from my Gmail" is off. On Render it is generated automatically (render.yaml).
     gmail_token_key: str = ""
+    # Brevo HTTPS API key: works where outbound SMTP is blocked (Render's free plan).
+    brevo_api_key: str = ""
+    # Sender address and display name for site emails (Brevo; SMTP falls back to SMTP_FROM).
+    email_from: str = ""
+    email_from_name: str = ""
+
+    @property
+    def email_enabled(self) -> bool:
+        """True when emails really leave the server (not just the local outbox folder)."""
+        return bool(self.brevo_api_key and self.email_from) or self.smtp is not None
 
     @property
     def google_enabled(self) -> bool:
@@ -329,7 +339,7 @@ class Settings:
                 port=int(os.environ.get("SMTP_PORT", "587")),
                 user=os.environ.get("SMTP_USER", ""),
                 password=os.environ.get("SMTP_PASSWORD", ""),
-                sender=os.environ.get("SMTP_FROM", os.environ.get("SMTP_USER", "")),
+                sender=os.environ.get("SMTP_FROM") or os.environ.get("EMAIL_FROM") or os.environ.get("SMTP_USER", ""),
                 use_tls=os.environ.get("SMTP_USE_TLS", "true").lower() == "true",
             )
         public_base_url = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
@@ -349,6 +359,9 @@ class Settings:
             google_site_verification=os.environ.get("GOOGLE_SITE_VERIFICATION", ""),
             contact_email=os.environ.get("CONTACT_EMAIL", ""),
             gmail_token_key=os.environ.get("GMAIL_TOKEN_KEY", ""),
+            brevo_api_key=os.environ.get("BREVO_API_KEY", "").strip(),
+            email_from=(os.environ.get("EMAIL_FROM") or os.environ.get("SMTP_FROM", "")).strip(),
+            email_from_name=os.environ.get("EMAIL_FROM_NAME", "מוניטור משרות"),
         )
 
 

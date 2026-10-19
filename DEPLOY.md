@@ -48,7 +48,7 @@ set DATABASE_URL=
    | `CONTACT_EMAIL` | כתובת שתופיע במדיניות הפרטיות לבקשות מחיקה |
    | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ריק בינתיים (שלב 3) |
    | `GOOGLE_SITE_VERIFICATION` | ריק בינתיים (שלב 6) |
-   | `SMTP_HOST` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` | שלב 5 (אפשר ריק בינתיים) |
+   | `BREVO_API_KEY` / `EMAIL_FROM` (או `SMTP_*`) | שלב 5 (אפשר ריק בינתיים) |
 4. **Apply**. הבנייה הראשונה לוקחת כמה דקות. בסיומה מופיעה בראש העמוד הכתובת הקבועה, למשל `https://job-monitor-ab12.onrender.com`.
 5. אם הכתובת שונה ממה שכתבת: **Environment** ← מעדכנים את `PUBLIC_BASE_URL` לכתובת המדויקת (בלי `/` בסוף) ← **Save Changes**. השירות ייפרס מחדש.
 6. בודקים: הכתובת פותחת את דף הבית, ו-`<כתובת>/healthz` מחזיר `{"status":"ok"}`.
@@ -98,12 +98,26 @@ set DATABASE_URL=
 
 ## 5. מיילים: אימות, התראות ופניות למגייסים
 
-בלי SMTP המיילים לא יוצאים, ולכן משתמשים שנרשמו עם סיסמה לא יכולים לאמת את הכתובת.
-הדרך הפשוטה היא Gmail:
-1. בחשבון Google: **Security** ← להפעיל **2-Step Verification**.
-2. https://myaccount.google.com/apppasswords ← שם `job-monitor` ← **Create** ← מעתיקים את הסיסמה (16 אותיות).
-3. ב-Render (וגם ב-GitHub בשלב 7):
+בלי ספק מיילים שום מייל לא יוצא: משתמשים שנרשמו עם סיסמה לא מקבלים מייל אימות, ההתראות היומיות לא נשלחות (הן נשלחות רק לכתובות מאומתות), ופניות למגייסים מהאתר נכשלות. האתר מציג אז "שליחת מיילים עדיין לא הוגדרה באתר", וביומן של Render מופיעה בהפעלה השורה `email_sender` עם `DisabledEmailSender`.
+
+**חשוב:** בתוכנית החינמית של Render חסומים יציאות SMTP (פורטים 25, 465, 587), ולכן `smtp.gmail.com` לא עובד מהאתר עצמו. יש שתי דרכים:
+
+### דרך א' (מומלצת, חינם): Brevo, שליחה ב-HTTPS
+1. נרשמים ב-https://www.brevo.com (חינם, עד 300 מיילים ביום).
+2. **Senders, Domains & Dedicated IPs** ← **Senders** ← **Add a sender**: הכתובת שממנה ייצאו המיילים ← מאשרים את המייל שמגיע אליה.
+   מומלץ דומיין משלך (ואז **Domains** ← **Authenticate**). כתובת `@gmail.com` עובדת, אבל Brevo עשוי להחליף אותה בכתובת שלו והמיילים נוטים להגיע לספאם.
+3. **SMTP & API** ← **API Keys** ← **Generate a new API key** ← מעתיקים.
+4. ב-Render ← **Environment**: `BREVO_API_KEY=<המפתח>`, `EMAIL_FROM=<הכתובת המאושרת>` ← **Save Changes**.
+5. ב-GitHub (שלב 7) מוסיפים את אותם שני סודות, כדי שההתראות היומיות יישלחו.
+
+### דרך ב': Gmail SMTP (דורש תוכנית בתשלום ב-Render)
+1. משדרגים את השירות ב-Render ל-**Starter** (Settings ← Instance Type). רק אז SMTP פתוח.
+2. בחשבון Google: **Security** ← להפעיל **2-Step Verification**.
+3. https://myaccount.google.com/apppasswords ← שם `job-monitor` ← **Create** ← מעתיקים את הסיסמה (16 אותיות).
+4. ב-Render (וגם ב-GitHub בשלב 7):
    `SMTP_HOST=smtp.gmail.com`, `SMTP_USER=<המייל>`, `SMTP_PASSWORD=<סיסמת האפליקציה>`, `SMTP_FROM=<המייל>`
+
+אם שתי הדרכים מוגדרות, האתר שולח דרך Brevo.
 
 ### 5א. פניות מה-Gmail של המשתמשת + "נפתח ✓✓" (לא חובה)
 
@@ -147,7 +161,7 @@ set DATABASE_URL=
 
 במאגר ב-GitHub: **Settings** ← **Secrets and variables** ← **Actions**:
 - לשונית **Secrets** ← **New repository secret**:
-  `DATABASE_URL` (אותו connection string של Neon), ואם הוגדר גם `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD` ו-`SMTP_FROM`
+  `DATABASE_URL` (אותו connection string של Neon), `BREVO_API_KEY` ו-`EMAIL_FROM` (או `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD` ו-`SMTP_FROM`)
 - לשונית **Variables** ← **New repository variable**: `PUBLIC_BASE_URL` = הכתובת של האתר (בשביל הקישורים במיילים)
 
 בדיקה: **Actions** ← **Job Monitor** ← **Run workflow**. אחרי כ-5 דקות, עמוד "ריצות" באתר מציג את הריצה.

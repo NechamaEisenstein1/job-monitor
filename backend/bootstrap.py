@@ -26,7 +26,9 @@ from backend.infrastructure.oauth.gmail import GmailClient, TokenCipher
 from backend.infrastructure.repositories.billing import SqlBillingRepository
 from backend.infrastructure.repositories.forum import SqlForumRepository
 from backend.infrastructure.db.session import make_engine, make_session_factory
-from backend.infrastructure.email.senders import EmailSender, FileEmailSender, SmtpEmailSender
+from backend.infrastructure.email.senders import (
+    BrevoEmailSender, DisabledEmailSender, EmailSender, FileEmailSender, SmtpEmailSender,
+)
 from backend.infrastructure.repositories.sql import (
     SqlJobEvaluationRepository, SqlJobRepository, SqlJobSourceRepository, SqlNotificationRepository,
     SqlUnitOfWork,
@@ -52,8 +54,13 @@ def local_today(cfg: MatchingConfig) -> date:
 
 
 def build_email_sender(settings: Settings) -> EmailSender:
+    if settings.brevo_api_key and settings.email_from:
+        return BrevoEmailSender(settings.brevo_api_key, settings.email_from, settings.email_from_name)
     if settings.smtp:
         return SmtpEmailSender(settings.smtp)
+    if settings.public_base_url.startswith("https://"):
+        # A live site must never report an email as sent when it only landed in a local folder.
+        return DisabledEmailSender()
     return FileEmailSender(settings.email_outbox_dir)
 
 
@@ -129,10 +136,10 @@ async def pipeline_from_settings(settings: Settings) -> AsyncIterator[RunPipelin
     sources = load_sources_config(settings.config_dir)
     session_factory = make_session_factory(make_engine(settings.database_url))
     sender = build_email_sender(settings)
-    if settings.smtp is None:
-        # Without SMTP the file sender only writes to a local folder; recording those alerts
-        # as sent would stop the real emails from ever going out once SMTP is configured.
-        log_event("user_alerts_disabled", logging.WARNING, reason="SMTP_HOST not configured")
+    if not settings.email_enabled:
+        # Without a provider nothing is delivered; recording those alerts as sent would stop
+        # the real emails from ever going out once email is configured.
+        log_event("user_alerts_disabled", logging.WARNING, reason="no email provider (BREVO_API_KEY or SMTP_HOST)")
 
     async with http_client(cfg) as http:
         with session_factory() as session, session_factory() as notification_session, \
@@ -147,7 +154,7 @@ async def pipeline_from_settings(settings: Settings) -> AsyncIterator[RunPipelin
                     SqlNotificationRepository(notification_session), sender, cfg.email, utcnow,
                 ),
                 clock=utcnow,
-                user_alerts=user_alert_service(alerts_session, settings, cfg, sender) if settings.smtp else None,
+                user_alerts=user_alert_service(alerts_session, settings, cfg, sender) if settings.email_enabled else None,
             )
 
 

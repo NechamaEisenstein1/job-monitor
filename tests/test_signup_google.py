@@ -6,6 +6,7 @@ from dataclasses import replace
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from sqlalchemy import text
 
 from backend.infrastructure.oauth.google import GoogleProfile, OAuthError
 
@@ -230,3 +231,22 @@ def test_old_level_values_still_work(world):
     client = world.client()
     assert register(client, level="experienced").status_code == 201
     assert client.get("/api/auth/me").json()["experience_level"] == "b"
+
+
+def test_resend_reports_a_failed_or_unconfigured_provider(world):
+    from backend.infrastructure.email.senders import DisabledEmailSender
+
+    client = world.client()
+    register(client, email="fail@example.com")
+    world.sender.fail_for.add("fail@example.com")
+    with world.app.state.session_factory() as s:  # skip the resend cooldown left by the registration email
+        s.execute(text("DELETE FROM email_tokens"))
+        s.commit()
+    assert client.post("/api/auth/verify/resend").json()["detail"] == "email_send_failed"
+
+    with world.app.state.session_factory() as s:
+        s.execute(text("DELETE FROM email_tokens"))
+        s.commit()
+    world.app.state.sender = DisabledEmailSender()
+    response = client.post("/api/auth/verify/resend")
+    assert response.status_code == 503 and response.json()["detail"] == "email_not_configured"

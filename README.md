@@ -148,9 +148,9 @@ Google sign-in, email, Search Console, custom domain).
 * **PostgreSQL** via `DATABASE_URL=postgresql+psycopg://...`. SQLite is for local dev/tests only.
 * **GitHub Actions**: `.github/workflows/job-monitor.yml` runs daily at **07:00 Israel time**
   (two UTC crons + a gate job that handles summer/winter time), then tests, migrations, run.
-  Secrets: `DATABASE_URL`, `RECIPIENT_EMAIL`, `SMTP_*`; variable `PUBLIC_BASE_URL`.
+  Secrets: `DATABASE_URL`, `RECIPIENT_EMAIL`, `BREVO_API_KEY` + `EMAIL_FROM` or `SMTP_*`; variable `PUBLIC_BASE_URL`.
   The workflow refuses non-Postgres URLs.
-* **Email**: any SMTP server; Amazon SES via its SMTP endpoint (see `.env.example`).
+* **Email**: Brevo over HTTPS (`BREVO_API_KEY`, needed on Render's free plan, which blocks SMTP ports) or any SMTP server; Amazon SES via its SMTP endpoint (see `.env.example`).
 * The dashboard (API + UI) must be hosted somewhere for users to log in - e.g. the Docker
   image on any container host, with `COOKIE_SECURE=true` behind HTTPS.
 * **Docker**: `docker compose up --build`, then `docker compose run --rm app python -m backend.cli run`.

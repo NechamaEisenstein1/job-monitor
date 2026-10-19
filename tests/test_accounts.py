@@ -219,9 +219,9 @@ def test_scheduled_run_sends_no_user_alerts_without_smtp(session_factory, tmp_pa
     from backend.bootstrap import pipeline_from_settings
     from backend.config.settings import Settings, SmtpSettings
 
-    def alerts_enabled(smtp) -> bool:
+    def alerts_enabled(smtp, **kw) -> bool:
         settings = Settings(database_url=str(session_factory.kw["bind"].url), config_dir=PROJECT_ROOT / "config",
-                            email_outbox_dir=tmp_path, smtp=smtp, log_level="WARNING")
+                            email_outbox_dir=tmp_path, smtp=smtp, log_level="WARNING", **kw)
 
         async def build():
             async with pipeline_from_settings(settings) as pipeline:
@@ -231,6 +231,7 @@ def test_scheduled_run_sends_no_user_alerts_without_smtp(session_factory, tmp_pa
     assert not alerts_enabled(None)
     assert alerts_enabled(SmtpSettings(host="smtp.example.com", port=587, user="u", password="p",
                                        sender="u@example.com", use_tls=True))
+    assert alerts_enabled(None, brevo_api_key="key", email_from="site@example.com")
 
 
 def test_alerts_go_out_only_on_alert_days(world, cfg):
@@ -488,3 +489,48 @@ def test_alerts_use_the_preferred_regions(cfg):
     assert matches_profile(ev, ExperienceLevel.A, ["software"])                         # all of Israel
     assert matches_profile(ev, ExperienceLevel.A, ["software"], regions=["center", "jerusalem"])
     assert not matches_profile(ev, ExperienceLevel.A, ["software"], regions=["center"])
+
+
+def test_email_sender_choice(tmp_path, monkeypatch):
+    """Brevo first (HTTPS, works where SMTP ports are blocked), then SMTP; a live site with
+    neither refuses to send instead of quietly writing emails to a local folder."""
+    import httpx
+
+    from backend.bootstrap import build_email_sender
+    from backend.config.settings import Settings, SmtpSettings
+    from backend.infrastructure.email.renderer import RenderedEmail
+    from backend.infrastructure.email.senders import (
+        BrevoEmailSender, DisabledEmailSender, EmailNotConfiguredError, FileEmailSender, SmtpEmailSender,
+    )
+
+    def settings(**kw) -> Settings:
+        return Settings(database_url="sqlite://", config_dir=PROJECT_ROOT / "config", email_outbox_dir=tmp_path,
+                        log_level="WARNING", **{"smtp": None, **kw})
+
+    smtp = SmtpSettings(host="smtp.example.com", port=587, user="u", password="p", sender="u@example.com", use_tls=True)
+    assert isinstance(build_email_sender(settings()), FileEmailSender)
+    live = settings(public_base_url="https://jobs.example.com")
+    assert isinstance(build_email_sender(live), DisabledEmailSender) and not live.email_enabled
+    email = RenderedEmail(subject="נושא", html="<p>שלום</p>", text="שלום", reply_to="me@example.com")
+    with pytest.raises(EmailNotConfiguredError):
+        build_email_sender(live).send("a@example.com", email)
+    assert isinstance(build_email_sender(settings(smtp=smtp)), SmtpEmailSender)
+    brevo = settings(smtp=smtp, brevo_api_key="key", email_from="site@example.com", email_from_name="מוניטור")
+    assert brevo.email_enabled and isinstance(build_email_sender(brevo), BrevoEmailSender)
+
+    calls = []
+
+    def fake_post(url, json, headers, timeout):
+        calls.append((url, json, headers))
+        return httpx.Response(201, request=httpx.Request("POST", url))
+    monkeypatch.setattr(httpx, "post", fake_post)
+    build_email_sender(brevo).send("a@example.com", email)
+    [(url, body, headers)] = calls
+    assert url == BrevoEmailSender.API_URL and headers["api-key"] == "key"
+    assert body["sender"] == {"email": "site@example.com", "name": "מוניטור"}
+    assert body["to"] == [{"email": "a@example.com"}] and body["replyTo"] == {"email": "me@example.com"}
+    assert body["subject"] == "נושא" and body["htmlContent"] == "<p>שלום</p>" and body["textContent"] == "שלום"
+
+    monkeypatch.setattr(httpx, "post", lambda url, **kw: httpx.Response(401, request=httpx.Request("POST", url)))
+    with pytest.raises(httpx.HTTPStatusError):
+        build_email_sender(brevo).send("a@example.com", email)
