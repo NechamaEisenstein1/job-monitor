@@ -17,6 +17,10 @@ _LEGAL_SUFFIXES = frozenset({"ltd", "inc", "llc", "בעמ", "בע", "מ"})
 _INLINE_WS = re.compile(r"[ \t ‏‎]+")
 _MULTI_NEWLINE = re.compile(r"\n{3,}")
 _NON_WORD = re.compile(r"[^\w]+", re.UNICODE)
+# Longest stored value per short field (the jobs / job_sources column sizes). Some boards
+# list every region a job may be in, which runs past the location column.
+_MAX_LEN = {"title": 500, "client_company": 300, "employment_type": 100,
+            "location": 200, "region": 200, "source_job_id": 200}
 
 
 def clean_text(value: str | None) -> str | None:
@@ -35,6 +39,16 @@ def clean_multiline(value: str | None) -> str:
     value = unicodedata.normalize("NFKC", str(value)).replace("\r\n", "\n").replace("\r", "\n")
     lines = [_INLINE_WS.sub(" ", line).strip() for line in value.split("\n")]
     return _MULTI_NEWLINE.sub("\n\n", "\n".join(lines)).strip()
+
+
+def clip(value: str | None, limit: int) -> str | None:
+    """Shortens an over-long single-line value at a word boundary, marking the cut with '…'."""
+    if value is None or len(value) <= limit:
+        return value
+    cut = value[:limit - 1]
+    if " " in cut:
+        cut = cut[:cut.rindex(" ")]
+    return cut.rstrip(" ,;-") + "…"
 
 
 def comparison_key(value: str | None) -> str:
@@ -93,15 +107,15 @@ def url_fingerprint(url: str | None) -> str:
 def normalize_raw_job(raw: RawJob) -> NormalizedJob:
     return NormalizedJob(
         recruitment_company=clean_text(raw.recruitment_company) or "",
-        source_job_id=clean_text(raw.source_job_id),
+        source_job_id=clip(clean_text(raw.source_job_id), _MAX_LEN["source_job_id"]),
         source_url=clean_url(raw.source_url),
-        title=clean_text(raw.title) or "",
+        title=clip(clean_text(raw.title), _MAX_LEN["title"]) or "",
         description=clean_multiline(raw.description),
         requirements=clean_multiline(raw.requirements),
-        client_company=clean_text(raw.client_company),
-        employment_type=clean_text(raw.employment_type),
-        location=clean_text(raw.location),
-        region=clean_text(raw.region),
+        client_company=clip(clean_text(raw.client_company), _MAX_LEN["client_company"]),
+        employment_type=clip(clean_text(raw.employment_type), _MAX_LEN["employment_type"]),
+        location=clip(clean_text(raw.location), _MAX_LEN["location"]),
+        region=clip(clean_text(raw.region), _MAX_LEN["region"]),
         published_at=raw.published_at,
         metadata=dict(raw.metadata or {}),
     )
