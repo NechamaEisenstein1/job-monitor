@@ -3,11 +3,17 @@
 #
 # Types:
 #   site      - a per-site scraper module (`site:` key below)
+#   drushim   - the company's page(s) on drushim.co.il (`pages`: the "<id>-<slug>" part of
+#               https://www.drushim.co.il/דרושים-<id>-<slug>/)
+#   jobnet    - the company's page(s) on jobnet.co.il (`pages`: companyID values)
 #   json_api  - GET a JSON endpoint, map fields with `field_map` (no code needed)
 #   fixture   - local JSON file (tests / offline demos only)
 #
 # All paths used were checked against each site's robots.txt (2026-09).
 # Set `enabled: false` to pause a source; `note` is shown on the Sources page.
+# A `site` source may name a `fallback` board (type + pages): when the company's own site
+# refuses the request (e.g. Cloudflare's bot check from GitHub's servers), the same company
+# is collected from that board instead.
 sources:
   - name: "Matrix"
     type: site
@@ -43,6 +49,10 @@ sources:
   - name: "Aman"
     type: site
     site: aman
+    note: "כשהאתר חוסם את הסריקה (Cloudflare), המשרות נאספות מדף החברה בדרושים."
+    fallback:
+      type: drushim
+      pages: ["23333-קבוצת-אמן"]
 
   - name: "Horizon"
     type: site
@@ -71,6 +81,10 @@ sources:
   - name: "ProLogic"
     type: site
     site: prologic
+    note: "כשהאתר חוסם את הסריקה (Cloudflare), המשרות נאספות מדפי החברה בג'ובנט."
+    fallback:
+      type: jobnet
+      pages: ["20969", "12429"]
 
   - name: "SQLink"
     type: site
@@ -79,16 +93,66 @@ sources:
   - name: "One"
     type: site
     site: one
-    note: "כולל את משרות טלדור (לוח המשרות של קבוצת One)."
+    note: "כולל את משרות טלדור (לוח המשרות של קבוצת One). כשהאתר חוסם את הסריקה, המשרות נאספות מדף החברה בג'ובנט."
+    fallback:
+      type: jobnet
+      pages: ["22462"]
 
   - name: "Malam Team"
-    type: site
-    site: malamteam
-    enabled: false
-    note: "האתר חסום לגישה אוטומטית (Cloudflare, HTTP 403). נדרש פיד או API רשמי."
+    type: jobnet
+    pages: ["20997", "20998", "23447", "20149"]
+    note: "האתר של מלם תים חסום לגישה אוטומטית (Cloudflare), ולכן המשרות נאספות מדפי החברה בג'ובנט."
 
   - name: "Log-On"
     type: site
     site: logon
     enabled: true
     note: "לוח המשרות ב-b.log-on.com (נקרא דרך נקודת ה-Ajax Load More של האתר)."
+
+  - name: "Logica"
+    type: site
+    site: logica
+
+  - name: "Experis"
+    type: site
+    site: experis
+
+  - name: "Top Soft"
+    type: site
+    site: topsoft
+    note: "טופ סופט (קבוצת טופ רמדור)."
+
+  - name: "Binat Samech"
+    type: drushim
+    pages: ["16583-בינת-סמך"]
+    note: "בינת סמך, מדף החברה בדרושים."
+
+  - name: "TCM"
+    type: drushim
+    pages: ["10312-tcmcareer"]
+    note: "טי סי אם, מדף החברה בדרושים."
+
+  - name: "Elad"
+    type: drushim
+    pages: ["6390-elad-group", "3490227-אלעד-גיוס-והשמה"]
+    note: "אלעד מערכות ואלעד גיוס והשמה, מדפי החברה בדרושים."
+
+  - name: "Unilink"
+    type: drushim
+    pages: ["8275-יונילינק"]
+    note: "יונילינק, מדף החברה בדרושים."
+
+  - name: "Razel"
+    type: drushim
+    pages: ["9063-רזאל-מערכות"]
+    note: "רזאל מערכות, מדף החברה בדרושים."
+
+  - name: "BDO Ziv Haft"
+    type: drushim
+    pages: ["8910-bdobdo-זיו-האפט"]
+    note: "BDO זיו האפט, מדף החברה בדרושים (רק המשרות הטכנולוגיות נשמרות)."
+
+  - name: "SPL"
+    type: jobnet
+    pages: ["7153"]
+    note: "Software AG-SPL, מדף החברה בג'ובנט."

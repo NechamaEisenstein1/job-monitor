@@ -4,14 +4,20 @@ from pathlib import Path
 
 from backend.config.settings import PROJECT_ROOT, SourceConfig
 from backend.infrastructure.scrapers.base import BaseScraper
+from backend.infrastructure.scrapers.boards import DrushimScraper, FallbackScraper, JobnetScraper
 from backend.infrastructure.scrapers.generic import FixtureScraper, JsonApiScraper, MisconfiguredScraper
 from backend.infrastructure.scrapers.http import RetryingHttpClient
 from backend.infrastructure.scrapers.sites import SITE_SCRAPERS
 
 
+BOARD_SCRAPERS = {"drushim": DrushimScraper, "jobnet": JobnetScraper}
+
+
 def build_scraper(source: SourceConfig, http: RetryingHttpClient) -> BaseScraper:
     opts = source.options
     try:
+        if source.type in BOARD_SCRAPERS:
+            return BOARD_SCRAPERS[source.type](source.name, list(opts["pages"]), http, opts)
         if source.type == "site":
             cls = SITE_SCRAPERS.get(opts["site"])
             if cls is None:
@@ -19,7 +25,14 @@ def build_scraper(source: SourceConfig, http: RetryingHttpClient) -> BaseScraper
             if cls.company != source.name:
                 return MisconfiguredScraper(
                     source.name, f"source name must be '{cls.company}' for site '{opts['site']}'")
-            return cls(http, opts)
+            scraper = cls(http, opts)
+            fallback = opts.get("fallback")
+            if fallback:
+                board = BOARD_SCRAPERS.get(fallback.get("type"))
+                if board is None:
+                    return MisconfiguredScraper(source.name, f"unknown fallback type '{fallback.get('type')}'")
+                return FallbackScraper(scraper, board(source.name, list(fallback["pages"]), http, fallback))
+            return scraper
         if source.type == "fixture":
             path = Path(opts["path"])
             return FixtureScraper(source.name, path if path.is_absolute() else PROJECT_ROOT / path)

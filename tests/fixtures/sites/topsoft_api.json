@@ -1,0 +1,36 @@
+[
+ {
+  "id": 1275,
+  "link": "https://top-soft.co.il/job/umbraco/",
+  "title": {
+   "rendered": "Umbraco Training &#038; Implementation Specialist"
+  },
+  "date_gmt": "2026-10-13T11:03:20",
+  "location": [
+   76
+  ]
+ },
+ {
+  "id": 1273,
+  "link": "https://top-soft.co.il/job/sap-mm/",
+  "title": {
+   "rendered": "SAP MM Specialist"
+  },
+  "date_gmt": "2026-10-13T06:06:46",
+  "location": [
+   93,
+   11
+  ]
+ },
+ {
+  "id": 1269,
+  "link": "https://top-soft.co.il/job/head-of-erp/",
+  "title": {
+   "rendered": "Head of ERP"
+  },
+  "date_gmt": "2026-10-11T06:25:11",
+  "location": [
+   76
+  ]
+ }
+]
