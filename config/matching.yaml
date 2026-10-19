@@ -217,6 +217,7 @@ users:
 billing:
   points_per_manual_job: "${POINTS_PER_MANUAL_JOB:-10}"
   max_awarded_posts_per_day: 10
+  max_submissions_per_day: 5   # postings a non-recruiter may send for review per 24 h
   subscription_price_ils: "${SUBSCRIPTION_PRICE_ILS:-0}"
   subscription_price_points: "${SUBSCRIPTION_PRICE_POINTS:-100}"
   subscription_days: 30

@@ -2,7 +2,9 @@ import type { JobDetail } from "../types/api";
 import { he, reasonLabel, ruleLabel } from "../i18n/he";
 import { Check, X } from "lucide-react";
 
+import { formatDate } from "../services/format";
 import { Icon, LevelBadge, ManualBadges, RoleBadge, SignalBadges, StatusBadge, TenderBadge } from "./StatusBadge";
+import { ReliabilityBadge } from "./VerifyButton";
 
 /** Header facts for a job, plus the backend's evaluation explanation. */
 export function JobCard({ job }: { job: JobDetail }) {
@@ -13,6 +15,8 @@ export function JobCard({ job }: { job: JobDetail }) {
     [he.job.employmentType, job.employment_type ?? he.common.none],
     [he.job.status, <StatusBadge status={job.status} />],
   ];
+  if (job.source_recruiter) facts.push([he.job.sourceRecruiter, job.source_recruiter]);
+  if (job.source_published_on) facts.push([he.job.sourcePublishedOn, formatDate(job.source_published_on)]);
   if (job.government_ministry) facts.unshift([he.recruiter.ministry, job.government_ministry]);
   if (job.tender_number) facts.unshift([he.recruiter.tenderNumber, <span className="ltr">{job.tender_number}</span>]);
   return (
@@ -22,6 +26,7 @@ export function JobCard({ job }: { job: JobDetail }) {
           <LevelBadge level={ev.level} />
           <SignalBadges signals={job.signals} fakeJunior={ev.junior_title_mismatch} years={ev.required_years} />
           <ManualBadges manual={job.is_manual} />
+          <ReliabilityBadge reliability={job.reliability} />
           {ev.is_government_tender && <TenderBadge />}
           <RoleBadge role={ev.role_type} />
         </div>

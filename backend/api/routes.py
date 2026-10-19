@@ -50,14 +50,17 @@ def list_jobs(
     level: Annotated[str | None, Query(pattern=r"^[abc](,[abc]){0,2}$",
                                        description="experience levels, comma-separated: a = junior, "
                                                    "b = 2+ to 4 years, c = above 4 (any of them)")] = None,
-    sort: Literal["relevance", "newest", "updated", "score"] = "relevance",
+    reliability: Annotated[Literal["medium", "high"] | None,
+                           Query(description="at least this many users' 'details are correct' votes: "
+                                             "medium = 1+, high = 3+")] = None,
+    sort: Literal["relevance", "newest", "updated", "score", "reliability"] = "relevance",
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=200)] = 25,
 ) -> JobListDto:
     return queries.list_jobs(q=q, location=location, eligible=eligible, status=status.value if status else None,
                              source=source, role_types=_role_types(role_type, request),
                              government=government, level=sorted(set(level.split(","))) if level else None,
-                             level_years=_level_years(request),
+                             level_years=_level_years(request), reliability=reliability,
                              sort=sort, page=page, page_size=page_size)
 
 

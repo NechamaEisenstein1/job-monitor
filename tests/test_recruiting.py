@@ -38,7 +38,7 @@ def _post(client, **overrides):
 def test_only_recruiters_and_admins_can_post(world):
     junior = world.client("junior@example.com")
     assert _post(junior).status_code == 403
-    assert junior.get("/api/recruiter/jobs").status_code == 403
+    assert junior.get("/api/recruiter/jobs").json() == []  # any user may list their own (approved) postings
     assert _post(world.client("admin@example.com"), tender_number="A-1").status_code == 201
 
 

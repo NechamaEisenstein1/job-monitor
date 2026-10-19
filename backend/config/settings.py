@@ -201,6 +201,8 @@ class BillingConfig:
     points_per_manual_job: int = 10
     # Anti-farming: postings beyond this per day are published but earn no points.
     max_awarded_posts_per_day: int = 10
+    # Postings a user without the recruiter role may send for review per 24 hours (anti-spam).
+    max_submissions_per_day: int = 5
     subscription_price_ils: float = 0.0
     subscription_price_points: int = 100
     subscription_days: int = 30

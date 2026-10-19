@@ -90,12 +90,22 @@ export function JobFilters({ value, sources, onChange }: {
         {f.tendersOnly}
       </label>
       <label className={label}>
+        {f.reliability}
+        <select className={control} value={value.reliability}
+                onChange={(e) => onChange({ reliability: e.target.value as JobFilterValues["reliability"] })}>
+          <option value="">{f.all}</option>
+          <option value="medium">{f.reliabilityMedium}</option>
+          <option value="high">{f.reliabilityHigh}</option>
+        </select>
+      </label>
+      <label className={label}>
         {f.sort}
         <select className={control} value={value.sort}
                 onChange={(e) => onChange({ sort: e.target.value as JobFilterValues["sort"] })}>
           <option value="relevance">{f.sortRelevance}</option>
           <option value="newest">{f.sortNewest}</option>
           <option value="updated">{f.sortUpdated}</option>
+          <option value="reliability">{f.sortReliability}</option>
         </select>
       </label>
     </div>

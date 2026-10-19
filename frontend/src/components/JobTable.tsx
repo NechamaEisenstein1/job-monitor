@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 
 import type { Applications } from "../hooks/useApplications";
+import type { Verifications } from "../hooks/useVerifications";
 import type { JobListItem } from "../types/api";
 import { AppliedCheckbox } from "./AppliedCheckbox";
+import { ReliabilityBadge, VerifyButton } from "./VerifyButton";
 import { he } from "../i18n/he";
 import { formatDate, formatRelative } from "../services/format";
 import { MapPin } from "lucide-react";
@@ -12,7 +14,11 @@ import { td, th } from "./Layout";
 
 const c = he.jobs.columns;
 
-export function JobTable({ jobs, applications }: { jobs: JobListItem[]; applications?: Applications }) {
+export function JobTable({ jobs, applications, verifications }: {
+  jobs: JobListItem[];
+  applications?: Applications;
+  verifications?: Verifications;
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-slate-100">
@@ -21,6 +27,7 @@ export function JobTable({ jobs, applications }: { jobs: JobListItem[]; applicat
             {[c.title, c.client, c.location, c.status, c.sources, c.lastSeen, c.updated].map((h) => (
               <th key={h} className={th}>{h}</th>
             ))}
+            {verifications && <th className={th}>{he.verify.column}</th>}
             {applications && <th className={th}>{he.applied.column}</th>}
           </tr>
         </thead>
@@ -36,6 +43,7 @@ export function JobTable({ jobs, applications }: { jobs: JobListItem[]; applicat
                   <LevelBadge level={job.level} />
                   <SignalBadges signals={job.signals} fakeJunior={job.junior_title_mismatch} years={job.required_years} />
                   <ManualBadges manual={job.is_manual} featured={job.is_featured} />
+                  <ReliabilityBadge reliability={verifications?.latest[job.id]?.reliability ?? job.reliability} />
                   {job.is_government_tender && <TenderBadge />}
                   <RoleBadge role={job.role_type} />
                 </div>
@@ -58,6 +66,7 @@ export function JobTable({ jobs, applications }: { jobs: JobListItem[]; applicat
               </td>
               <td className={`${td} whitespace-nowrap`}>{formatRelative(job.last_seen_at)}</td>
               <td className={`${td} whitespace-nowrap`}>{formatDate(job.updated_at)}</td>
+              {verifications && <td className={td}><VerifyButton job={job} verifications={verifications} /></td>}
               {applications && <td className={td}><AppliedCheckbox jobId={job.id} applications={applications} /></td>}
             </tr>
           ))}

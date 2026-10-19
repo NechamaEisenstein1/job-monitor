@@ -1,7 +1,7 @@
 import { errorLabel, he } from "../i18n/he";
 import type {
   AdminStats, AuthConfig, BillingPrices, ContactCategory, ContactMessagePage, ExperienceLevel, ForumCategory, ForumThread, ForumThreadPage, MyContactMessagePage, JobApplication, Region, JobChange, JobDetail, JobFilterValues, JobList, JobSource,
-  GmailStatus, ManualJob, ManualJobInput, OutreachLogEntry, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
+  GmailStatus, JobSubmission, ManualJob, ManualJobInput, ReviewResult, VerificationResult, OutreachLogEntry, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
   ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
 
@@ -48,6 +48,10 @@ const get = <T>(path: string, params?: Params) => request<T>("GET", path, { para
 const post = <T>(path: string, body?: unknown) => request<T>("POST", path, { body });
 const put = <T>(path: string, body: unknown) => request<T>("PUT", path, { body });
 const del = <T = void>(path: string) => request<T>("DELETE", path);
+
+/** Empty optional fields go out as null (the server parses the date; "" is not one). */
+const postingBody = (j: ManualJobInput) =>
+  ({ ...j, source_recruiter: j.source_recruiter || null, source_published_on: j.source_published_on || null });
 
 export const PAGE_SIZE = 25;
 /** Personal area matches: a shorter page. */
@@ -100,6 +104,11 @@ export const api = {
   unmarkApplied: (jobId: number) => del(`/me/applications/${jobId}`),
   removeApplication: (entryId: number) => del(`/me/applications/entry/${entryId}`),
 
+  // "the details are correct" votes
+  myVerifications: () => get<number[]>("/me/verifications"),
+  verifyJob: (jobId: number, verified: boolean) =>
+    (verified ? put<VerificationResult>(`/jobs/${jobId}/verification`, {}) : del<VerificationResult>(`/jobs/${jobId}/verification`)),
+
   // contact the site admin
   contactAdmin: (m: { category: ContactCategory; subject: string; body: string }) => post<{ id: number }>("/me/contact", m),
   myMessages: (page: number) => get<MyContactMessagePage>("/me/contact", { page, page_size: MATCHES_PAGE_SIZE }),
@@ -134,9 +143,14 @@ export const api = {
 
   // recruiter postings
   myPostings: (all = false) => get<ManualJob[]>("/recruiter/jobs", { all: all || undefined }),
-  publishJob: (j: ManualJobInput) => post<PublishResult>("/recruiter/jobs", j),
+  publishJob: (j: ManualJobInput) => post<PublishResult>("/recruiter/jobs", postingBody(j)),
   removeJob: (id: number) => del<{ points_reversed: number }>(`/recruiter/jobs/${id}`),
   featureJob: (id: number) => post<ManualJob>(`/recruiter/jobs/${id}/feature`),
+  submitJob: (j: ManualJobInput) => post<JobSubmission>("/job-submissions", postingBody(j)),
+  mySubmissions: () => get<JobSubmission[]>("/job-submissions/mine"),
+  adminSubmissions: () => get<JobSubmission[]>("/admin/job-submissions"),
+  adminApproveSubmission: (id: number) => post<ReviewResult>(`/admin/job-submissions/${id}/approve`),
+  adminRejectSubmission: (id: number, note: string) => post<ReviewResult>(`/admin/job-submissions/${id}/reject`, { note }),
 
   // points & subscription
   billingPrices: () => get<BillingPrices>("/billing/prices"),

@@ -71,6 +71,10 @@ class JobListItemDto(Dto):
     junior_title_mismatch: bool = False
     required_years: float | None = None
     level: str | None = None  # "a" / "b" / "c" (experience.job_level); None = not stated
+    # Users' "the details are correct" votes and the level they add up to (domain/services/reliability.py).
+    verification_count: int = 0
+    reliability: str = "none"
+    posted_by: int | None = None  # manual postings: the poster cannot vouch for their own
 
 
 class JobListDto(Dto):
@@ -99,6 +103,11 @@ class JobDetailDto(Dto):
     tender_number: str | None = None
     government_ministry: str | None = None
     signals: JobSignalsDto | None = None
+    source_recruiter: str | None = None
+    source_published_on: date | None = None
+    verification_count: int = 0
+    reliability: str = "none"
+    posted_by: int | None = None
 
 
 class JobSourceDto(Dto):
@@ -332,12 +341,40 @@ class ManualJobDto(Dto):
     created_at: UtcDatetime
     featured_until: UtcDatetime | None
     posted_by: int | None
+    source_recruiter: str | None = None
+    source_published_on: date | None = None
 
 
 class PublishResultDto(Dto):
     job: ManualJobDto
     points_awarded: int
     balance: int
+
+
+class JobSubmissionDto(Dto):
+    """A posting sent by a user without the recruiter role; the admin approves or rejects it."""
+    id: int
+    title: str
+    description: str
+    requirements: str
+    tender_number: str | None
+    government_ministry: str | None
+    location: str | None
+    source_recruiter: str
+    source_published_on: date
+    status: str  # pending | approved | rejected
+    created_at: UtcDatetime
+    reviewed_at: UtcDatetime | None = None
+    review_note: str | None = None
+    job_id: int | None = None
+    # Filled for the admin only.
+    submitter_name: str | None = None
+    submitter_email: str | None = None
+
+
+class ReviewResultDto(Dto):
+    submission: JobSubmissionDto
+    points_awarded: int
 
 
 class BillingPricesDto(Dto):

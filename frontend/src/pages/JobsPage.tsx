@@ -8,6 +8,7 @@ import { Pagination } from "../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { useApi } from "../hooks/useApi";
 import { useApplications } from "../hooks/useApplications";
+import { useVerifications } from "../hooks/useVerifications";
 import { api, PAGE_SIZE } from "../services/api";
 import type { JobFilterValues } from "../types/api";
 import { he } from "../i18n/he";
@@ -15,7 +16,7 @@ import { he } from "../i18n/he";
 // Non-tech roles are stored but hidden by default; pick "הכל" to see them.
 const DEFAULTS: JobFilterValues = {
   q: "", location: "", eligible: "", status: "", source: "", role_type: "tech", government: "",
-  level: "", sort: "relevance", page: 1,
+  level: "", reliability: "", sort: "relevance", page: 1,
 };
 
 const SAVED_FILTERS = "jobs-filters";
@@ -61,6 +62,7 @@ function useJobFilters(): [JobFilterValues, (next: Partial<JobFilterValues>) => 
     role_type: (params.get("role_type") ?? DEFAULTS.role_type) as JobFilterValues["role_type"],
     government: (params.get("government") ?? DEFAULTS.government) as JobFilterValues["government"],
     level: (params.get("level") ?? DEFAULTS.level) as JobFilterValues["level"],
+    reliability: (params.get("reliability") ?? DEFAULTS.reliability) as JobFilterValues["reliability"],
     sort: (params.get("sort") ?? DEFAULTS.sort) as JobFilterValues["sort"],
     page: Number(params.get("page") ?? DEFAULTS.page) || 1,
   };
@@ -81,6 +83,7 @@ export function JobsPage() {
   const jobs = useApi(() => api.jobs(filters), JSON.stringify(filters));
   const sources = useApi(api.sources, "sources");
   const applications = useApplications();
+  const verifications = useVerifications();
 
   return (
     <>
@@ -95,7 +98,8 @@ export function JobsPage() {
           ) : jobs.data?.items.length ? (
             <div className={jobs.loading ? "opacity-60" : ""}>
               {applications.error && <p role="alert" className="px-4 pt-3 text-sm text-rose-700">{applications.error}</p>}
-              <JobTable jobs={jobs.data.items} applications={applications} />
+              {verifications.error && <p role="alert" className="px-4 pt-3 text-sm text-rose-700">{verifications.error}</p>}
+              <JobTable jobs={jobs.data.items} applications={applications} verifications={verifications} />
               <Pagination page={filters.page} pageSize={PAGE_SIZE} total={jobs.data.total}
                           onPage={(page) => setFilters({ page })} />
             </div>

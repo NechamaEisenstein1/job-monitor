@@ -14,8 +14,8 @@ from backend.domain.models import (
     Job, JobChangeRecord, JobEvaluation, JobSource, PostingHistory, ScrapeRun, ScraperRun, SourceIdentity,
 )
 from backend.infrastructure.db.orm import (
-    JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, OutreachMessageRow, PostingHistoryRow, ScrapeRunRow,
-    ScraperRunRow, SentNotificationRow, UserJobAlertRow,
+    JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, JobVerificationRow, OutreachMessageRow, PostingHistoryRow,
+    ScrapeRunRow, ScraperRunRow, SentNotificationRow, UserJobAlertRow,
 )
 from backend.infrastructure.repositories.mapping import to_domain, to_values
 
@@ -67,7 +67,8 @@ class SqlJobRepository:
         remaining postings, per-user alert and outreach records)."""
         if not job_ids:
             return
-        for row_cls in (JobChangeRow, JobEvaluationRow, UserJobAlertRow, OutreachMessageRow, JobSourceRow):
+        for row_cls in (JobChangeRow, JobEvaluationRow, UserJobAlertRow, OutreachMessageRow, JobSourceRow,
+                        JobVerificationRow):
             self._s.execute(delete(row_cls).where(row_cls.job_id.in_(job_ids)))
         self._s.execute(delete(JobRow).where(JobRow.id.in_(job_ids)))
         self._s.flush()

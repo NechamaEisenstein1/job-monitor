@@ -12,10 +12,11 @@ from backend.application.dto import (
 )
 from backend.config.settings import SignalsConfig
 from backend.domain.services.experience import job_level
+from backend.domain.services.reliability import min_votes, reliability_level
 from backend.domain.services.signals import SignalPolicy
 from backend.domain.enums import JobSourceStatus, JobStatus, ScrapeStatus
 from backend.infrastructure.db.orm import (
-    JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, ScrapeRunRow, ScraperRunRow,
+    JobChangeRow, JobEvaluationRow, JobRow, JobSourceRow, JobVerificationRow, ScrapeRunRow, ScraperRunRow,
 )
 from backend.infrastructure.repositories.sql import SqlPostingHistoryRepository
 
@@ -30,6 +31,15 @@ def _latest_evaluation_id():  # noqa: ANN202
         .where(JobEvaluationRow.job_id == JobRow.id)
         .order_by(JobEvaluationRow.created_at.desc(), JobEvaluationRow.id.desc())
         .limit(1)
+        .correlate(JobRow)
+        .scalar_subquery()
+    )
+
+
+def _verification_count():  # noqa: ANN202
+    return (
+        select(func.count()).select_from(JobVerificationRow)
+        .where(JobVerificationRow.job_id == JobRow.id)
         .correlate(JobRow)
         .scalar_subquery()
     )
@@ -80,9 +90,14 @@ class SqlReadRepository:
                   government: bool | None = None, junior: bool | None = None, location_matched: bool | None = None,
                   level: str | list[str] | None = None, level_years: tuple[float, float] = (2, 4),
                   level_includes_unstated: bool = False, regions: list[str] | None = None,
+                  reliability: str | None = None,
                   sort: str = "relevance", page: int = 1, page_size: int = 25) -> JobListDto:
         latest_eval = _latest_evaluation_id()
-        stmt = select(JobRow, JobEvaluationRow).outerjoin(JobEvaluationRow, JobEvaluationRow.id == latest_eval)
+        votes = _verification_count()
+        stmt = select(JobRow, JobEvaluationRow, votes.label("votes")).outerjoin(
+            JobEvaluationRow, JobEvaluationRow.id == latest_eval)
+        if reliability:  # at least this level
+            stmt = stmt.where(votes >= min_votes(reliability))
         if role_types:
             stmt = stmt.where(JobEvaluationRow.role_type.in_(role_types))
         if government is not None:
@@ -122,6 +137,9 @@ class SqlReadRepository:
             "newest": [JobRow.first_seen_at.desc()],
             "updated": [JobRow.updated_at.desc()],
             "score": [JobEvaluationRow.junior_score.desc().nulls_last()],
+            # Most confirmed first; within the same count, the usual relevance order.
+            "reliability": [votes.desc(), JobEvaluationRow.rank_score.desc().nulls_last(),
+                            JobRow.first_seen_at.desc()],
         }.get(sort, [JobEvaluationRow.rank_score.desc().nulls_last()])
         rows = self._s.execute(stmt.order_by(*order, JobRow.id.desc())
                                .offset((page - 1) * page_size).limit(page_size)).all()
@@ -144,8 +162,9 @@ class SqlReadRepository:
                 junior_title_mismatch=bool(ev and ev.junior_title_mismatch),
                 required_years=ev.required_years if ev else None,
                 level=job_level(ev.is_junior, ev.required_years, *level_years) if ev else None,
+                verification_count=n_votes, reliability=reliability_level(n_votes), posted_by=job.posted_by,
             )
-            for job, ev in rows
+            for job, ev, n_votes in rows
         ]
         return JobListDto(items=items, total=total, page=page, page_size=page_size)
 
@@ -191,8 +210,12 @@ class SqlReadRepository:
             select(JobEvaluationRow).where(JobEvaluationRow.job_id == job_id)
             .order_by(JobEvaluationRow.created_at.desc(), JobEvaluationRow.id.desc()).limit(1)
         ).first()
+        votes = self._s.scalar(select(func.count()).select_from(JobVerificationRow)
+                               .where(JobVerificationRow.job_id == job_id)) or 0
         return JobDetailDto(
-            **{c: getattr(job, c) for c in JobDetailDto.model_fields if c not in ("evaluation", "signals")},
+            **{c: getattr(job, c) for c in JobDetailDto.model_fields
+               if c not in ("evaluation", "signals", "verification_count", "reliability")},
+            verification_count=votes, reliability=reliability_level(votes),
             evaluation=EvaluationDto.model_validate(evaluation).model_copy(update={
                 "level": job_level(evaluation.is_junior, evaluation.required_years, *level_years)})
             if evaluation else None,

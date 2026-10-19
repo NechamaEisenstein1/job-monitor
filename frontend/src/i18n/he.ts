@@ -113,6 +113,12 @@ export const he = {
     trial_already_used: "כבר ניצלת את תקופת הניסיון",
     trial_unavailable: "תקופת ניסיון אינה זמינה כרגע",
     already_subscribed: "יש לך כבר מנוי פעיל",
+    invalid_source_recruiter: "יש לציין את המגייסת שמסרה את פרטי המשרה",
+    invalid_source_published_on: "יש לציין תאריך פרסום תקין של המכרז (לא בעתיד)",
+    submission_limit: "אפשר לשלוח עד 5 משרות לאישור ביממה. נסו שוב מחר.",
+    already_reviewed: "המשרה הזו כבר טופלה",
+    invalid_review_note: "הערת הדחייה ארוכה מדי",
+    own_posting: "אי אפשר לאמת משרה שפרסמת בעצמך",
   } as Record<string, string>,
 
   myArea: {
@@ -380,6 +386,45 @@ export const he = {
     remove: "מחיקה",
     confirmRemove: "למחוק את המשרה? הנקודות שהתקבלו עליה יבוטלו.",
     removed: (points: number) => (points ? `המשרה נמחקה ו-${points} נקודות בוטלו.` : "המשרה נמחקה."),
+    // Users without the recruiter role: the posting goes to the site admin for approval.
+    subtitleUser: "שלחו משרה או מכרז. אחרי שמנהלת האתר תאשר, המשרה תופיע בלוח המשרות לכל המשתמשים.",
+    source: "מקור המשרה",
+    sourceHint: "כדי שנוכל לבדוק את המשרה, ציינו ממי קיבלתם את הפרטים ומתי פורסם המכרז.",
+    sourceRecruiter: "המגייסת שמסרה את הפרטים",
+    sourcePublishedOn: "תאריך פרסום המכרז",
+    sendForApproval: "שליחה לאישור",
+    sending: "שולח…",
+    submitted: "המשרה נשלחה לאישור. היא תופיע בלוח המשרות אחרי שמנהלת האתר תאשר אותה.",
+    approvalHint: (points: number) => (points ? `אחרי האישור יתווספו לך ${points} נקודות.` : ""),
+    mySubmissions: "משרות ששלחתי לאישור",
+    noSubmissions: "עדיין לא שלחת משרות",
+    sentOn: "נשלחה",
+    submissionStatus: { pending: "ממתינה לאישור", approved: "אושרה ופורסמה", rejected: "נדחתה" } as Record<string, string>,
+    reviewNote: "הערת המנהלת",
+    viewJob: "למשרה",
+  },
+
+  review: {
+    title: "משרות ממתינות לאישור",
+    hint: "משרות שנשלחו על ידי משתמשים שאינם מגייסים. רק משרה שאושרה עולה ללוח המשרות.",
+    none: "אין משרות שממתינות לאישור",
+    sentBy: "נשלחה על ידי",
+    sentOn: "נשלחה",
+    approve: "אישור ופרסום",
+    reject: "דחייה",
+    rejectPrompt: "סיבת הדחייה (תוצג לשולח/ת, לא חובה):",
+    approved: (points: number) => (points ? `המשרה פורסמה, והשולח/ת קיבל/ה ${points} נקודות.` : "המשרה פורסמה."),
+    rejected: "המשרה נדחתה.",
+    showDetails: "פרטי המשרה",
+  },
+
+  verify: {
+    button: "הפרטים נכונים",
+    done: "אימתתי",
+    hint: "בדקתם שפרטי המשרה נכונים? סמנו זאת. משרה שכמה משתמשים אימתו מסומנת כאמינה יותר.",
+    count: (n: number) => (n > 1 ? `${n} אימותים` : n ? "אימות אחד" : "טרם אומתה"),
+    column: "אמינות",
+    levels: { none: "לא אומתה", medium: "אומתה", high: "אמינות גבוהה" } as Record<string, string>,
   },
 
   billing: {
@@ -593,6 +638,10 @@ export const he = {
     tendersOnly: "מכרזים בלבד",
     sortUpdated: "עודכנו לאחרונה",
     sortScore: "ציון ג'וניור",
+    reliability: "רמת אמינות",
+    reliabilityMedium: "אומתו לפחות פעם אחת",
+    reliabilityHigh: "אמינות גבוהה (3 אימותים ומעלה)",
+    sortReliability: "האמינות הגבוהה ביותר",
   },
 
   pagination: {
@@ -621,6 +670,8 @@ export const he = {
     firstSeen: "נראתה לראשונה",
     lastSeen: "נראתה לאחרונה",
     via: (company: string) => `דרך ${company}`,
+    sourceRecruiter: "התקבלה מהמגייסת",
+    sourcePublishedOn: "תאריך פרסום המכרז",
   },
 
   runs: {

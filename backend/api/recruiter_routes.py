@@ -1,20 +1,23 @@
-"""Recruiter postings (recruiters and admins) and the points/subscription wallet (any user)."""
+"""Job postings - published at once by recruiters and admins, sent for admin approval by any
+other user - and the points/subscription wallet (any user)."""
 from __future__ import annotations
 
-from typing import Annotated
+from datetime import date
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from pydantic import BaseModel, Field
 
-from backend.api.deps import CurrentUser, DbSession, RecruiterUser, csrf_protect
+from backend.api.deps import AdminUser, CurrentUser, DbSession, RecruiterUser, csrf_protect
 from backend.application.dto import (
-    BillingPricesDto, ManualJobDto, PointTransactionDto, PublishResultDto, SubscriptionDto, SubscriptionStateDto,
-    WalletDto,
+    BillingPricesDto, JobSubmissionDto, ManualJobDto, PointTransactionDto, PublishResultDto, ReviewResultDto,
+    SubscriptionDto, SubscriptionStateDto, WalletDto,
 )
 from backend.application.use_cases.recruiting import ManualJobInput, RecruitingError, SubscriptionState
 from backend.bootstrap import billing_service, manual_job_service
-from backend.domain.enums import PaymentMethod
-from backend.domain.models import Job
+from backend.domain.enums import PaymentMethod, SubmissionStatus
+from backend.domain.models import Job, JobSubmission
+from backend.infrastructure.repositories.submissions import SqlSubmissionRepository
 
 router = APIRouter(prefix="/api", dependencies=[Depends(csrf_protect)])
 
@@ -27,7 +30,17 @@ def _job_dto(job: Job) -> ManualJobDto:
     return ManualJobDto(id=job.id, title=job.title, tender_number=job.tender_number,
                         government_ministry=job.government_ministry, location=job.location,
                         status=job.status.value, created_at=job.created_at, featured_until=job.featured_until,
-                        posted_by=job.posted_by)
+                        posted_by=job.posted_by, source_recruiter=job.source_recruiter,
+                        source_published_on=job.source_published_on)
+
+
+def _submission_dto(s: JobSubmission, name: str | None = None, email: str | None = None) -> JobSubmissionDto:
+    return JobSubmissionDto(
+        id=s.id, title=s.title, description=s.description, requirements=s.requirements,
+        tender_number=s.tender_number, government_ministry=s.government_ministry, location=s.location,
+        source_recruiter=s.source_recruiter, source_published_on=s.source_published_on, status=s.status.value,
+        created_at=s.created_at, reviewed_at=s.reviewed_at, review_note=s.review_note, job_id=s.job_id,
+        submitter_name=name, submitter_email=email)
 
 
 def _state_dto(state: SubscriptionState, balance: int) -> SubscriptionStateDto:
@@ -50,11 +63,15 @@ class ManualJobIn(BaseModel):
     tender_number: str | None = Field(default=None, max_length=100)
     government_ministry: str | None = Field(default=None, max_length=200)
     location: str | None = Field(default=None, max_length=200)
+    # Required for submissions (users without the recruiter role), optional for recruiters.
+    source_recruiter: str | None = Field(default=None, max_length=200)
+    source_published_on: date | None = None
 
 
 @router.get("/recruiter/jobs", response_model=list[ManualJobDto])
-def my_postings(user: RecruiterUser, request: Request, session: DbSession, all: bool = False) -> list[ManualJobDto]:
-    """The caller's own postings; an admin may pass ?all=true to see every recruiter's."""
+def my_postings(user: CurrentUser, request: Request, session: DbSession, all: bool = False) -> list[ManualJobDto]:
+    """The caller's own postings (for a regular user: their approved submissions); an admin
+    may pass ?all=true to see every recruiter's."""
     service = manual_job_service(session, request.app.state.cfg)
     return [_job_dto(j) for j in service.list_mine(user, everyone=all)]
 
@@ -69,7 +86,7 @@ def publish(body: ManualJobIn, user: RecruiterUser, request: Request, session: D
 
 
 @router.delete("/recruiter/jobs/{job_id}")
-def remove(job_id: Annotated[int, Path(ge=1)], user: RecruiterUser, request: Request,
+def remove(job_id: Annotated[int, Path(ge=1)], user: CurrentUser, request: Request,
            session: DbSession) -> dict[str, int]:
     try:
         reversed_points = manual_job_service(session, request.app.state.cfg).remove(user, job_id)
@@ -79,12 +96,59 @@ def remove(job_id: Annotated[int, Path(ge=1)], user: RecruiterUser, request: Req
 
 
 @router.post("/recruiter/jobs/{job_id}/feature", response_model=ManualJobDto)
-def feature(job_id: Annotated[int, Path(ge=1)], user: RecruiterUser, request: Request,
+def feature(job_id: Annotated[int, Path(ge=1)], user: CurrentUser, request: Request,
             session: DbSession) -> ManualJobDto:
     try:
         return _job_dto(manual_job_service(session, request.app.state.cfg).feature(user, job_id))
     except RecruitingError as exc:
         raise _fail(exc) from exc
+
+
+# ------------------------------------------------------------------ submissions: any user, the admin approves
+
+@router.post("/job-submissions", response_model=JobSubmissionDto, status_code=201)
+def submit(body: ManualJobIn, user: CurrentUser, request: Request, session: DbSession) -> JobSubmissionDto:
+    try:
+        submission = manual_job_service(session, request.app.state.cfg).submit(user, ManualJobInput(**body.model_dump()))
+    except RecruitingError as exc:
+        raise _fail(exc) from exc
+    return _submission_dto(submission)
+
+
+@router.get("/job-submissions/mine", response_model=list[JobSubmissionDto])
+def my_submissions(user: CurrentUser, request: Request, session: DbSession) -> list[JobSubmissionDto]:
+    return [_submission_dto(s) for s in manual_job_service(session, request.app.state.cfg).my_submissions(user)]
+
+
+@router.get("/admin/job-submissions", response_model=list[JobSubmissionDto])
+def review_queue(_: AdminUser, session: DbSession,
+                 status: Literal["pending", "approved", "rejected", "all"] = "pending") -> list[JobSubmissionDto]:
+    rows = SqlSubmissionRepository(session).list_with_submitter(None if status == "all" else SubmissionStatus(status))
+    return [_submission_dto(s, name, email) for s, name, email in rows]
+
+
+@router.post("/admin/job-submissions/{submission_id}/approve", response_model=ReviewResultDto)
+def approve(submission_id: Annotated[int, Path(ge=1)], admin: AdminUser, request: Request,
+            session: DbSession) -> ReviewResultDto:
+    try:
+        result = manual_job_service(session, request.app.state.cfg).approve(admin, submission_id)
+    except RecruitingError as exc:
+        raise _fail(exc) from exc
+    return ReviewResultDto(submission=_submission_dto(result.submission), points_awarded=result.points_awarded)
+
+
+class RejectIn(BaseModel):
+    note: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/admin/job-submissions/{submission_id}/reject", response_model=ReviewResultDto)
+def reject(submission_id: Annotated[int, Path(ge=1)], body: RejectIn, admin: AdminUser, request: Request,
+           session: DbSession) -> ReviewResultDto:
+    try:
+        result = manual_job_service(session, request.app.state.cfg).reject(admin, submission_id, body.note)
+    except RecruitingError as exc:
+        raise _fail(exc) from exc
+    return ReviewResultDto(submission=_submission_dto(result.submission), points_awarded=0)
 
 
 # ------------------------------------------------------------------ wallet & subscription

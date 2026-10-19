@@ -91,6 +91,15 @@ Without SMTP settings, digests are written to `outbox/` as HTML and per-user ale
   title, description, requirements, location. They are evaluated like scraped jobs, appear on
   the main board for every user (badge "פורסם באתר"), are **never merged with scraped jobs and
   never pruned** by the daily refresh.
+* **Submissions by other users** (`/recruiter`, any user): the same form plus the source of the
+  details - the recruiter who gave them and the tender's publication date (both required). The
+  posting waits in `job_submissions` (not in `jobs`, so nothing pending can reach the board,
+  alerts or the tenders page) until an admin approves it on the Admin page; it is then published
+  as the submitter's posting (they earn the usual points), with the source shown on the job.
+  A rejection can carry a note the submitter sees. `max_submissions_per_day` caps it (anti-spam).
+* **"The details are correct" votes**: any user can confirm a job once (not their own posting);
+  1+ votes = "אומתה", 3+ = "אמינות גבוהה" (`domain/services/reliability.py`). The board filters
+  (`reliability=medium|high`) and sorts (`sort=reliability`) by it.
 * **Points**: each posting earns `points_per_manual_job` (at most `max_awarded_posts_per_day`
   awarded postings a day). Every movement is a `point_transactions` row; `users.points_balance`
   is its running sum and changes only through conditional SQL updates, so a balance can never

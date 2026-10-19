@@ -66,6 +66,12 @@ class SubscriptionStatus(Enum):
     ACTIVE = "active"
 
 
+class SubmissionStatus(Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class PointAction(Enum):
     JOB_POSTED = "job_posted"
     JOB_REMOVED = "job_removed"          # reverses the JOB_POSTED award

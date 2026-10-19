@@ -10,12 +10,21 @@ import { useUser } from "../hooks/useAuth";
 import { he } from "../i18n/he";
 import { api } from "../services/api";
 import { formatDate } from "../services/format";
-import type { ManualJob, ManualJobInput } from "../types/api";
+import type { JobSubmission, ManualJob, ManualJobInput } from "../types/api";
 
 const r = he.recruiter;
 const control =
   "w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500";
-const EMPTY: ManualJobInput = { title: "", description: "", requirements: "", tender_number: "", government_ministry: "", location: "" };
+const EMPTY: ManualJobInput = {
+  title: "", description: "", requirements: "", tender_number: "", government_ministry: "", location: "",
+  source_recruiter: "", source_published_on: "",
+};
+
+/** Today in the user's time zone, as YYYY-MM-DD (the latest allowed tender date). */
+function today(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 function Field({ label, optional, children }: { label: string; optional?: boolean; children: React.ReactNode }) {
   return (
@@ -28,7 +37,9 @@ function Field({ label, optional, children }: { label: string; optional?: boolea
   );
 }
 
-function PublishForm({ onPublished }: { onPublished: () => void }) {
+/** Recruiters publish at once; other users send the posting to the admin for approval
+ *  and must say where it came from. */
+function PublishForm({ direct, onPublished }: { direct: boolean; onPublished: () => void }) {
   const prices = useApi(api.billingPrices, "billing-prices");
   const [form, setForm] = useState<ManualJobInput>(EMPTY);
   const [busy, setBusy] = useState(false);
@@ -41,9 +52,14 @@ function PublishForm({ onPublished }: { onPublished: () => void }) {
     setBusy(true);
     setMessage(undefined);
     try {
-      const result = await api.publishJob(form);
+      if (direct) {
+        const result = await api.publishJob(form);
+        setMessage({ ok: true, text: r.published(result.points_awarded, result.balance) });
+      } else {
+        await api.submitJob(form);
+        setMessage({ ok: true, text: r.submitted });
+      }
       setForm(EMPTY);
-      setMessage({ ok: true, text: r.published(result.points_awarded, result.balance) });
       onPublished();
     } catch (err) {
       setMessage({ ok: false, text: (err as Error).message });
@@ -77,13 +93,27 @@ function PublishForm({ onPublished }: { onPublished: () => void }) {
         <Field label={r.requirements} optional>
           <textarea className={`${control} min-h-20`} value={form.requirements} onChange={set("requirements")} maxLength={20000} />
         </Field>
+        <fieldset className="space-y-2 rounded-md border border-slate-200 p-3">
+          <legend className="px-1 text-xs font-semibold text-slate-700">{r.source}</legend>
+          {!direct && <p className="text-xs text-slate-500">{r.sourceHint}</p>}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={r.sourceRecruiter} optional={direct}>
+              <input className={control} required={!direct} value={form.source_recruiter} onChange={set("source_recruiter")} maxLength={200} />
+            </Field>
+            <Field label={r.sourcePublishedOn} optional={direct}>
+              <input type="date" className={control} required={!direct} max={today()} value={form.source_published_on}
+                     onChange={set("source_published_on")} />
+            </Field>
+          </div>
+        </fieldset>
         <div className="flex flex-wrap items-center gap-3">
           <button disabled={busy} className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60">
-            {busy ? r.publishing : r.publish}
+            {direct ? (busy ? r.publishing : r.publish) : (busy ? r.sending : r.sendForApproval)}
           </button>
           {prices.data && (
             <span className="text-xs text-slate-500">
-              {r.earnHint(prices.data.points_per_manual_job, prices.data.max_awarded_posts_per_day)}
+              {direct ? r.earnHint(prices.data.points_per_manual_job, prices.data.max_awarded_posts_per_day)
+                : r.approvalHint(prices.data.points_per_manual_job)}
             </span>
           )}
         </div>
@@ -172,16 +202,53 @@ function PostingsCard({ all }: { all: boolean }) {
   );
 }
 
+const SUBMISSION_TONE = { pending: "amber", approved: "green", rejected: "red" } as const;
+
+function SubmissionsCard() {
+  const submissions = useApi(api.mySubmissions, "my-submissions");
+  return (
+    <Card title={r.mySubmissions} flush>
+      {submissions.error ? <div className="p-4"><ErrorState error={submissions.error} onRetry={submissions.reload} /></div>
+        : !submissions.data ? <LoadingState />
+        : !submissions.data.length ? <EmptyState title={r.noSubmissions} />
+        : (
+          <ul className="divide-y divide-slate-100">
+            {submissions.data.map((s: JobSubmission) => (
+              <li key={s.id} className="flex flex-wrap items-start justify-between gap-2 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-slate-900" dir="auto">{s.title}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {r.sentOn} {formatDate(s.created_at)}
+                    {s.tender_number && <> · {r.tenderNumber}: <span className="ltr">{s.tender_number}</span></>}
+                  </p>
+                  {s.review_note && <p className="mt-1 text-sm text-slate-700" dir="auto">{r.reviewNote}: {s.review_note}</p>}
+                </div>
+                <span className="flex items-center gap-2">
+                  <Badge tone={SUBMISSION_TONE[s.status]}>{r.submissionStatus[s.status]}</Badge>
+                  {s.job_id && (
+                    <Link to={`/jobs/${s.job_id}`} className="text-xs font-medium text-sky-700 hover:underline">{r.viewJob}</Link>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+    </Card>
+  );
+}
+
 export function RecruiterPage() {
   const user = useUser();
   const [version, setVersion] = useState(0);
+  const direct = user.role !== "user";
   return (
     <>
-      <PageHeader title={r.title} subtitle={r.subtitle}>
+      <PageHeader title={r.title} subtitle={direct ? r.subtitle : r.subtitleUser}>
         <Link to="/billing" className="text-sm font-medium text-sky-700 hover:underline">{he.nav.billing} ←</Link>
       </PageHeader>
       <div className="space-y-6">
-        <PublishForm onPublished={() => setVersion(version + 1)} />
+        <PublishForm direct={direct} onPublished={() => setVersion(version + 1)} />
+        {!direct && <SubmissionsCard key={`submissions-${version}`} />}
         <PostingsCard key={`mine-${version}`} all={false} />
         {user.is_admin && <PostingsCard key={`all-${version}`} all />}
       </div>

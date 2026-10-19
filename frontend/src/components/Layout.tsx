@@ -33,7 +33,7 @@ export function Layout() {
     ...NAV,
     ...(user.is_admin ? [{ to: "/runs", label: he.nav.runs, icon: History },
                          { to: "/sources", label: he.nav.sources, icon: Database }] : []),
-    ...(user.role !== "user" ? [{ to: "/recruiter", label: he.nav.recruiter, icon: Megaphone }] : []),
+    { to: "/recruiter", label: he.nav.recruiter, icon: Megaphone },
     { to: "/billing", label: he.nav.billing, icon: Coins },
     { to: "/contact", label: he.nav.contact, icon: Mail },
     ...(user.is_admin ? [{ to: "/admin", label: he.nav.admin, icon: ShieldCheck }] : []),
