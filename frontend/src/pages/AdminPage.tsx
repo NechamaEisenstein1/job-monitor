@@ -4,6 +4,7 @@ import { BarList, DailyBars } from "../components/Charts";
 import { Pagination } from "../components/Pagination";
 import { Card, PageHeader, td, th } from "../components/Layout";
 import { ErrorState, LoadingState } from "../components/States";
+import { SubmissionReviewCard } from "../components/SubmissionReview";
 import { Badge, StatusBadge } from "../components/StatusBadge";
 import { useApi } from "../hooks/useApi";
 import { useUser } from "../hooks/useAuth";
@@ -277,6 +278,7 @@ export function AdminPage() {
   return (
     <>
       <PageHeader title={a.title} subtitle={a.subtitle} />
+      <div className="mb-6"><SubmissionReviewCard /></div>
       {stats.error && <ErrorState error={stats.error} onRetry={stats.reload} />}
       {!s ? (!stats.error && <LoadingState rows={8} />) : (
         <div className="space-y-6">

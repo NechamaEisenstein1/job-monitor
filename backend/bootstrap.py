@@ -31,6 +31,7 @@ from backend.infrastructure.repositories.sql import (
     SqlJobEvaluationRepository, SqlJobRepository, SqlJobSourceRepository, SqlNotificationRepository,
     SqlUnitOfWork,
 )
+from backend.infrastructure.repositories.submissions import SqlSubmissionRepository
 from backend.infrastructure.repositories.users import (
     SqlGmailRepository,
     SqlAlertRepository, SqlAnalyticsRepository, SqlEmailTokenRepository, SqlOutreachRepository,
@@ -96,7 +97,7 @@ def manual_job_service(session: Session, cfg: MatchingConfig) -> ManualJobServic
     return ManualJobService(
         jobs=SqlJobRepository(session), evaluations=SqlJobEvaluationRepository(session),
         billing=SqlBillingRepository(session), evaluator=JobEvaluationService.from_config(cfg),
-        cfg=cfg.billing, clock=utcnow,
+        cfg=cfg.billing, clock=utcnow, submissions=SqlSubmissionRepository(session),
     )
 
 

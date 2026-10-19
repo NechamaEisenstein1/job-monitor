@@ -75,6 +75,9 @@ class JobRow(Base):
     tender_number: Mapped[str | None] = mapped_column(String(100), unique=True)
     government_ministry: Mapped[str | None] = mapped_column(String(200))
     featured_until: Mapped[datetime | None] = mapped_column(DateTime)
+    # migration 0013: where a user-submitted posting came from
+    source_recruiter: Mapped[str | None] = mapped_column(String(200))
+    source_published_on: Mapped[date | None] = mapped_column(Date)
 
 
 class JobSourceRow(Base):
@@ -414,4 +417,42 @@ class ForumSubmissionRow(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     kind: Mapped[str] = mapped_column(String(8))  # thread | post
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+# ------------------------------------------------------------------ job submissions & verifications (migration 0013)
+
+class JobSubmissionRow(Base):
+    """A posting by a user without the recruiter role. It becomes a jobs row only when an
+    admin approves it (job_id then points at it)."""
+    __tablename__ = "job_submissions"
+    __table_args__ = (
+        Index("ix_job_submissions_status_created", "status", "created_at"),
+        Index("ix_job_submissions_user_created", "submitted_by", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    submitted_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(String(500))
+    description: Mapped[str] = mapped_column(Text)
+    requirements: Mapped[str] = mapped_column(Text, default="")
+    tender_number: Mapped[str | None] = mapped_column(String(100))
+    government_ministry: Mapped[str | None] = mapped_column(String(200))
+    location: Mapped[str | None] = mapped_column(String(200))
+    source_recruiter: Mapped[str] = mapped_column(String(200))
+    source_published_on: Mapped[date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(16))  # pending | approved | rejected
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    review_note: Mapped[str | None] = mapped_column(Text)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+
+
+class JobVerificationRow(Base):
+    """One "the details are correct" vote per user per job."""
+    __tablename__ = "job_verifications"
+
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime)

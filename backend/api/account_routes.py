@@ -19,6 +19,7 @@ from backend.application.use_cases.accounts import AccountError, RecruiterInput
 from backend.bootstrap import account_service, outreach_service, recruiter_service, utcnow, verification_service
 from backend.domain.enums import ExperienceLevel
 from backend.domain.models import User
+from backend.domain.services.reliability import reliability_level
 from backend.domain.services.user_matching import recruiters_at
 from backend.infrastructure.repositories.applications import SqlApplicationRepository
 from backend.infrastructure.repositories.contact import SqlContactRepository
@@ -26,6 +27,7 @@ from backend.infrastructure.repositories.read_models import SqlReadRepository
 from backend.infrastructure.repositories.sql import SqlJobRepository
 from backend.infrastructure.oauth.google import OAuthError, PkcePair
 from backend.infrastructure.repositories.users import DuplicateError, SqlAnalyticsRepository, SqlOutreachRepository
+from backend.infrastructure.repositories.verifications import SqlVerificationRepository
 from backend.observability import log_event
 
 router = APIRouter(prefix="/api", dependencies=[Depends(csrf_protect)])
@@ -243,6 +245,43 @@ def remove_application(application_id: Annotated[int, Path(ge=1)], user: Current
     """Removes an entry whose job already left the board (it has no job id any more)."""
     if not SqlApplicationRepository(session).remove(user.id, application_id):
         raise HTTPException(status_code=404, detail="not_found")
+
+
+# ------------------------------------------------------------------ "the details are correct" votes
+
+class VerificationDto(BaseModel):
+    verification_count: int
+    reliability: str
+
+
+@router.get("/me/verifications", response_model=list[int])
+def my_verifications(user: CurrentUser, session: DbSession) -> list[int]:
+    """Ids of the jobs the user confirmed."""
+    return SqlVerificationRepository(session).job_ids(user.id)
+
+
+@router.put("/jobs/{job_id}/verification", response_model=VerificationDto)
+def verify_job(job_id: Annotated[int, Path(ge=1)], user: CurrentUser, session: DbSession) -> VerificationDto:
+    repo = SqlVerificationRepository(session)
+    exists, posted_by = repo.job_owner(job_id)
+    if not exists:
+        raise HTTPException(status_code=404, detail="not_found")
+    if posted_by == user.id:  # vouching for your own posting proves nothing
+        raise HTTPException(status_code=403, detail="own_posting")
+    repo.add(user.id, job_id, utcnow())
+    return _verification(repo, job_id)
+
+
+@router.delete("/jobs/{job_id}/verification", response_model=VerificationDto)
+def unverify_job(job_id: Annotated[int, Path(ge=1)], user: CurrentUser, session: DbSession) -> VerificationDto:
+    repo = SqlVerificationRepository(session)
+    repo.remove(user.id, job_id)
+    return _verification(repo, job_id)
+
+
+def _verification(repo: SqlVerificationRepository, job_id: int) -> VerificationDto:
+    count = repo.count(job_id)
+    return VerificationDto(verification_count=count, reliability=reliability_level(count))
 
 
 # ------------------------------------------------------------------ contact the site admin

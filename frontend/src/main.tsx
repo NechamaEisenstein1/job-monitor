@@ -86,7 +86,8 @@ function App() {
         <Route path="terms" element={<TermsPage />} />
         {/* The server enforces admin-only too; this just hides the page. */}
         <Route path="admin" element={user.is_admin ? <AdminPage /> : <Navigate to="/" replace />} />
-        <Route path="recruiter" element={user.role !== "user" ? <RecruiterPage /> : <Navigate to="/" replace />} />
+        {/* Everyone may post: recruiters publish at once, other users send for the admin's approval. */}
+        <Route path="recruiter" element={<RecruiterPage />} />
         <Route path="billing" element={<BillingPage />} />
         <Route path="contact" element={<ContactPage />} />
         <Route path="forum" element={<ForumHomePage />} />

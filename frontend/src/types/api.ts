@@ -10,7 +10,9 @@ export type ScrapeStatus =
   | "zero_results"
   | "config_error";
 export type ChangeType = "new" | "content_updated" | "new_source" | "source_url_updated";
-export type JobSort = "relevance" | "newest" | "updated" | "score";
+export type JobSort = "relevance" | "newest" | "updated" | "score" | "reliability";
+/** From users' "the details are correct" votes: medium = 1+, high = 3+. */
+export type Reliability = "none" | "medium" | "high";
 export type RoleType =
   | "software" | "data" | "devops" | "cyber" | "qa" | "embedded" | "hardware" | "product" | "it" | "other";
 /** The level a user looks for: A = junior (up to 2 years), B = 2+ to 4, C = above 4. */
@@ -70,6 +72,9 @@ export interface JobListItem {
   required_years: number | null;
   /** "a" / "b" / "c"; null when the posting states no requirement. */
   level: string | null;
+  verification_count: number;
+  reliability: Reliability;
+  posted_by: number | null;
 }
 
 export interface JobList {
@@ -98,6 +103,11 @@ export interface JobDetail {
   is_manual: boolean;
   tender_number: string | null;
   government_ministry: string | null;
+  source_recruiter: string | null;
+  source_published_on: string | null;
+  verification_count: number;
+  reliability: Reliability;
+  posted_by: number | null;
 }
 
 export interface JobSource {
@@ -188,6 +198,8 @@ export interface JobFilterValues {
   government: "" | "true";
   /** Comma-separated levels, e.g. "a,b"; "" = all levels. */
   level: string;
+  /** Minimum reliability; "" = any. */
+  reliability: "" | "medium" | "high";
   sort: JobSort;
   page: number;
 }
@@ -347,6 +359,8 @@ export interface ManualJob {
   created_at: string;
   featured_until: string | null;
   posted_by: number | null;
+  source_recruiter: string | null;
+  source_published_on: string | null;
 }
 
 export interface ManualJobInput {
@@ -356,6 +370,42 @@ export interface ManualJobInput {
   tender_number: string;
   government_ministry: string;
   location: string;
+  /** Required when the poster is not a recruiter. */
+  source_recruiter: string;
+  /** "YYYY-MM-DD"; "" = not given. */
+  source_published_on: string;
+}
+
+export type SubmissionStatus = "pending" | "approved" | "rejected";
+
+/** A posting sent by a user without the recruiter role, waiting for the admin. */
+export interface JobSubmission {
+  id: number;
+  title: string;
+  description: string;
+  requirements: string;
+  tender_number: string | null;
+  government_ministry: string | null;
+  location: string | null;
+  source_recruiter: string;
+  source_published_on: string;
+  status: SubmissionStatus;
+  created_at: string;
+  reviewed_at: string | null;
+  review_note: string | null;
+  job_id: number | null;
+  submitter_name: string | null;
+  submitter_email: string | null;
+}
+
+export interface ReviewResult {
+  submission: JobSubmission;
+  points_awarded: number;
+}
+
+export interface VerificationResult {
+  verification_count: number;
+  reliability: Reliability;
 }
 
 export interface PublishResult {

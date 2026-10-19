@@ -9,7 +9,7 @@ from datetime import date, datetime
 
 from backend.domain.enums import (
     ExperienceLevel, JobChange, JobSourceStatus, JobStatus, PointAction, RunStatus, ScrapeStatus,
-    SubscriptionStatus, UserRole,
+    SubmissionStatus, SubscriptionStatus, UserRole,
 )
 
 
@@ -137,6 +137,9 @@ class Job:
     government_ministry: str | None = None
     # Paid placement (redeemed with points): listed first until this moment.
     featured_until: datetime | None = None
+    # A user-submitted posting: the recruiter who gave the details and the tender's publication date.
+    source_recruiter: str | None = None
+    source_published_on: date | None = None
 
     @classmethod
     def new(cls, job: NormalizedJob, now: datetime) -> "Job":
@@ -384,6 +387,28 @@ class Subscription:
     starts_at: datetime
     expires_at: datetime
     created_at: datetime
+
+
+@dataclass
+class JobSubmission:
+    """A posting by a user without the recruiter role, waiting for an admin. It is not a Job
+    (and not on the board) until approved; job_id is then the job it became."""
+    id: int | None
+    submitted_by: int
+    title: str
+    description: str
+    requirements: str
+    tender_number: str | None
+    government_ministry: str | None
+    location: str | None
+    source_recruiter: str
+    source_published_on: date
+    status: SubmissionStatus
+    created_at: datetime
+    reviewed_by: int | None = None
+    reviewed_at: datetime | None = None
+    review_note: str | None = None
+    job_id: int | None = None
 
 
 @dataclass
