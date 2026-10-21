@@ -37,12 +37,14 @@ def _latest_evaluation_id():  # noqa: ANN202
 
 
 def _verification_count():  # noqa: ANN202
-    return (
+    """Votes count for manual postings only; scraped agency jobs are not open to verification."""
+    count = (
         select(func.count()).select_from(JobVerificationRow)
         .where(JobVerificationRow.job_id == JobRow.id)
         .correlate(JobRow)
         .scalar_subquery()
     )
+    return case((JobRow.is_manual.is_(True), count), else_=0)
 
 
 def run_to_dto(row: ScrapeRunRow) -> ScrapeRunDto:
@@ -210,8 +212,8 @@ class SqlReadRepository:
             select(JobEvaluationRow).where(JobEvaluationRow.job_id == job_id)
             .order_by(JobEvaluationRow.created_at.desc(), JobEvaluationRow.id.desc()).limit(1)
         ).first()
-        votes = self._s.scalar(select(func.count()).select_from(JobVerificationRow)
-                               .where(JobVerificationRow.job_id == job_id)) or 0
+        votes = (self._s.scalar(select(func.count()).select_from(JobVerificationRow)
+                                .where(JobVerificationRow.job_id == job_id)) or 0) if job.is_manual else 0
         return JobDetailDto(
             **{c: getattr(job, c) for c in JobDetailDto.model_fields
                if c not in ("evaluation", "signals", "verification_count", "reliability")},

@@ -119,6 +119,7 @@ export const he = {
     already_reviewed: "המשרה הזו כבר טופלה",
     invalid_review_note: "הערת הדחייה ארוכה מדי",
     own_posting: "אי אפשר לאמת משרה שפרסמת בעצמך",
+    not_verifiable: "אפשר לאמת רק משרות שהועלו ידנית באתר",
   } as Record<string, string>,
 
   myArea: {

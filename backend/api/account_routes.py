@@ -263,9 +263,11 @@ def my_verifications(user: CurrentUser, session: DbSession) -> list[int]:
 @router.put("/jobs/{job_id}/verification", response_model=VerificationDto)
 def verify_job(job_id: Annotated[int, Path(ge=1)], user: CurrentUser, session: DbSession) -> VerificationDto:
     repo = SqlVerificationRepository(session)
-    exists, posted_by = repo.job_owner(job_id)
+    exists, manual, posted_by = repo.job_owner(job_id)
     if not exists:
         raise HTTPException(status_code=404, detail="not_found")
+    if not manual:  # only postings uploaded on the site; scraped agency jobs need no vouching
+        raise HTTPException(status_code=400, detail="not_verifiable")
     if posted_by == user.id:  # vouching for your own posting proves nothing
         raise HTTPException(status_code=403, detail="own_posting")
     repo.add(user.id, job_id, utcnow())

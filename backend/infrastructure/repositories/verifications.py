@@ -14,10 +14,10 @@ class SqlVerificationRepository:
     def __init__(self, session: Session):
         self._s = session
 
-    def job_owner(self, job_id: int) -> tuple[bool, int | None]:
-        """(job exists, who posted it)."""
+    def job_owner(self, job_id: int) -> tuple[bool, bool, int | None]:
+        """(job exists, posted manually on the site, who posted it)."""
         row = self._s.get(JobRow, job_id)
-        return (row is not None, row.posted_by if row else None)
+        return (row is not None, bool(row and row.is_manual), row.posted_by if row else None)
 
     def add(self, user_id: int, job_id: int, now: datetime) -> None:
         """Voting twice is a no-op."""

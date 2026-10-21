@@ -20,10 +20,11 @@ export function ReliabilityBadge({ reliability }: { reliability: Reliability }) 
 
 /** "The details are correct" toggle for one job (like a "like"), with the vote count. */
 export function VerifyButton({ job, verifications }: {
-  job: { id: number; verification_count: number; reliability: Reliability; posted_by: number | null };
+  job: { id: number; verification_count: number; reliability: Reliability; posted_by: number | null; is_manual: boolean };
   verifications: Verifications;
 }) {
   const user = useUser();
+  if (!job.is_manual) return null; // only postings uploaded on the site can be verified
   const checked = verifications.verifiedIds.has(job.id);
   const count = verifications.latest[job.id]?.verification_count ?? job.verification_count;
   // Vouching for your own posting proves nothing (the server refuses it too): show the count only.
