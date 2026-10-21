@@ -139,3 +139,12 @@ def test_poster_cannot_vouch_for_own_posting_and_votes_go_with_the_job(world):
     senior.put(f"/api/jobs/{job_id}/verification")
     assert recruiter.delete(f"/api/recruiter/jobs/{job_id}").status_code == 200
     assert senior.get("/api/me/verifications").json() == []
+
+
+def test_only_manual_postings_can_be_verified(world):
+    senior = world.client("senior@example.com")
+    scraped = next(i for i in senior.get("/api/jobs", params={"page_size": 200}).json()["items"] if not i["is_manual"])
+    refused = senior.put(f"/api/jobs/{scraped['id']}/verification")
+    assert refused.status_code == 400 and refused.json()["detail"] == "not_verifiable"
+    assert senior.get("/api/me/verifications").json() == []
+    assert senior.get(f"/api/jobs/{scraped['id']}").json()["reliability"] == "none"
