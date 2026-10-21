@@ -4,6 +4,7 @@ import { useApi } from "../hooks/useApi";
 import { useAuth } from "../hooks/useAuth";
 import { errorLabel, he } from "../i18n/he";
 import { api } from "../services/api";
+import { isEmbeddedBrowser } from "../services/browser";
 import type { ExperienceLevel } from "../types/api";
 
 const control =
@@ -49,7 +50,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | undefined>(urlError ? errorLabel(urlError) : undefined);
   const [busy, setBusy] = useState(false);
 
-  const signupEnabled = config.data?.signup_enabled ?? false;
+  // Until the config arrives (or if it fails to load) assume the usual production setup, so a slow
+  // or blocked config request never hides the Google button or the registration tab.
+  const signupEnabled = config.data?.signup_enabled ?? true;
+  const googleEnabled = config.data?.google_enabled ?? true;
   const registering = tab === "register" && signupEnabled;
 
   async function submit(e: React.FormEvent) {
@@ -90,9 +94,10 @@ export function LoginPage() {
           </div>
         )}
 
-        {config.data?.google_enabled && (
+        {googleEnabled && (
           <>
             <GoogleButton />
+            {isEmbeddedBrowser() && <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-900">{a.embeddedBrowser}</p>}
             <div className="flex items-center gap-3 text-xs text-slate-400">
               <span className="h-px flex-1 bg-slate-200" />{a.or}<span className="h-px flex-1 bg-slate-200" />
             </div>
