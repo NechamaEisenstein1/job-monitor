@@ -3,11 +3,14 @@ import { Link } from "react-router-dom";
 import { useApi } from "../../hooks/useApi";
 import { he } from "../../i18n/he";
 import { api } from "../../services/api";
+import { isEmbeddedBrowser } from "../../services/browser";
 
 const s = he.site;
 
 export function LandingPage() {
   const config = useApi(api.authConfig, "auth-config");
+  // Shown unless the server says Google sign-in is off, so a slow or failed config request doesn't hide it.
+  const googleEnabled = config.data?.google_enabled ?? true;
 
   return (
     <>
@@ -17,14 +20,14 @@ export function LandingPage() {
           <h1 className="mt-2 max-w-3xl text-3xl font-bold leading-tight tracking-tight sm:text-4xl">{s.headline}</h1>
           <p className="mt-4 max-w-2xl text-lg text-slate-600">{s.lead}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            {config.data?.google_enabled && (
+            {googleEnabled && (
               <a href="/api/auth/google/start"
                  className="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-700">
                 {he.auth.google}
               </a>
             )}
             <Link to="/login?mode=register"
-                  className={`rounded-md px-5 py-2.5 text-sm font-medium ${config.data?.google_enabled
+                  className={`rounded-md px-5 py-2.5 text-sm font-medium ${googleEnabled
                     ? "text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50"
                     : "bg-slate-900 text-white hover:bg-slate-700"}`}>
               {s.ctaRegister}
@@ -33,6 +36,9 @@ export function LandingPage() {
               {s.ctaLogin}
             </Link>
           </div>
+          {googleEnabled && isEmbeddedBrowser() && (
+            <p className="mt-4 max-w-2xl rounded-md bg-amber-50 p-3 text-sm text-amber-900">{he.auth.embeddedBrowser}</p>
+          )}
         </div>
       </section>
 
