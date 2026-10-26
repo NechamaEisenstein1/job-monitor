@@ -2,6 +2,81 @@
 
 @theme {
   --font-sans: "Segoe UI", "Arial Hebrew", Arial, system-ui, sans-serif;
+
+  /* Motion: short, ease-out, and only on opacity/transform so it stays smooth on phones. */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-enter: enter 0.4s var(--ease-out-soft) both;
+  --animate-fade: fade 0.3s ease-out both;
+  --animate-pop: pop 0.3s var(--ease-out-soft);
+  --animate-grow-x: grow-x 0.7s var(--ease-out-soft) both;
+  --animate-grow-y: grow-y 0.7s var(--ease-out-soft) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+
+  @keyframes enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
+  @keyframes grow-x {
+    from { transform: scaleX(0); }
+  }
+  @keyframes grow-y {
+    from { transform: scaleY(0); }
+  }
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Every control eases its color changes instead of snapping, and buttons give a small
+     press feedback. */
+  a, button, input, select, textarea, summary {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform, translate, scale;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+
+  /* Keyboard focus is clearly visible; mouse clicks don't leave a ring behind. */
+  :focus-visible {
+    outline: 2px solid var(--color-sky-500);
+    outline-offset: 2px;
+  }
+}
+
+/* Skeleton rows: a light sweep instead of a plain blink. */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-slate-100) 25%, var(--color-slate-200) 50%, var(--color-slate-100) 75%);
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* Scroll-in sections (see <Reveal>): hidden only once JS marks them, so content never stays
+   invisible if scripts or the observer are missing. */
+.reveal-pending {
+  opacity: 0;
+  transform: translateY(16px);
+}
+.reveal-shown {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.6s var(--ease-out-soft), transform 0.6s var(--ease-out-soft);
 }
 
 /* The UI is right-to-left. Data values keep their own character order (dir="auto"),
@@ -14,4 +89,24 @@
 .ltr {
   direction: ltr;
   unicode-bidi: isolate;
+}
+
+/* People who asked their system for less motion get none of the above. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  button:not(:disabled):active {
+    transform: none;
+  }
+  .reveal-pending {
+    opacity: 1;
+    transform: none;
+  }
 }

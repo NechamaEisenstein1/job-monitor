@@ -1,4 +1,4 @@
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { he } from "../../i18n/he";
 
@@ -19,25 +19,28 @@ export function SiteFooter() {
 
 /** Shell of the pages anyone can open (and search engines can index). */
 export function PublicLayout() {
+  const location = useLocation();
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Link to="/" className="flex items-center gap-2 text-sm font-semibold">
-            <img src="/favicon.svg" alt="" className="size-6" />
+            <img src="/favicon.svg" alt="" className="size-6 transition-transform duration-300 hover:rotate-12" />
             {he.appName}
           </Link>
           <nav className="flex items-center gap-2 text-sm">
             <Link to="/tenders" className="rounded-md px-3 py-1.5 text-slate-700 hover:bg-slate-100">{he.site.tendersNav}</Link>
             <Link to="/login" className="rounded-md px-3 py-1.5 text-slate-700 hover:bg-slate-100">{he.auth.loginTab}</Link>
-            <Link to="/login?mode=register" className="rounded-md bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-700">
+            <Link to="/login?mode=register" className="rounded-md bg-slate-900 px-3 py-1.5 font-medium text-white shadow-sm hover:-translate-y-px hover:bg-slate-700 hover:shadow">
               {he.auth.registerTab}
             </Link>
           </nav>
         </div>
       </header>
       <main className="flex-1">
-        <Outlet />
+        <div key={location.pathname} className="animate-fade">
+          <Outlet />
+        </div>
       </main>
       <SiteFooter />
     </div>

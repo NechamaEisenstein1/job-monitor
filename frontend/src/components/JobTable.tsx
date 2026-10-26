@@ -9,6 +9,8 @@ import { he } from "../i18n/he";
 import { formatDate, formatRelative } from "../services/format";
 import { MapPin } from "lucide-react";
 
+import { stagger } from "./Motion";
+
 import { Icon, LevelBadge, ManualBadges, RoleBadge, SignalBadges, StatusBadge, TenderBadge } from "./StatusBadge";
 import { td, th } from "./Layout";
 
@@ -32,8 +34,9 @@ export function JobTable({ jobs, applications, verifications }: {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {jobs.map((job) => (
-            <tr key={job.id} className={job.is_government_tender ? "bg-amber-50/40 hover:bg-amber-50" : "hover:bg-slate-50"}>
+          {jobs.map((job, i) => (
+            <tr key={job.id} style={stagger(i, 25)}
+                className={`animate-enter transition-colors ${job.is_government_tender ? "bg-amber-50/40 hover:bg-amber-50" : "hover:bg-slate-50"}`}>
               <td className={`${td} max-w-xs`}>
                 <Link to={`/jobs/${job.id}`} target="_blank" rel="noopener"
                       className="font-medium text-slate-900 hover:text-sky-700 hover:underline" dir="auto">

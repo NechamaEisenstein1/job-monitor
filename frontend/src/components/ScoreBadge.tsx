@@ -8,7 +8,7 @@ export function ScoreBadge({ score, eligible }: { score: number | null | undefin
     <span className="inline-flex items-center gap-2 tabular-nums" title={`${he.job.score} ${score.toFixed(2)}`}>
       {/* The bar fills from the start (right) edge in RTL. */}
       <span className="h-1.5 w-12 overflow-hidden rounded-full bg-slate-200" aria-hidden>
-        <span className={`block h-full ${tone}`} style={{ width: `${Math.round(score * 100)}%` }} />
+        <span className={`block h-full origin-right animate-grow-x ${tone}`} style={{ width: `${Math.round(score * 100)}%` }} />
       </span>
       <span className="ltr text-xs font-medium text-slate-700">{score.toFixed(2)}</span>
     </span>

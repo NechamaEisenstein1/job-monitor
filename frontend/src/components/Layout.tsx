@@ -41,7 +41,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-8 gap-y-2 px-4 py-3 sm:px-6">
           <span className="text-sm font-semibold tracking-tight">{he.appName}</span>
           {/* Below lg the nav gets its own horizontally scrolling row so the pinned header stays short on phones */}
@@ -52,7 +52,7 @@ export function Layout() {
                 to={item.to}
                 className={({ isActive }) =>
                   `inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ${
-                    isActive ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    isActive ? "bg-slate-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`
                 }
               >
@@ -71,7 +71,10 @@ export function Layout() {
       </header>
       <VerifyBanner />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-        <Outlet />
+        {/* Keyed by path so each page fades in when you navigate. */}
+        <div key={location.pathname} className="animate-enter">
+          <Outlet />
+        </div>
       </main>
       <SiteFooter />
     </div>
@@ -82,7 +85,7 @@ export function Card({ title, actions, children, flush }: {
   title?: string; actions?: React.ReactNode; children: React.ReactNode; flush?: boolean;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+    <section className="rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
       {title && (
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
           <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
@@ -108,8 +111,8 @@ export function PageHeader({ title, subtitle, children }: { title: string; subti
 
 export function BackLink({ to, label }: { to: string; label: string }) {
   return (
-    <NavLink to={to} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
-      <Icon icon={ArrowRight} className="size-4" />{label}
+    <NavLink to={to} className="group inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+      <Icon icon={ArrowRight} className="size-4 transition-transform group-hover:translate-x-0.5" />{label}
     </NavLink>
   );
 }

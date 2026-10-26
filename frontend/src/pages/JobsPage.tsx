@@ -96,12 +96,12 @@ export function JobsPage() {
           ) : jobs.loading && !jobs.data ? (
             <LoadingState rows={8} />
           ) : jobs.data?.items.length ? (
-            <div className={jobs.loading ? "opacity-60" : ""}>
+            <div className={`transition-opacity duration-200 ${jobs.loading ? "opacity-60" : ""}`}>
               {applications.error && <p role="alert" className="px-4 pt-3 text-sm text-rose-700">{applications.error}</p>}
               {verifications.error && <p role="alert" className="px-4 pt-3 text-sm text-rose-700">{verifications.error}</p>}
               <JobTable jobs={jobs.data.items} applications={applications} verifications={verifications} />
               <Pagination page={filters.page} pageSize={PAGE_SIZE} total={jobs.data.total}
-                          onPage={(page) => setFilters({ page })} />
+                          onPage={(page) => { setFilters({ page }); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
             </div>
           ) : (
             <EmptyState title={he.jobs.empty} hint={he.jobs.emptyHint} />

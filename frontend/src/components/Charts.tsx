@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { he } from "../i18n/he";
 import type { DailyCount, NamedCount } from "../types/api";
+import { stagger } from "./Motion";
 
 // Single-series charts: one hue (no categorical palette needed), text stays in ink colors.
 const BAR = "bg-sky-600";
@@ -17,7 +18,9 @@ export function BarList({ items, label = (n: string) => n }: { items: NamedCount
             title={`${label(item.name)}: ${item.count.toLocaleString("he-IL")}`}>
           <span className="truncate text-slate-700" dir="auto">{label(item.name)}</span>
           <span className="h-2.5 overflow-hidden rounded-e-[4px] bg-slate-100" aria-hidden>
-            <span className={`block h-full rounded-e-[4px] ${BAR}`} style={{ width: `${(item.count / max) * 100}%` }} />
+            {/* Grows from the start (right) edge, like the bar itself. */}
+            <span className={`block h-full origin-right animate-grow-x rounded-e-[4px] ${BAR}`}
+                  style={{ width: `${(item.count / max) * 100}%`, ...stagger(items.indexOf(item), 50) }} />
           </span>
           <span className="text-end tabular-nums text-slate-600">{item.count.toLocaleString("he-IL")}</span>
         </li>
@@ -46,14 +49,14 @@ export function DailyBars({ days }: { days: DailyCount[] }) {
             <div key={d.day} className="relative flex h-full flex-1 items-end justify-center"
                  onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} tabIndex={0}
                  aria-label={`${longDay.format(new Date(d.day))}: ${d.page_views}`}>
-              <div className={`w-full max-w-7 rounded-t-[4px] ${BAR} ${hover !== null && hover !== i ? "opacity-50" : ""}`}
-                   style={{ height: `${height}%` }} />
+              <div className={`w-full max-w-7 origin-bottom animate-grow-y rounded-t-[4px] transition-opacity ${BAR} ${hover !== null && hover !== i ? "opacity-50" : ""}`}
+                   style={{ height: `${height}%`, ...stagger(i, 20) }} />
               {(i === peak && d.page_views > 0) && hover === null && (
                 <span className="absolute -top-0 text-xs font-medium tabular-nums text-slate-700">{d.page_views}</span>
               )}
               {hover === i && (
                 <div role="tooltip" dir="rtl"
-                     className="pointer-events-none absolute -top-2 z-10 -translate-y-full whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs text-white shadow">
+                     className="pointer-events-none absolute -top-2 z-10 -translate-y-full animate-fade whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs text-white shadow">
                   <div className="font-medium">{longDay.format(new Date(d.day))}</div>
                   <div>{he.admin.views}: {d.page_views} · {he.admin.logins}: {d.logins}
                     {d.failed_logins > 0 && ` · ${he.admin.failed}: ${d.failed_logins}`}</div>
