@@ -1,33 +1,26 @@
 """Search-engine plumbing: per-page <head>, robots.txt, sitemap.xml.
 
-Only the public pages (home, tenders, login, privacy, terms) are indexable. Everything behind
+Only the public pages (home, tenders, articles, login, privacy, terms) are indexable. Everything behind
 login - and the whole API - is marked noindex and disallowed, so no personal or
 member-only content can end up in search results."""
 from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
 from datetime import date
 from html import escape
 from pathlib import Path
+from typing import Protocol
 
+from backend.api.article_pages import ARTICLES_PATH, article_page, article_structured_data, articles_index_page
+from backend.api.public_page import SITE_NAME, PublicPage, absolute_url
 from backend.config.settings import Settings
+from backend.domain.articles import Article
 
-SITE_NAME = "מוניטור משרות"
 
-
-@dataclass(frozen=True)
-class PublicPage:
-    path: str
-    title: str
-    description: str
-    priority: str
-    # Static text placed inside #root, so crawlers that do not run JavaScript still read the page's
-    # heading and main paragraph. React replaces it on mount; it repeats what the page itself shows.
-    heading: str = ""
-    intro: str = ""
-    faq: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+class ArticleCatalog(Protocol):
+    def published(self) -> list[Article]: ...
+    def published_by_slug(self, slug: str) -> Article | None: ...
 
 
 # Questions shown on /tenders (frontend he.ts: tenders.faq) and repeated as FAQPage structured data.
@@ -48,6 +41,7 @@ TENDERS_FAQ: tuple[tuple[str, str], ...] = (
 
 TENDERS_TITLE = "מכרזים ממשלתיים בתכנות ובהנדסת תוכנה"
 
+# Pages with fixed content. The article pages come from the database (find_public_page).
 PUBLIC_PAGES: dict[str, PublicPage] = {p.path: p for p in [
     PublicPage("/", "מכרזים ממשלתיים בתכנות ובהנדסת תוכנה ומשרות הייטק – מוניטור משרות",
                "כל המכרזים הממשלתיים בתחום התכנות והנדסת התוכנה, ולצידם משרות הייטק מ-25 חברות השמה, "
@@ -74,7 +68,7 @@ PUBLIC_PAGES: dict[str, PublicPage] = {p.path: p for p in [
 # Pages that exist in the app but require login: served, never indexed.
 PRIVATE_PATTERNS = [re.compile(p) for p in (
     r"^/me/?$", r"^/jobs/?$", r"^/jobs/\d+/?$", r"^/runs/?$", r"^/runs/[0-9a-fA-F-]{36}/?$",
-    r"^/sources/?$", r"^/admin/?$", r"^/recruiter/?$", r"^/billing/?$",
+    r"^/sources/?$", r"^/admin/?$", r"^/admin/articles(/new|/\d+)?/?$", r"^/recruiter/?$", r"^/billing/?$",
     r"^/forum/?$", r"^/forum/new/?$", r"^/forum/c/[a-z]+/?$", r"^/forum/t/\d+/?$",
 )]
 DISALLOWED_PREFIXES = ["/api/", "/me", "/jobs", "/runs", "/sources", "/admin", "/recruiter", "/billing", "/forum"]
@@ -82,30 +76,43 @@ DISALLOWED_PREFIXES = ["/api/", "/me", "/jobs", "/runs", "/sources", "/admin", "
 _SEO_BLOCK = re.compile(r"<!--SEO-->.*?<!--/SEO-->", re.S)
 
 
-def classify(path: str) -> str:
-    """'public' | 'private' | 'unknown' (-> 404)."""
-    normalized = path if path == "/" else "/" + path.strip("/")
-    if normalized in PUBLIC_PAGES:
+def _normalize(path: str) -> str:
+    return path if path == "/" else "/" + path.strip("/")
+
+
+def find_public_page(path: str, articles: ArticleCatalog) -> PublicPage | None:
+    """Only article paths touch the database."""
+    normalized = _normalize(path)
+    if normalized == ARTICLES_PATH:
+        return articles_index_page(articles.published())
+    if normalized.startswith(ARTICLES_PATH + "/"):
+        article = articles.published_by_slug(normalized.removeprefix(ARTICLES_PATH + "/"))
+        return article_page(article) if article else None
+    return PUBLIC_PAGES.get(normalized)
+
+
+def classify(path: str, page: PublicPage | None) -> str:
+    """'public' | 'private' | 'unknown' (-> 404). `page` is find_public_page's answer for `path`."""
+    if page is not None:
         return "public"
-    if any(p.match(normalized) for p in PRIVATE_PATTERNS):
+    if any(p.match(_normalize(path)) for p in PRIVATE_PATTERNS):
         return "private"
     return "unknown"
 
 
-def head_tags(path: str, settings: Settings) -> str:
+def head_tags(page: PublicPage | None, settings: Settings) -> str:
     base = settings.public_base_url
-    page = PUBLIC_PAGES.get(path if path == "/" else "/" + path.strip("/"))
     if page is None:
         # Private or unknown: a plain title, and an explicit noindex.
         return f'<title>{escape(SITE_NAME)}</title>\n    <meta name="robots" content="noindex, nofollow" />'
-    url = base + (page.path if page.path != "/" else "/")
+    url = absolute_url(base, page.path)
     tags = [
         f"<title>{escape(page.title)}</title>",
         f'<meta name="description" content="{escape(page.description)}" />',
         f'<link rel="canonical" href="{escape(url)}" />',
         '<meta name="robots" content="index, follow" />',
         f'<meta property="og:site_name" content="{escape(SITE_NAME)}" />',
-        '<meta property="og:type" content="website" />',
+        f'<meta property="og:type" content="{"article" if page.article else "website"}" />',
         '<meta property="og:locale" content="he_IL" />',
         f'<meta property="og:title" content="{escape(page.title)}" />',
         f'<meta property="og:description" content="{escape(page.description)}" />',
@@ -124,10 +131,12 @@ def _json_ld(page: PublicPage, base: str) -> str:
             "inLanguage": "he-IL",
             "description": "מידע על מכרזים ממשלתיים בתחום התכנות והנדסת התוכנה ועל משרות הייטק בישראל"}
     graph: list[dict] = [site, {
-        "@type": "WebPage", "@id": f"{base}{page.path}#webpage", "url": base + page.path, "name": page.title,
+        "@type": "WebPage", "@id": f"{absolute_url(base, page.path)}#webpage", "url": absolute_url(base, page.path), "name": page.title,
         "description": page.description, "inLanguage": "he-IL", "isPartOf": {"@id": f"{base}/#website"},
         "about": {"@type": "Thing", "name": TENDERS_TITLE},
     }]
+    if page.article:
+        graph.append(article_structured_data(page.article, base))
     if page.faq:
         graph.append({"@type": "FAQPage", "mainEntity": [
             {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in page.faq
@@ -136,12 +145,11 @@ def _json_ld(page: PublicPage, base: str) -> str:
     return text.replace("</", "<\\/")  # never let the data close the <script> element
 
 
-def body_fallback(path: str) -> str:
-    page = PUBLIC_PAGES.get(path if path == "/" else "/" + path.strip("/"))
+def body_fallback(page: PublicPage | None) -> str:
     if page is None or not page.heading:
         return ""
     faq = "".join(f"<h2>{escape(q)}</h2><p>{escape(a)}</p>" for q, a in page.faq)
-    return f"<h1>{escape(page.heading)}</h1><p>{escape(page.intro)}</p>{faq}"
+    return f"<h1>{escape(page.heading)}</h1><p>{escape(page.intro)}</p>{faq}{page.body_html}"
 
 
 class PageRenderer:
@@ -151,9 +159,9 @@ class PageRenderer:
         self._template = index_html.read_text(encoding="utf-8")
         self._settings = settings
 
-    def render(self, path: str) -> str:
-        html = _SEO_BLOCK.sub(lambda _: head_tags(path, self._settings), self._template, count=1)
-        return html.replace('<div id="root"></div>', f'<div id="root">{body_fallback(path)}</div>', 1)
+    def render(self, page: PublicPage | None) -> str:
+        html = _SEO_BLOCK.sub(lambda _: head_tags(page, self._settings), self._template, count=1)
+        return html.replace('<div id="root"></div>', f'<div id="root">{body_fallback(page)}</div>', 1)
 
 
 def robots_txt(settings: Settings) -> str:
@@ -163,11 +171,13 @@ def robots_txt(settings: Settings) -> str:
     return "\n".join(lines)
 
 
-def sitemap_xml(settings: Settings, last_modified: date) -> str:
+def sitemap_xml(settings: Settings, site_updated: date, articles: list[Article]) -> str:
+    pages = [*PUBLIC_PAGES.values(), articles_index_page(articles), *map(article_page, articles)]
     urls = "".join(
-        f"  <url><loc>{escape(settings.public_base_url + page.path)}</loc>"
-        f"<lastmod>{last_modified.isoformat()}</lastmod><priority>{page.priority}</priority></url>\n"
-        for page in PUBLIC_PAGES.values()
+        f"  <url><loc>{escape(absolute_url(settings.public_base_url, page.path))}</loc>"
+        f"<lastmod>{(page.last_modified or site_updated).isoformat()}</lastmod>"
+        f"<priority>{page.priority}</priority></url>\n"
+        for page in pages
     )
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls + "</urlset>\n")

@@ -456,3 +456,23 @@ class JobVerificationRow(Base):
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+# ------------------------------------------------------------------ articles (migration 0014)
+
+class ArticleRow(Base):
+    """A guide article on the public site. `body` is in the light text format of
+    domain/services/articles.py; `sources` is a list of {"name", "url"}."""
+    __tablename__ = "articles"
+    __table_args__ = (Index("ix_articles_published", "is_published", "published_on"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(120), unique=True)
+    title: Mapped[str] = mapped_column(String(200))
+    summary: Mapped[str] = mapped_column(String(400))
+    body: Mapped[str] = mapped_column(Text)
+    sources: Mapped[list] = mapped_column(JSON, default=list)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    published_on: Mapped[date] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime)

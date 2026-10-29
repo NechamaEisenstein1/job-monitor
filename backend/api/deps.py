@@ -22,8 +22,15 @@ def db(request: Request) -> Iterator[Session]:
 DbSession = Annotated[Session, Depends(db)]
 
 
-def current_user(request: Request, session: DbSession) -> User:
-    user = account_service(session, request.app.state.cfg).user_for_token(request.cookies.get(SESSION_COOKIE))
+def optional_user(request: Request, session: DbSession) -> User | None:
+    """The logged-in user, or None for a visitor: for pages anyone may open."""
+    return account_service(session, request.app.state.cfg).user_for_token(request.cookies.get(SESSION_COOKIE))
+
+
+OptionalUser = Annotated[User | None, Depends(optional_user)]
+
+
+def current_user(user: OptionalUser) -> User:
     if user is None:
         raise HTTPException(status_code=401, detail="not_authenticated")
     return user

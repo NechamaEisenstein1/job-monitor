@@ -219,5 +219,5 @@ def test_forum_pages_are_private_for_search_engines():
     from backend.api.seo import classify
 
     for path in ("/forum", "/forum/new", "/forum/c/questions", "/forum/t/12"):
-        assert classify(path) == "private"
-    assert classify("/forum/t/abc") == "unknown"
+        assert classify(path, None) == "private"
+    assert classify("/forum/t/abc", None) == "unknown"

@@ -16,6 +16,7 @@ from backend.application.services.notification import NotificationService
 from backend.application.services.scraper_executor import ScraperExecutor
 from backend.application.services.scraper_health import ScraperHealthMonitor
 from backend.application.use_cases.accounts import AccountService, EmailVerificationService, RecruiterService
+from backend.application.use_cases.articles import ArticleService
 from backend.application.use_cases.forum import ForumService
 from backend.application.use_cases.outreach import OutreachService
 from backend.application.use_cases.run_pipeline import RunPipeline
@@ -24,6 +25,7 @@ from backend.application.use_cases.user_alerts import UserAlertService
 from backend.config.settings import MatchingConfig, Settings, load_matching_config, load_sources_config
 from backend.domain.services.evaluation import JobEvaluationService
 from backend.infrastructure.oauth.gmail import GmailClient, TokenCipher
+from backend.infrastructure.repositories.articles import SqlArticleRepository
 from backend.infrastructure.repositories.billing import SqlBillingRepository
 from backend.infrastructure.repositories.forum import SqlForumRepository
 from backend.infrastructure.db.session import make_engine, make_session_factory
@@ -112,6 +114,10 @@ def recruiter_service(session: Session) -> RecruiterService:
 
 def forum_service(session: Session) -> ForumService:
     return ForumService(SqlForumRepository(session), utcnow)
+
+
+def article_service(session: Session) -> ArticleService:
+    return ArticleService(SqlArticleRepository(session), utcnow)
 
 
 def outreach_service(session: Session, settings: Settings, cfg: MatchingConfig, sender: EmailSender,

@@ -12,7 +12,7 @@ const ITEM = "flex h-11 w-full items-center gap-2.5 rounded-lg px-3 text-[15px]"
 
 function MenuLink({ item, onPick }: { item: NavItem; onPick: () => void }) {
   return (
-    <NavLink to={item.to} role="menuitem" onClick={onPick}
+    <NavLink to={item.to} end={item.exact} role="menuitem" onClick={onPick}
              className={({ isActive }) => `${ITEM} ${isActive ? "bg-brand-50 font-semibold text-brand-900" : "text-slate-800 hover:bg-slate-50"}`}>
       <Icon icon={item.icon} className="size-[18px] text-slate-500" />{item.label}
     </NavLink>

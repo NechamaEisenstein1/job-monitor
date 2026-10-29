@@ -7,7 +7,11 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { EmptyState, LoadingState } from "./components/States";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { he } from "./i18n/he";
+import { EditArticlePage, NewArticlePage } from "./pages/admin/AdminArticleEditorPage";
+import { AdminArticlesPage } from "./pages/admin/AdminArticlesPage";
 import { AdminPage } from "./pages/AdminPage";
+import { ArticlePage } from "./pages/articles/ArticlePage";
+import { ArticlesPage } from "./pages/articles/ArticlesPage";
 import { BillingPage } from "./pages/BillingPage";
 import { ContactPage } from "./pages/ContactPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -42,6 +46,7 @@ function ToLogin() {
 }
 
 const PRIVATE_PATHS = ["dashboard", "contact", "me", "jobs", "jobs/:id", "runs", "runs/:id", "sources", "admin", "recruiter", "billing",
+  "admin/articles", "admin/articles/new", "admin/articles/:id",
   "forum", "forum/new", "forum/c/:code", "forum/t/:id"];
 
 function App() {
@@ -55,6 +60,8 @@ function App() {
         <Route element={<PublicLayout />}>
           <Route index element={<LandingPage />} />
           <Route path="tenders" element={<TendersPage />} />
+          <Route path="articles" element={<ArticlesPage />} />
+          <Route path="articles/:slug" element={<ArticlePage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="terms" element={<TermsPage />} />
           {PRIVATE_PATHS.map((p) => <Route key={p} path={p} element={<ToLogin />} />)}
@@ -66,6 +73,8 @@ function App() {
   }
 
   const next = new URLSearchParams(location.search).get("next");
+  // The server enforces admin-only too; this just hides the pages.
+  const adminOnly = (page: React.ReactNode) => (user.is_admin ? page : <Navigate to="/jobs" replace />);
   return (
     <Routes>
       {/* Only same-site relative targets, never an open redirect. */}
@@ -77,15 +86,18 @@ function App() {
         <Route path="me" element={<MyAreaPage />} />
         <Route path="jobs" element={<JobsPage />} />
         <Route path="jobs/:id" element={<JobDetailsPage />} />
-        {/* Run information is for admins only (the API enforces it too). */}
-        <Route path="runs" element={user.is_admin ? <RunsPage /> : <Navigate to="/jobs" replace />} />
-        <Route path="runs/:id" element={user.is_admin ? <RunDetailsPage /> : <Navigate to="/jobs" replace />} />
-        <Route path="sources" element={user.is_admin ? <SourcesPage /> : <Navigate to="/jobs" replace />} />
+        <Route path="runs" element={adminOnly(<RunsPage />)} />
+        <Route path="runs/:id" element={adminOnly(<RunDetailsPage />)} />
+        <Route path="sources" element={adminOnly(<SourcesPage />)} />
         <Route path="tenders" element={<TendersPage />} />
+        <Route path="articles" element={<ArticlesPage />} />
+        <Route path="articles/:slug" element={<ArticlePage />} />
         <Route path="privacy" element={<PrivacyPage />} />
         <Route path="terms" element={<TermsPage />} />
-        {/* The server enforces admin-only too; this just hides the page. */}
-        <Route path="admin" element={user.is_admin ? <AdminPage /> : <Navigate to="/" replace />} />
+        <Route path="admin" element={adminOnly(<AdminPage />)} />
+        <Route path="admin/articles" element={adminOnly(<AdminArticlesPage />)} />
+        <Route path="admin/articles/new" element={adminOnly(<NewArticlePage />)} />
+        <Route path="admin/articles/:id" element={adminOnly(<EditArticlePage />)} />
         {/* Everyone may post: recruiters publish at once, other users send for the admin's approval. */}
         <Route path="recruiter" element={<RecruiterPage />} />
         <Route path="billing" element={<BillingPage />} />
