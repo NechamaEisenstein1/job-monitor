@@ -16,7 +16,8 @@ from urllib.parse import quote
 from bs4 import BeautifulSoup, Tag
 
 from backend.domain.models import RawJob
-from backend.infrastructure.scrapers.base import BaseScraper, NetworkError, ParseError, ScrapeTimeoutError
+from backend.domain.services.scraper_health import FailureKind, classify, fallback_note
+from backend.infrastructure.scrapers.base import BaseScraper, FallbackFailedError, ParseError, ScraperError
 from backend.infrastructure.scrapers.html import split_requirements, text_of
 from backend.infrastructure.scrapers.http import RetryingHttpClient
 from backend.infrastructure.scrapers.sites.base import SiteScraper
@@ -42,6 +43,8 @@ class DrushimScraper(BoardScraper):
     """Company page /דרושים-<id>-<slug>/ (Next.js) embeds every open job of the company in
     __NEXT_DATA__ (props.pageProps.profile.jobs); each job page adds the description and
     requirements as separate line lists. `pages` are the "<id>-<slug>" parts of the URLs."""
+
+    board_name = "Drushim"
 
     async def fetch_jobs(self) -> list[RawJob]:
         jobs: list[RawJob] = []
@@ -120,6 +123,8 @@ class JobnetScraper(BoardScraper):
     (schema.org JobPosting microdata); `p=` (0-based) pages through them until one is empty.
     `pages` are JobNet companyIDs."""
 
+    board_name = "JobNet"
+
     async def fetch_jobs(self) -> list[RawJob]:
         jobs: list[RawJob] = []
         for company_id in self._pages:
@@ -178,34 +183,59 @@ def _drop_heading(text: str, heading: str) -> str:
 # ---------------------------------------------------------------------------- fallback
 
 class FallbackScraper(BaseScraper):
-    """Runs a company's own-site scraper and, when the site refuses us (HTTP error, network
-    failure, timeout - e.g. a Cloudflare challenge), collects the same company from a job
-    board instead. Parse errors are not covered: they mean our parser is wrong."""
+    """Runs a company's own-site scraper and, whenever that fails - the site refuses us
+    (HTTP error, network failure, timeout, e.g. a Cloudflare challenge), its layout changed
+    (parse error) or it suddenly lists nothing - collects the same company from a job board.
+
+    Using the board is never silent: `note` holds a warning naming the own-site failure and
+    its kind, recorded on the run, so a broken own-site scraper is still reported (see
+    domain/services/scraper_health.py) while the jobs keep flowing."""
 
     def __init__(self, primary: BaseScraper, fallback: BaseScraper):
         self.primary = primary
         self.fallback = fallback
         self.skipped = 0
         self.used_fallback = False
+        self.note: str | None = None
 
     @property
     def site_name(self) -> str:
         return self.primary.site_name
 
+    @property
+    def board_name(self) -> str:
+        return getattr(self.fallback, "board_name", type(self.fallback).__name__)
+
     async def fetch_jobs(self) -> list[RawJob]:
-        self.used_fallback = False
+        self.used_fallback, self.note = False, None
         for scraper in (self.primary, self.fallback):
             if hasattr(scraper, "skipped"):
                 scraper.skipped = 0
         try:
             jobs = await self.primary.fetch_jobs()
-            self.skipped = getattr(self.primary, "skipped", 0)
-            return jobs
-        except (NetworkError, ScrapeTimeoutError) as exc:
-            log_event("site_fallback", logging.WARNING, site=self.site_name, error=str(exc)[:200])
+        except ScraperError as exc:
+            failure: ScraperError = exc
+        else:
+            if jobs:
+                self.skipped = getattr(self.primary, "skipped", 0)
+                return jobs
+            failure = ParseError(f"{self.site_name}: own site returned zero jobs")
+
+        kind = classify(failure.status, str(failure)) or FailureKind.TEMPORARY
+        log_event("site_fallback", logging.WARNING, site=self.site_name, kind=kind.value,
+                  board=self.board_name, error=str(failure)[:200])
         self.used_fallback = True
-        jobs = await self.fallback.fetch_jobs()
+        try:
+            jobs = await self.fallback.fetch_jobs()
+        except ScraperError as exc:
+            raise FallbackFailedError(failure, str(exc), self.board_name) from exc
         self.skipped = getattr(self.fallback, "skipped", 0)
+        if jobs:
+            self.note = fallback_note(kind, str(failure), self.board_name)
+        elif isinstance(failure, ParseError) and "zero jobs" in str(failure):
+            return []  # the company lists nothing anywhere: a genuine zero, reported as such
+        else:
+            raise FallbackFailedError(failure, "board returned zero jobs", self.board_name)
         return jobs
 
 

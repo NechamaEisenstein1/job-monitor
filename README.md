@@ -196,8 +196,8 @@ Every path used was checked against the site's robots.txt; requests are throttle
 | Horizon | one list page + detail page per job | |
 | Comblack | `/categories/all/` (single page) | |
 | Consist | `/jobs/?page=N` | |
-| Yael | `/jobs/` (single page) | includes Koren Tech |
-| GAV Systems (גב מערכות) | WP REST `jobs` + detail page | |
+| Yael | `/jobs/` (single page) | includes Koren Tech; Drushim fallback |
+| GAV Systems (גב מערכות) | WP REST `jobs` + detail page | Drushim fallback (the site answers 403 from GitHub's servers) |
 | Ness | public JSON API `GetAllItems` | recruiter names/emails not stored |
 | ProLogic | ~50 category pages | no location field -> location read from text; JobNet fallback |
 | SQLink | category pages | no location field -> location read from text |
@@ -212,9 +212,19 @@ Every path used was checked against the site's robots.txt; requests are throttle
 
 **Job boards.** `drushim` and `jobnet` sources read one recruitment company's page(s) on the
 board (`pages:` in sources.yaml); jobs are recorded under the source's name. A `site` source
-can name one as its `fallback`: it is used only when the company's own site refuses the request
-(HTTP error, network error, timeout), never on a parse error. Drushim's robots.txt forbids its
-search API (`/api/jobs/search?...area=`), so only the public company and job pages are read.
+can name one as its `fallback`: it is used whenever the company's own site fails - refused
+request, timeout, network error, a parse error (layout change) or a sudden zero. Using the board
+is never silent: the run records a `fallback used (<kind>)` warning and the health email reports
+the broken own-site scraper. Matrix, HMS, Yael, GAV, Ness, ProLogic, SQLink, One, Logica, Experis
+and Aman have one. Drushim's robots.txt forbids its search API (`/api/jobs/search?...area=`), so
+only the public company and job pages are read.
+
+**Scraper health email** (`health:` in matching.yaml, sent to `RECIPIENT_EMAIL`). After each run
+every failure is classified (`domain/services/scraper_health.py`): *temporary* (timeout, 429/5xx),
+*blocked* (401/403, bot protection), *layout* (parse error, zero jobs), *gone* (404/410) or
+*config*. Layout/gone/config failures and fallback use are emailed on the first run; temporary and
+blocked ones after `alert_after_failures` failed runs in a row; then a reminder every
+`remind_every_runs` runs. One email per day lists every site with a problem and what to do.
 
 **Behind NetFree or another TLS-inspecting filter?** Certificates are verified with the OS
 trust store (`truststore`), so the filter's root CA installed in Windows is honoured.

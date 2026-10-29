@@ -221,6 +221,12 @@ class SqlScraperRunRepository:
         _upsert(self._s, ScraperRunRow, scraper_run)
         return scraper_run
 
+    def recent_for_site(self, site: str, limit: int) -> list[ScraperRun]:
+        """The site's latest runs, newest first (uses ix_scraper_runs_site_status_started)."""
+        rows = self._s.scalars(select(ScraperRunRow).where(ScraperRunRow.site == site)
+                               .order_by(ScraperRunRow.started_at.desc(), ScraperRunRow.id.desc()).limit(limit))
+        return [to_domain(r, ScraperRun, {"status": ScrapeStatus}) for r in rows]
+
 
 class SqlJobEvaluationRepository:
     def __init__(self, session: Session):

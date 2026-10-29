@@ -11,17 +11,26 @@
 #
 # All paths used were checked against each site's robots.txt (2026-09).
 # Set `enabled: false` to pause a source; `note` is shown on the Sources page.
-# A `site` source may name a `fallback` board (type + pages): when the company's own site
-# refuses the request (e.g. Cloudflare's bot check from GitHub's servers), the same company
-# is collected from that board instead.
+# A `site` source may name a `fallback` board (type + pages): whenever the company's own site
+# fails - it refuses the request (e.g. Cloudflare's bot check from GitHub's servers), times
+# out, its layout changed so the parser finds nothing, or it suddenly lists zero jobs - the
+# same company is collected from that board instead. The run records a warning, and the
+# scraper health email reports the broken own-site scraper, so nothing is silently hidden.
+# Give every `site` source a fallback when the company has a Drushim or JobNet page.
 sources:
   - name: "Matrix"
     type: site
     site: matrix
+    fallback:
+      type: drushim
+      pages: ["5013-מטריקס"]
 
   - name: "HMS"
     type: site
     site: hms
+    fallback:
+      type: drushim
+      pages: ["20982-דב-הלפרין"]
 
   - name: "Tigbur"
     type: site
@@ -69,19 +78,30 @@ sources:
   - name: "Yael"
     type: site
     site: yael
+    note: "כשהאתר לא זמין, המשרות נאספות מדף החברה בדרושים."
+    fallback:
+      type: drushim
+      pages: ["28853-יעל-תוכנה"]
 
   - name: "GAV Systems"
     type: site
     site: gav
+    note: "כשהאתר חוסם את הסריקה, המשרות נאספות מדפי החברה בדרושים."
+    fallback:
+      type: drushim
+      pages: ["4259385-gavsystems", "23190-גב-מערכות-צפון"]
 
   - name: "Ness"
     type: site
     site: ness
+    fallback:
+      type: drushim
+      pages: ["3989-ness-technologies"]
 
   - name: "ProLogic"
     type: site
     site: prologic
-    note: "כשהאתר חוסם את הסריקה (Cloudflare), המשרות נאספות מדפי החברה בג'ובנט."
+    note: "כשהאתר חוסם את הסריקה או שמבנהו משתנה, המשרות נאספות מדפי החברה בג'ובנט."
     fallback:
       type: jobnet
       pages: ["20969", "12429"]
@@ -89,6 +109,9 @@ sources:
   - name: "SQLink"
     type: site
     site: sqlink
+    fallback:
+      type: drushim
+      pages: ["10307-sqlink"]
 
   - name: "One"
     type: site
@@ -112,10 +135,16 @@ sources:
   - name: "Logica"
     type: site
     site: logica
+    fallback:
+      type: drushim
+      pages: ["311679-logica-it"]
 
   - name: "Experis"
     type: site
     site: experis
+    fallback:
+      type: drushim
+      pages: ["1749523-experis-solutions"]
 
   - name: "Top Soft"
     type: site

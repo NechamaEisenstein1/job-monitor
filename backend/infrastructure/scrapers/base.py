@@ -31,6 +31,16 @@ class ScraperConfigError(ScraperError):
     status = ScrapeStatus.CONFIG_ERROR
 
 
+class FallbackFailedError(ScraperError):
+    """A site's own scraper failed and so did its fallback board. Carries the site's own
+    failure status (what needs fixing) and both messages."""
+
+    def __init__(self, primary: ScraperError, fallback_message: str, board: str):
+        super().__init__(f"{primary} | fallback {board} also failed: {fallback_message}")
+        self.status = primary.status
+        self.primary = primary
+
+
 class BaseScraper(ABC):
     """Site-specific scrapers only map a site's response into RawJob.
     Retry, metrics, run tracking and persistence live elsewhere."""

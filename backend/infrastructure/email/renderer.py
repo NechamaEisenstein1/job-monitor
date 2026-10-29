@@ -5,6 +5,7 @@ from datetime import date
 from html import escape
 
 from backend.application.dto import DigestItem
+from backend.domain.services.scraper_health import ADVICE, DEGRADED_ADVICE, KIND_LABELS, SiteHealth
 from backend.domain.services.user_matching import AlertItem
 
 _CHANGE_LABELS = {
@@ -121,3 +122,38 @@ def render_verification(display_name: str, link: str) -> RenderedEmail:
     html = _page(subject, f"<p>{escape(paragraphs[0])}</p><p>{escape(paragraphs[1])}</p>{button}"
                           f"<p style='color:#64748b;font-size:12px'>{escape(paragraphs[3])}</p>")
     return RenderedEmail(subject=subject, html=html, text=chr(10).join(paragraphs))
+
+
+def render_scraper_health(items: list[SiteHealth], scheduled_date: date, base_url: str = "") -> RenderedEmail:
+    """Owner alert: sites whose scraper needs attention, with what went wrong and what to do."""
+    broken = [h for h in items if not h.degraded]
+    subject = (f"סריקת משרות: {len(broken)} אתרים דורשים טיפול - {scheduled_date.isoformat()}" if broken
+               else f"סריקת משרות: אתרים שעברו למקור גיבוי - {scheduled_date.isoformat()}")
+    rows, lines = [], [subject, ""]
+    for h in items:
+        label = KIND_LABELS[h.kind]
+        if h.degraded:
+            status = "עובד ממקור גיבוי"
+        else:
+            status = "נכשל בריצה האחרונה" if h.streak == 1 else f"נכשל {h.streak} ריצות ברצף"
+        since = (f"הצלחה אחרונה: {h.last_success_at:%d/%m/%Y}" if h.last_success_at
+                 else "אין הצלחה בהיסטוריה האחרונה")
+        advice = DEGRADED_ADVICE[h.kind] if h.degraded else ADVICE[h.kind]
+        error = (h.last_error or "")[:300]
+        rows.append(
+            "<tr><td style='padding:10px;border-bottom:1px solid #e5e7eb'>"
+            f"<strong>{escape(h.site)}</strong> "
+            f"<span style='color:{'#b45309' if h.degraded else '#b91c1c'}'>{escape(label)} · {escape(status)}</span><br>"
+            f"<span style='color:#6b7280'>{escape(since)}</span><br>"
+            f"<span>{escape(advice)}</span><br>"
+            f"<code dir='ltr' style='color:#6b7280;font-size:12px'>{escape(error)}</code></td></tr>"
+        )
+        lines += [f"- {h.site}: {label}, {status}. {since}", f"  {advice}", f"  {error}", ""]
+    link = ""
+    if base_url:
+        url = f"{base_url.rstrip('/')}/sources"
+        link = f"<p><a href='{escape(url)}'>לעמוד המקורות</a></p>"
+        lines.append(url)
+    body = (f"<p>{len(items)} אתרים</p><table style='border-collapse:collapse;width:100%'>"
+            f"{''.join(rows)}</table>{link}")
+    return RenderedEmail(subject=subject, html=_page(subject, body), text="\n".join(lines))

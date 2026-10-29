@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from backend.application.services.notification import NotificationService
 from backend.application.services.scraper_executor import ScraperExecutor
+from backend.application.services.scraper_health import ScraperHealthMonitor
 from backend.application.use_cases.accounts import AccountService, EmailVerificationService, RecruiterService
 from backend.application.use_cases.forum import ForumService
 from backend.application.use_cases.outreach import OutreachService
@@ -29,7 +30,7 @@ from backend.infrastructure.db.session import make_engine, make_session_factory
 from backend.infrastructure.email.senders import EmailSender, FileEmailSender, SmtpEmailSender
 from backend.infrastructure.repositories.sql import (
     SqlJobEvaluationRepository, SqlJobRepository, SqlJobSourceRepository, SqlNotificationRepository,
-    SqlUnitOfWork,
+    SqlScraperRunRepository, SqlUnitOfWork,
 )
 from backend.infrastructure.repositories.submissions import SqlSubmissionRepository
 from backend.infrastructure.repositories.users import (
@@ -137,7 +138,7 @@ async def pipeline_from_settings(settings: Settings) -> AsyncIterator[RunPipelin
 
     async with http_client(cfg) as http:
         with session_factory() as session, session_factory() as notification_session, \
-                session_factory() as alerts_session:
+                session_factory() as alerts_session, session_factory() as health_session:
             yield RunPipeline(
                 uow=SqlUnitOfWork(session),
                 scrapers=build_scrapers(sources, http),
@@ -149,6 +150,11 @@ async def pipeline_from_settings(settings: Settings) -> AsyncIterator[RunPipelin
                 ),
                 clock=utcnow,
                 user_alerts=user_alert_service(alerts_session, settings, cfg, sender) if settings.smtp else None,
+                health=ScraperHealthMonitor(
+                    SqlScraperRunRepository(health_session), SqlNotificationRepository(health_session), sender,
+                    cfg.email.recipient, cfg.health, utcnow, base_url=settings.public_base_url,
+                    claim_timeout_minutes=cfg.email.claim_timeout_minutes,
+                ),
             )
 
 

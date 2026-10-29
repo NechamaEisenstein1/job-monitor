@@ -314,3 +314,48 @@ def test_run_backfills_manual_postings_evaluations(harness, cfg, session_factory
     assert [(e.regions, e.scrape_run_id) for e in evals] == [("|south|", None)]
     # Not part of the run's own evaluations (no repeat alerts, no run counters).
     assert run.canonical_jobs_touched == 1
+
+
+def test_scraper_health_alert_after_the_run(cfg, session_factory):
+    """End to end on SQLite: a layout break is emailed once; a timeout only after 3 days."""
+    from backend.application.services.scraper_health import ScraperHealthMonitor
+    from backend.infrastructure.repositories.sql import SqlScraperRunRepository
+    from backend.infrastructure.scrapers.base import ParseError
+
+    class Capture:
+        def __init__(self):
+            self.emails = []
+
+        def send(self, recipient, email):
+            self.emails.append(email)
+
+    health_sender = Capture()
+
+    def run(days_later: int, *scrapers: BaseScraper):
+        now = lambda: NOW + timedelta(days=days_later)  # noqa: E731
+        with session_factory() as s, session_factory() as ns, session_factory() as hs:
+            pipeline = RunPipeline(
+                uow=SqlUnitOfWork(s), scrapers=list(scrapers), executor=ScraperExecutor(4, now), config=cfg,
+                evaluator=JobEvaluationService.from_config(cfg),
+                notifications=NotificationService(SqlNotificationRepository(ns), NullSender(), cfg.email, now),
+                clock=now,
+                health=ScraperHealthMonitor(SqlScraperRunRepository(hs), SqlNotificationRepository(hs),
+                                            health_sender, "owner@example.com", cfg.health, now),
+            )
+            return asyncio.run(pipeline.run())
+
+    broken = FakeScraper("ProLogic", error=ParseError("ProLogic: links not found - site layout may have changed"))
+    slow = FakeScraper("Yael", error=ScrapeTimeoutError("timeout after 4 attempts: https://yaelgroup.com/jobs/"))
+    fine = FakeScraper("Ness", jobs=[job(1)])
+
+    run(0, broken, slow, fine)
+    assert len(health_sender.emails) == 1 and "ProLogic" in health_sender.emails[0].html
+    assert "Yael" in health_sender.emails[0].html      # listed as a current problem
+    run(1, broken, slow, fine)
+    assert len(health_sender.emails) == 1               # nothing newly due on day 2
+    run(2, broken, slow, fine)
+    assert len(health_sender.emails) == 2               # Yael's 3rd failed run in a row
+
+    with session_factory() as s:
+        history = SqlScraperRunRepository(s).recent_for_site("Yael", 2)
+    assert [r.started_at.date() for r in history] == [(NOW + timedelta(days=d)).date() for d in (2, 1)]

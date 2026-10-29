@@ -16,6 +16,7 @@ from backend.application.dto import DigestItem
 from backend.application.ports import UnitOfWork
 from backend.application.services.notification import NotificationService
 from backend.application.services.scraper_executor import ScraperExecutor, ScraperResult
+from backend.application.services.scraper_health import ScraperHealthMonitor
 from backend.application.use_cases.user_alerts import UserAlertService
 from backend.config.settings import MatchingConfig
 from backend.domain.enums import JobSourceStatus, JobStatus, ScrapeStatus
@@ -57,6 +58,7 @@ class RunPipeline:
         notifications: NotificationService,
         clock: Callable[[], datetime],
         user_alerts: UserAlertService | None = None,
+        health: ScraperHealthMonitor | None = None,
     ):
         self._uow = uow
         self._scrapers = scrapers
@@ -65,6 +67,7 @@ class RunPipeline:
         self._evaluator = evaluator
         self._notifications = notifications
         self._user_alerts = user_alerts
+        self._health = health
         self._clock = clock
         self._identity = SourceIdentityResolver()
         self._matcher = JobMatcher(config.thresholds.match_title_fuzzy)
@@ -106,7 +109,19 @@ class RunPipeline:
                 self._user_alerts.send_for_run(run.id, run.scheduled_date)
             except Exception as exc:  # noqa: BLE001 - alerts must never fail the run
                 log_event("user_alerts_failed", logging.ERROR, run_id=run.id, error=repr(exc)[:300])
-        return self._finish(run, ctx.scraper_runs, ctx)
+        finished = self._finish(run, ctx.scraper_runs, ctx)
+        self._check_health(finished)
+        return finished
+
+    def _check_health(self, run: ScrapeRun) -> None:
+        """Report scrapers that need a person (see services/scraper_health.py). Runs after the
+        run is finished and saved, and can never fail it."""
+        if self._health is None:
+            return
+        try:
+            self._health.check([s.site_name for s in self._scrapers], run.scheduled_date, run.id)
+        except Exception as exc:  # noqa: BLE001 - health reporting must never fail the run
+            log_event("scraper_health_failed", logging.ERROR, run_id=run.id, error=repr(exc)[:300])
 
     # ------------------------------------------------------------ per scraper
 

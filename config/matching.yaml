@@ -186,6 +186,14 @@ retention:
   max_prune_ratio: 0.5
   stale_after_days: 3       # postings not seen this long (site failing) -> "not seen recently"
 
+# Scraper health email to the RECIPIENT_EMAIL address: which sites need attention and why.
+# Layout changes, dead URLs, config errors and fallback use are reported on the first run;
+# timeouts and blocks only after `alert_after_failures` failed runs in a row. While a problem
+# lasts, a reminder follows every `remind_every_runs` runs (not every day).
+health:
+  alert_after_failures: 3
+  remind_every_runs: 7
+
 schedule:
   # The scheduled date of a run is the calendar date in this timezone.
   timezone: "Asia/Jerusalem"

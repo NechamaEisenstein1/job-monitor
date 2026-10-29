@@ -9,9 +9,10 @@ from pathlib import Path
 
 import pytest
 
+from backend.domain.enums import ScrapeStatus
 from backend.domain.services.normalization import normalize_raw_job
 from backend.domain.services.validation import validate_job
-from backend.infrastructure.scrapers.base import HttpStatusError, ParseError
+from backend.infrastructure.scrapers.base import FallbackFailedError, HttpStatusError, ParseError, ScrapeTimeoutError
 from backend.infrastructure.scrapers.boards import (
     DrushimScraper, FallbackScraper, JobnetScraper, company_url,
 )
@@ -367,24 +368,68 @@ def test_every_configured_source_builds():
     assert len(names) == len(set(names)), "source names must be unique (run tracking is per name)"
 
 
-@pytest.mark.parametrize("error, falls_back", [
-    (HttpStatusError(403, "https://x", "Cloudflare challenge"), True),
-    (ParseError("layout changed"), False),
+@pytest.mark.parametrize("error, kind", [
+    (HttpStatusError(403, "https://x", "Cloudflare challenge"), "blocked"),
+    (ParseError("layout changed"), "layout"),
+    (ScrapeTimeoutError("timeout after 4 attempts: https://x"), "temporary"),
+    (None, "layout"),  # the own site suddenly lists zero jobs
 ])
-def test_fallback_only_when_the_site_refuses(error, falls_back):
-    class Blocked(AmanScraper):
+def test_fallback_whenever_the_own_site_fails_and_says_so(error, kind):
+    class Broken(AmanScraper):
         async def fetch_jobs(self):
-            raise error
+            if error is not None:
+                raise error
+            return []
 
     class Board(DrushimScraper):
         async def fetch_jobs(self):
             return self.parse_company(html("drushim_company"))
 
-    scraper = FallbackScraper(Blocked(None), Board("Aman", ["1-x"], None))
-    if falls_back:
-        jobs = asyncio.run(scraper.fetch_jobs())
-        assert len(jobs) == 3 and scraper.used_fallback
-        assert {j.recruitment_company for j in jobs} == {"Aman"}
-    else:
-        with pytest.raises(ParseError):
-            asyncio.run(scraper.fetch_jobs())
+    scraper = FallbackScraper(Broken(None), Board("Aman", ["1-x"], None))
+    jobs = asyncio.run(scraper.fetch_jobs())
+    assert len(jobs) == 3 and scraper.used_fallback
+    assert {j.recruitment_company for j in jobs} == {"Aman"}
+    assert scraper.note.startswith(f"fallback used ({kind})") and "Drushim" in scraper.note
+
+
+def test_fallback_not_used_when_the_own_site_works():
+    class Works(AmanScraper):
+        async def fetch_jobs(self):
+            return [self.job(source_job_id=1, source_url="https://aman.example/1", title="Dev")]
+
+    class Board(DrushimScraper):
+        async def fetch_jobs(self):
+            raise AssertionError("board must not be called")
+
+    scraper = FallbackScraper(Works(None), Board("Aman", ["1-x"], None))
+    assert len(asyncio.run(scraper.fetch_jobs())) == 1
+    assert not scraper.used_fallback and scraper.note is None
+
+
+def test_fallback_failing_too_reports_both_with_the_own_site_status():
+    class Broken(AmanScraper):
+        async def fetch_jobs(self):
+            raise ParseError("Aman: job list not found - site layout may have changed")
+
+    class DownBoard(DrushimScraper):
+        async def fetch_jobs(self):
+            raise HttpStatusError(503, "https://www.drushim.co.il/x")
+
+    scraper = FallbackScraper(Broken(None), DownBoard("Aman", ["1-x"], None))
+    with pytest.raises(FallbackFailedError) as info:
+        asyncio.run(scraper.fetch_jobs())
+    assert info.value.status == ScrapeStatus.PARSE_ERROR  # what needs fixing: our parser
+    assert "layout may have changed" in str(info.value) and "Drushim also failed" in str(info.value)
+
+
+def test_fallback_genuine_zero_everywhere_is_zero_not_an_error():
+    class Empty(AmanScraper):
+        async def fetch_jobs(self):
+            return []
+
+    class EmptyBoard(DrushimScraper):
+        async def fetch_jobs(self):
+            return []
+
+    scraper = FallbackScraper(Empty(None), EmptyBoard("Aman", ["1-x"], None))
+    assert asyncio.run(scraper.fetch_jobs()) == [] and scraper.note is None

@@ -111,6 +111,18 @@ class EmailConfig:
 
 
 @dataclass(frozen=True)
+class HealthConfig:
+    """When a failing scraper is reported by email (see domain/services/scraper_health.py)."""
+    # Temporary/blocked failures are reported after this many consecutive failed runs;
+    # layout/gone/config failures and fallback use are reported on the first run.
+    alert_after_failures: int = 3
+    # Then a reminder every this many runs while the problem lasts (0 = no reminders).
+    remind_every_runs: int = 7
+    # Runs of history read per site.
+    history_runs: int = 30
+
+
+@dataclass(frozen=True)
 class ScraperConfig:
     timeout_seconds: float
     max_retries: int
@@ -236,6 +248,7 @@ class MatchingConfig:
     users: UsersConfig
     billing: BillingConfig = BillingConfig()
     signals: SignalsConfig = SignalsConfig()
+    health: HealthConfig = HealthConfig()
     regions: tuple[RegionConfig, ...] = ()
 
     @classmethod
@@ -259,6 +272,7 @@ class MatchingConfig:
             users=UsersConfig(**raw.get("users", {})),
             billing=BillingConfig(**raw.get("billing", {})),
             signals=SignalsConfig(**raw.get("signals", {})),
+            health=HealthConfig(**raw.get("health", {})),
         )
 
 

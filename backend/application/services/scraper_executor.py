@@ -52,6 +52,10 @@ class ScraperExecutor:
             if skipped := getattr(scraper, "skipped", 0):
                 warning = f"{skipped} listing(s) on the page could not be read - check the parser"
                 log_event("listings_skipped", logging.WARNING, site=scraper.site_name, count=skipped)
+            if not error and (note := getattr(scraper, "note", None)):
+                # The site's own scraper failed and its fallback board was used: recorded so
+                # the health check still reports the broken own-site scraper.
+                warning = "; ".join(filter(None, [note, warning]))
             if error:
                 log_event("scraper_failed", logging.WARNING, site=scraper.site_name, status=status.value, error=error)
             else:
