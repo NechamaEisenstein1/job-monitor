@@ -9,9 +9,11 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from backend.api import account_routes, admin_routes, forum_routes, gmail_routes, recruiter_routes, routes
-from backend.api.seo import PageRenderer, classify, robots_txt, sitemap_xml
-from backend.bootstrap import build_email_sender, gmail_client, google_oauth, token_cipher
+from backend.api import (
+    account_routes, admin_routes, article_routes, forum_routes, gmail_routes, recruiter_routes, routes,
+)
+from backend.api.seo import PageRenderer, classify, find_public_page, robots_txt, sitemap_xml
+from backend.bootstrap import article_service, build_email_sender, gmail_client, google_oauth, token_cipher
 from backend.config.settings import PROJECT_ROOT, Settings, load_matching_config, load_sources_config
 from backend.infrastructure.db.session import make_engine, make_session_factory
 from backend.observability import configure_logging
@@ -86,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(recruiter_routes.router)
     app.include_router(gmail_routes.router)
     app.include_router(forum_routes.router)
+    app.include_router(article_routes.router)
     app.include_router(routes.router)
 
     @app.get("/robots.txt", include_in_schema=False)
@@ -94,7 +97,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/sitemap.xml", include_in_schema=False)
     def sitemap() -> Response:
-        return Response(sitemap_xml(settings, SITE_UPDATED), media_type="application/xml")
+        with app.state.session_factory() as session:
+            articles = article_service(session).published()
+        return Response(sitemap_xml(settings, SITE_UPDATED, articles), media_type="application/xml")
 
     # Serve the built dashboard (npm run build) from the same origin, if present.
     if FRONTEND_DIST.exists():
@@ -106,9 +111,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             candidate = (FRONTEND_DIST / path).resolve()
             if path and candidate.is_file() and FRONTEND_DIST.resolve() in candidate.parents:
                 return FileResponse(candidate)  # favicon.svg etc.
-            kind = classify("/" + path)
+            with app.state.session_factory() as session:
+                page = find_public_page("/" + path, article_service(session))
+            kind = classify("/" + path, page)
             # Unknown paths are real 404s (the app shows its own "not found"), never soft-404s.
-            response = HTMLResponse(pages.render("/" + path), status_code=404 if kind == "unknown" else 200)
+            response = HTMLResponse(pages.render(page), status_code=404 if kind == "unknown" else 200)
             if kind != "public":
                 response.headers["X-Robots-Tag"] = "noindex, nofollow"
             return response

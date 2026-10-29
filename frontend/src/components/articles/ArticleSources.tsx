@@ -1,6 +1,6 @@
 import { ExternalLink } from "lucide-react";
 
-import type { ArticleSource } from "../../content/articles";
+import type { ArticleSource } from "../../types/articles";
 import { he } from "../../i18n/he";
 import { Icon } from "../StatusBadge";
 

@@ -2,21 +2,53 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import date, datetime
 from xml.etree import ElementTree
 
 import json
 import re
+from urllib.parse import quote
 
 import pytest
 
-from backend.api.seo import ARTICLES, PUBLIC_PAGES, TENDERS_FAQ, PageRenderer, classify, robots_txt, sitemap_xml
+from backend.api.seo import (
+    PUBLIC_PAGES, TENDERS_FAQ, PageRenderer, classify, find_public_page, robots_txt, sitemap_xml,
+)
 from backend.config.settings import PROJECT_ROOT, Settings
+from backend.domain.articles import Article, ArticleSource
 
 TEMPLATE = """<!doctype html><html lang="he"><head>
 <!--SEO-->
 <title>placeholder</title>
 <!--/SEO-->
 </head><body><div id="root"></div></body></html>"""
+
+
+ARTICLE = Article(
+    id=1, slug="איך-פונים-למגייסים", title="איך פונים למגייסים", summary="פנייה קצרה ואישית.",
+    body="## הפרופיל\nקודם הפרופיל.\n- תמונה\n- כותרת", sources=(ArticleSource("מקור", "https://example.com/a"),),
+    is_published=True, published_on=date(2026, 10, 1), updated_at=datetime(2026, 10, 20, 8, 0),
+)
+
+
+class OneArticleCatalog:
+    def published(self) -> list[Article]:
+        return [ARTICLE]
+
+    def published_by_slug(self, slug: str) -> Article | None:
+        return ARTICLE if slug == ARTICLE.slug else None
+
+
+def _classify(path: str) -> str:
+    return classify(path, find_public_page(path, OneArticleCatalog()))
+
+
+class PathRenderer:
+    def __init__(self, renderer: PageRenderer):
+        self._renderer = renderer
+
+    def render(self, path: str) -> str:
+        return self._renderer.render(find_public_page(path, OneArticleCatalog()))
 
 
 @pytest.fixture
@@ -29,7 +61,7 @@ def settings(tmp_path):
 def renderer(tmp_path, settings):
     index = tmp_path / "index.html"
     index.write_text(TEMPLATE, encoding="utf-8")
-    return PageRenderer(index, settings)
+    return PathRenderer(PageRenderer(index, settings))
 
 
 @pytest.mark.parametrize("path, kind", [
@@ -39,7 +71,7 @@ def renderer(tmp_path, settings):
     ("/wp-admin", "unknown"), ("/jobs/abc", "unknown"),
 ])
 def test_page_classification(path, kind):
-    assert classify(path) == kind
+    assert _classify(path) == kind
 
 
 def test_public_page_head(renderer):
@@ -59,7 +91,7 @@ def test_private_page_is_noindex(renderer):
 def test_search_console_verification_tag(tmp_path, settings):
     index = tmp_path / "index.html"
     index.write_text(TEMPLATE, encoding="utf-8")
-    html = PageRenderer(index, replace(settings, google_site_verification="abc123")).render("/")
+    html = PathRenderer(PageRenderer(index, replace(settings, google_site_verification="abc123"))).render("/")
     assert '<meta name="google-site-verification" content="abc123" />' in html
 
 
@@ -72,11 +104,10 @@ def test_robots_blocks_private_areas_but_not_public_pages(settings):
 
 
 def test_sitemap_lists_exactly_the_public_pages(settings):
-    from datetime import date
-    root = ElementTree.fromstring(sitemap_xml(settings, date(2026, 9, 24)))
+    root = ElementTree.fromstring(sitemap_xml(settings, date(2026, 9, 24), []))
     ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
     locs = [e.text for e in root.findall("s:url/s:loc", ns)]
-    assert locs == [f"https://jobs.example.com{p}" for p in PUBLIC_PAGES]
+    assert locs == [f"https://jobs.example.com{p}" for p in [*PUBLIC_PAGES, "/articles"]]
 
 
 def test_endpoints_and_api_noindex(world):
@@ -127,34 +158,29 @@ def test_private_page_has_no_fallback_text(renderer):
     assert '<div id="root"></div>' in renderer.render("/me")
 
 
-def test_articles_page_lists_every_article_for_crawlers(renderer):
+def test_articles_page_links_every_published_article_for_crawlers(renderer):
     html = renderer.render("/articles")
-    assert classify("/articles") == "public"
-    assert all(f'<a href="/articles/{article.slug}">' in html for article in ARTICLES)
+    assert _classify("/articles") == "public"
+    assert f'<a href="{quote(ARTICLE.path)}">{ARTICLE.title}</a>' in html
 
 
 def test_article_page_is_public_with_article_structured_data(renderer):
-    article = ARTICLES[0]
-    html = renderer.render(article.path)
-    assert classify(article.path) == "public" and classify("/articles/no-such-article") == "unknown"
+    html = renderer.render(ARTICLE.path)
+    assert _classify(ARTICLE.path) == "public" and _classify("/articles/no-such-article") == "unknown"
     assert '<meta property="og:type" content="article" />' in html
+    assert f'<link rel="canonical" href="https://jobs.example.com{quote(ARTICLE.path)}" />' in html
     node = next(node for node in _json_ld(html)["@graph"] if node["@type"] == "Article")
-    assert node["headline"] == article.title and node["datePublished"] == article.published.isoformat()
-    assert all(f"<h2>{section.heading}</h2>" in html for section in article.sections)
+    assert node["headline"] == ARTICLE.title and node["datePublished"] == "2026-10-01"
+    assert "<h2>הפרופיל</h2><p>קודם הפרופיל.</p><ul><li>תמונה</li><li>כותרת</li></ul>" in html
+    assert '<a href="https://example.com/a" rel="nofollow">מקור</a>' in html
 
 
-def test_sitemap_dates_articles_by_their_publication(settings):
-    from datetime import date
-    xml = sitemap_xml(settings, date(2026, 9, 24))
-    for article in ARTICLES:
-        assert (f"<loc>https://jobs.example.com{article.path}</loc>"
-                f"<lastmod>{article.published.isoformat()}</lastmod>") in xml
+def test_sitemap_dates_articles_by_their_last_edit(settings):
+    xml = sitemap_xml(settings, date(2026, 9, 24), [ARTICLE])
+    for path in ("/articles", quote(ARTICLE.path)):
+        assert f"<loc>https://jobs.example.com{path}</loc><lastmod>2026-10-20</lastmod>" in xml
 
 
-def test_every_article_is_complete_and_cites_sources():
-    assert len(ARTICLES) >= 5
-    for article in ARTICLES:
-        assert re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", article.slug), article.slug
-        assert article.title and article.summary and article.sections
-        assert all(section.paragraphs or section.points for section in article.sections)
-        assert article.sources and all(source.url.startswith("https://") for source in article.sources)
+def test_admin_article_editor_is_private():
+    for path in ("/admin/articles", "/admin/articles/new", "/admin/articles/3"):
+        assert _classify(path) == "private"

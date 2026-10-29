@@ -1,14 +1,15 @@
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import type { Article } from "../../content/articles";
 import { he } from "../../i18n/he";
+import type { ArticleSummary } from "../../types/articles";
 import { Icon } from "../StatusBadge";
 import { ArticleMeta } from "./ArticleMeta";
+import { articlePath } from "./articlePaths";
 
-export function ArticleCard({ article }: { article: Article }) {
+export function ArticleCard({ article }: { article: ArticleSummary }) {
   return (
-    <Link to={`/articles/${article.slug}`}
+    <Link to={articlePath(article.slug)}
           className="group flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-brand-200 hover:shadow-md">
       <h2 className="text-lg font-semibold leading-snug text-slate-900 group-hover:text-brand-700">{article.title}</h2>
       <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{article.summary}</p>

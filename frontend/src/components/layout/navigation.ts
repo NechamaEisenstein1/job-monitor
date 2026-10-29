@@ -1,5 +1,5 @@
 import {
-  BookOpen, Briefcase, Coins, Database, History, LayoutDashboard, Mail, Megaphone, MessagesSquare, ShieldCheck, UserRound,
+  BookOpen, Briefcase, Coins, Database, FileText, History, LayoutDashboard, Mail, Megaphone, MessagesSquare, ShieldCheck, UserRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -11,6 +11,8 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   adminOnly?: boolean;
+  /** Active only on this exact path, not on the pages under it. */
+  exact?: boolean;
 }
 
 /** Every link of the signed-in app, in one place. Add a page here and it appears in the
@@ -34,7 +36,8 @@ export const ACCOUNT_NAV: NavItem[] = [
 
 /** Site management, in its own section of the account menu. */
 export const ADMIN_NAV: NavItem[] = [
-  { to: "/admin", label: he.nav.admin, icon: ShieldCheck, adminOnly: true },
+  { to: "/admin", label: he.nav.admin, icon: ShieldCheck, adminOnly: true, exact: true },
+  { to: "/admin/articles", label: he.nav.adminArticles, icon: FileText, adminOnly: true },
   { to: "/runs", label: he.nav.runs, icon: History, adminOnly: true },
   { to: "/sources", label: he.nav.sources, icon: Database, adminOnly: true },
 ];

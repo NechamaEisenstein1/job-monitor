@@ -9,7 +9,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
-from backend.api.deps import CurrentUser, DbSession, csrf_protect, current_user
+from backend.api.deps import CurrentUser, DbSession, csrf_protect, optional_user
 from backend.application.dto import GmailStatusDto
 from backend.bootstrap import utcnow
 from backend.infrastructure.oauth.google import OAuthError, PkcePair
@@ -58,9 +58,8 @@ def gmail_callback(request: Request, session: DbSession, code: str = "", state: 
         return response
 
     gmail, cipher = request.app.state.gmail, request.app.state.cipher
-    try:
-        user = current_user(request, session)  # the connection belongs to whoever is logged in
-    except HTTPException:
+    user = optional_user(request, session)  # the connection belongs to whoever is logged in
+    if user is None:
         return done("failed")
     if gmail is None or error or not code or not stored_state or not secrets.compare_digest(stored_state, state):
         return done("denied" if error == "access_denied" else "failed")

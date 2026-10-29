@@ -4,6 +4,7 @@ import type {
   GmailStatus, JobSubmission, ManualJob, ManualJobInput, ReviewResult, VerificationResult, OutreachLogEntry, OutreachResult, PublishResult, Recruiter, RecruiterInput, RegisterInput, RunDetail,
   ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
+import type { Article, ArticleInput, ArticleSummary, EditableArticle } from "../types/articles";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string | undefined, message: string) {
@@ -129,7 +130,16 @@ export const api = {
   forumThank: (id: number, thanked: boolean) =>
     (thanked ? put<{ thanks_count: number }>(`/forum/posts/${id}/thanks`, {}) : del<{ thanks_count: number }>(`/forum/posts/${id}/thanks`)),
 
+  // guide articles: anyone reads; the admin also opens drafts
+  articles: () => get<ArticleSummary[]>("/articles"),
+  article: (slug: string) => get<Article>(`/articles/${encodeURIComponent(slug)}`),
+
   // admin
+  adminArticles: () => get<ArticleSummary[]>("/admin/articles"),
+  adminArticle: (id: number) => get<EditableArticle>(`/admin/articles/${id}`),
+  adminCreateArticle: (article: ArticleInput) => post<{ id: number }>("/admin/articles", article),
+  adminUpdateArticle: (id: number, article: ArticleInput) => put<void>(`/admin/articles/${id}`, article),
+  adminDeleteArticle: (id: number) => del(`/admin/articles/${id}`),
   adminStats: () => get<AdminStats>("/admin/stats"),
   adminMessages: (openOnly: boolean, page: number) =>
     get<ContactMessagePage>("/admin/messages", { open_only: openOnly, page, page_size: PAGE_SIZE }),
