@@ -10,6 +10,12 @@ RUN npm run build
 FROM python:3.12-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PORT=8000
+# Outbound TLS verifies against the OS trust store (truststore), so refresh it on every
+# build: certificate-authority revocations (e.g. the 2026-10 eMudhra compromise) arrive
+# through the ca-certificates package.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt ./
 # Optional build secret for networks that inspect HTTPS (e.g. NetFree): an extra CA bundle
 # used only by pip during this step - never stored in the image. Cloud builds don't pass it.
