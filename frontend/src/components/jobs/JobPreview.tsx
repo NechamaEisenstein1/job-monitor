@@ -47,7 +47,8 @@ export function JobPreview({ job, navigation, applications, verifications }: {
   ];
 
   return (
-    <article className="flex h-full flex-col">
+    // Fills the height it is given: header and actions stay put, only the description scrolls.
+    <article className="flex min-h-0 flex-1 flex-col">
       <header className="border-b border-slate-100 px-5 pt-4 pb-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <span className="text-[13px] text-slate-500">{navigation.position}</span>

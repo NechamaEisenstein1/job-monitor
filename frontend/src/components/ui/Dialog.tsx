@@ -62,7 +62,7 @@ export function Dialog({ open, onClose, title, placement = "center", hideHeader,
           </button>
         </header>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
       {footer && <footer className="border-t border-slate-100 p-4">{footer}</footer>}
     </dialog>
   );
