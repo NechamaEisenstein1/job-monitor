@@ -3,7 +3,9 @@ import { useParams } from "react-router-dom";
 import { AppliedCheckbox } from "../components/AppliedCheckbox";
 import { ChangeList } from "../components/ChangeList";
 import { JobCard } from "../components/JobCard";
-import { BackLink, Card, PageHeader } from "../components/Layout";
+import { TextBlock } from "../components/jobs/TextBlock";
+import { Card } from "../components/ui/Card";
+import { BackLink, PageHeader } from "../components/ui/PageHeader";
 import { SourceList } from "../components/SourceList";
 import { VerifyButton } from "../components/VerifyButton";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
@@ -14,14 +16,6 @@ import { he } from "../i18n/he";
 import { api } from "../services/api";
 import { formatDate, formatDateTime } from "../services/format";
 import type { JobDetail } from "../types/api";
-
-function TextBlock({ text }: { text: string }) {
-  return text ? (
-    <p className="whitespace-pre-line text-sm leading-6 text-slate-700" dir="auto">{text}</p>
-  ) : (
-    <p className="text-sm text-slate-400">{he.job.notProvided}</p>
-  );
-}
 
 /** Plain-language version of the listing's honesty labels. */
 function TransparencyCard({ job }: { job: JobDetail }) {

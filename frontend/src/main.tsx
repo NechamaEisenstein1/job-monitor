@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import "./index.css";
-import { Layout } from "./components/Layout";
+import { AppLayout } from "./components/layout/AppLayout";
 import { EmptyState, LoadingState } from "./components/States";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { he } from "./i18n/he";
@@ -70,7 +70,7 @@ function App() {
     <Routes>
       {/* Only same-site relative targets, never an open redirect. */}
       <Route path="login" element={<Navigate to={next?.startsWith("/") && !next.startsWith("//") ? next : "/"} replace />} />
-      <Route element={<Layout />}>
+      <Route element={<AppLayout />}>
         {/* Logged-in visitors land on the jobs page. */}
         <Route index element={<Navigate to="/jobs" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />

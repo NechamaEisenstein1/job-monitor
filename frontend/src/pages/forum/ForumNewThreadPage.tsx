@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { Breadcrumbs, CategoryIcon, forumControl, forumPrimary, forumSecondary } from "../../components/forum/ForumUi";
-import { Card, PageHeader } from "../../components/Layout";
+import { Card } from "../../components/ui/Card";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { he } from "../../i18n/he";
 import { api } from "../../services/api";
 import type { ForumCategoryCode } from "../../types/api";

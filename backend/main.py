@@ -22,7 +22,8 @@ SITE_UPDATED = date(2026, 10, 18)  # <lastmod> of the public pages; bump when th
 # Same-origin app: scripts/styles/API all come from our own host. Inline style attributes are
 # used by the UI (bar widths), hence 'unsafe-inline' for styles only.
 CONTENT_SECURITY_POLICY = (
-    "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; "
+    "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; script-src 'self'; "
     "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 )
 

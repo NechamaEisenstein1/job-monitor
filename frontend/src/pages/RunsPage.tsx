@@ -1,6 +1,8 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { BackLink, Card, PageHeader, td, th } from "../components/Layout";
+import { Card } from "../components/ui/Card";
+import { BackLink, PageHeader } from "../components/ui/PageHeader";
+import { td, th } from "../components/ui/table";
 import { ScraperStatus } from "../components/ScraperStatus";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { StatusBadge } from "../components/StatusBadge";

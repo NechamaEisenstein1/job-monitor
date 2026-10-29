@@ -1,8 +1,12 @@
 import { Star } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { Card, PageHeader, td, th } from "../components/Layout";
+import { pointsGoal } from "../components/celebration/pointsGoal";
+import { type PostOutcome, PostCelebration } from "../components/celebration/PostCelebration";
+import { Card } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
+import { td, th } from "../components/ui/table";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { Badge, Icon } from "../components/StatusBadge";
 import { useApi } from "../hooks/useApi";
@@ -41,28 +45,31 @@ function Field({ label, optional, children }: { label: string; optional?: boolea
  *  and must say where it came from. */
 function PublishForm({ direct, onPublished }: { direct: boolean; onPublished: () => void }) {
   const prices = useApi(api.billingPrices, "billing-prices");
+  const subscription = useApi(api.subscription, "subscription");
   const [form, setForm] = useState<ManualJobInput>(EMPTY);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ ok: boolean; text: string }>();
+  const [error, setError] = useState<string>();
+  const [outcome, setOutcome] = useState<PostOutcome>();
+  const titleRef = useRef<HTMLInputElement>(null);
   const set = (key: keyof ManualJobInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [key]: e.target.value });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setMessage(undefined);
+    setError(undefined);
     try {
       if (direct) {
         const result = await api.publishJob(form);
-        setMessage({ ok: true, text: r.published(result.points_awarded, result.balance) });
+        setOutcome({ kind: "published", points: result.points_awarded, balance: result.balance });
       } else {
         await api.submitJob(form);
-        setMessage({ ok: true, text: r.submitted });
+        setOutcome({ kind: "pending", points: prices.data?.points_per_manual_job ?? 0 });
       }
       setForm(EMPTY);
       onPublished();
     } catch (err) {
-      setMessage({ ok: false, text: (err as Error).message });
+      setError((err as Error).message);
     } finally {
       setBusy(false);
     }
@@ -81,7 +88,7 @@ function PublishForm({ direct, onPublished }: { direct: boolean; onPublished: ()
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={r.jobTitle}>
-            <input className={control} required value={form.title} onChange={set("title")} maxLength={500} />
+            <input ref={titleRef} className={control} required value={form.title} onChange={set("title")} maxLength={500} />
           </Field>
           <Field label={r.location} optional>
             <input className={control} value={form.location} onChange={set("location")} maxLength={200} />
@@ -117,12 +124,14 @@ function PublishForm({ direct, onPublished }: { direct: boolean; onPublished: ()
             </span>
           )}
         </div>
-        {message && (
-          <p role={message.ok ? "status" : "alert"} className={`text-sm ${message.ok ? "text-emerald-700" : "text-rose-700"}`}>
-            {message.text}
-          </p>
-        )}
+        {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
       </form>
+      <PostCelebration outcome={outcome} goal={pointsGoal(subscription.data, prices.data)}
+                       onClose={() => setOutcome(undefined)}
+                       onPostAnother={() => {
+                         setOutcome(undefined);
+                         titleRef.current?.focus();
+                       }} />
     </Card>
   );
 }

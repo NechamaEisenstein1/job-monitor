@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 
 import { ChangeList } from "../components/ChangeList";
-import { Card, PageHeader } from "../components/Layout";
+import { Card } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
 import { RunStatus } from "../components/RunStatus";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { StatusBadge } from "../components/StatusBadge";

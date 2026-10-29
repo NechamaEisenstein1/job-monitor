@@ -5,7 +5,7 @@ import { he } from "../i18n/he";
 import { api } from "../services/api";
 import { formatDate, formatDateTime } from "../services/format";
 import type { JobSubmission } from "../types/api";
-import { Card } from "./Layout";
+import { Card } from "./ui/Card";
 import { EmptyState, ErrorState, LoadingState } from "./States";
 
 const rv = he.review;

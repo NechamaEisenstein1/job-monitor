@@ -4,7 +4,8 @@
 export const he = {
   appName: "מוניטור משרות",
   nav: { dashboard: "לוח בקרה", jobs: "משרות", runs: "ריצות", sources: "מקורות", myArea: "האזור שלי", admin: "ניהול",
-    recruiter: "פרסום משרות", billing: "נקודות ומנוי", contact: "צור קשר", forum: "פורום" },
+    recruiter: "פרסום משרות", billing: "נקודות ומנוי", contact: "צור קשר", forum: "פורום",
+    main: "ניווט ראשי", account: "החשבון שלי" },
 
   auth: {
     title: "כניסה",
@@ -211,6 +212,8 @@ export const he = {
 
   applied: {
     label: "הגשתי מועמדות",
+    done: "הגשתי",
+    mark: "סמנו שהגשתי",
     column: "הגשתי",
     title: "משרות שהגשתי אליהן",
     hint: "סמנו \"הגשתי מועמדות\" ליד משרה, והיא תישמר כאן - גם אחרי שתוסר מלוח המשרות.",
@@ -376,8 +379,6 @@ export const he = {
     optional: "(לא חובה)",
     publish: "פרסום",
     publishing: "מפרסם…",
-    published: (points: number, balance: number) =>
-      points ? `המשרה פורסמה! קיבלת ${points} נקודות (יתרה: ${balance}).` : `המשרה פורסמה (מכסת הנקודות היומית נוצלה).`,
     earnHint: (points: number, perDay: number) => `כל משרה מזכה ב-${points} נקודות (עד ${perDay} משרות ביום).`,
     mine: "המשרות שפרסמתי",
     all: "כל המשרות הידניות",
@@ -395,7 +396,6 @@ export const he = {
     sourcePublishedOn: "תאריך פרסום המכרז",
     sendForApproval: "שליחה לאישור",
     sending: "שולח…",
-    submitted: "המשרה נשלחה לאישור. היא תופיע בלוח המשרות אחרי שמנהלת האתר תאשר אותה.",
     approvalHint: (points: number) => (points ? `אחרי האישור יתווספו לך ${points} נקודות.` : ""),
     mySubmissions: "משרות ששלחתי לאישור",
     noSubmissions: "עדיין לא שלחת משרות",
@@ -574,6 +574,8 @@ export const he = {
     requestFailed: (status: number) => `הבקשה נכשלה (${status})`,
     none: "—",
     pageNotFound: "הדף לא נמצא",
+    close: "סגירה",
+    remove: (label: string) => `הסרת ${label}`,
   },
 
   dashboard: {
@@ -600,6 +602,12 @@ export const he = {
     count: (n: number) => `${n.toLocaleString("he-IL")} משרות תואמות`,
     empty: "אין משרות שתואמות לסינון",
     emptyHint: "נסו לנקות אחד מהמסננים.",
+    listLabel: "רשימת משרות",
+    preview: "פרטי המשרה",
+    pickOne: "בחרו משרה מהרשימה כדי לראות את פרטיה כאן.",
+    position: (n: number, total: number) => `משרה ${n} מתוך ${total.toLocaleString("he-IL")}`,
+    previous: "המשרה הקודמת",
+    next: "המשרה הבאה",
     columns: {
       title: "תפקיד",
       client: "לקוח",
@@ -613,10 +621,17 @@ export const he = {
   },
 
   filters: {
+    title: "חיפוש וסינון",
     search: "חיפוש",
-    searchPlaceholder: "תפקיד, לקוח, תיאור…",
+    searchPlaceholder: "תפקיד, טכנולוגיה או חברה",
     location: "מיקום",
-    locationPlaceholder: "הכל",
+    locationPlaceholder: "כל הארץ",
+    more: "סינון נוסף",
+    active: "מסננים פעילים:",
+    clearAll: "נקה הכול",
+    show: "הצגת המשרות",
+    showCount: (n: number) => `הצגת ${n.toLocaleString("he-IL")} משרות`,
+    tendersHint: "משרות דרך מכרזים של משרדים ורשויות",
     eligibility: "התאמה",
     level: "רמת ניסיון",
     levelA: "רמה א' - ג'וניור (עד שנתיים)",
@@ -671,6 +686,10 @@ export const he = {
     firstSeen: "נראתה לראשונה",
     lastSeen: "נראתה לאחרונה",
     via: (company: string) => `דרך ${company}`,
+    publishedBy: "פורסמה דרך",
+    posted: "נראתה לראשונה",
+    openOriginalShort: "למשרה באתר המקור",
+    fullPage: "עמוד המשרה המלא",
     sourceRecruiter: "התקבלה מהמגייסת",
     sourcePublishedOn: "תאריך פרסום המכרז",
   },
@@ -767,6 +786,29 @@ export const he = {
     role_not_eligible: "תפקיד לא טכנולוגי",
     government_tender: "מכרז ממשלתי",
   } as Record<string, string>,
+
+  celebration: {
+    publishedTitle: "המשרה פורסמה!",
+    thanks: "תודה! כל משרה שמפרסמים כאן עוזרת למישהו למצוא עבודה.",
+    points: "נקודות",
+    balance: "היתרה שלך",
+    dailyCapReached: "הגעתם למכסת הנקודות היומית, אבל המשרה פורסמה ותעזור למחפשי עבודה.",
+    goalSubscription: "התקדמות למנוי חודשי",
+    toSubscription: (n: number) => `עוד ${n} נקודות למנוי חודשי חינם`,
+    subscriptionReached: "יש לכם מספיק נקודות למנוי חודשי חינם!",
+    goalFeatured: "התקדמות להבלטת משרה",
+    toFeatured: (n: number) => `עוד ${n} נקודות להבלטת משרה בראש הרשימה`,
+    featuredReached: "יש לכם מספיק נקודות להבלטת משרה בראש הרשימה!",
+    postAnother: "פרסום משרה נוספת",
+    close: "סגירה",
+    pendingTitle: "תודה ששיתפתם!",
+    pendingBody: "המשרה נשלחה לאישור. ברגע שתאושר היא תופיע באתר.",
+    pendingPoints: "נקודות שמחכות לכם",
+    pendingPointsHint: "יתווספו ליתרה ברגע שהמשרה תאושר.",
+    stepSent: "המשרה נשלחה",
+    stepReview: "בדיקה ואישור של צוות האתר",
+    stepLive: (points: number) => (points ? `המשרה עולה לאתר ו-${points} נקודות נכנסות ליתרה` : "המשרה עולה לאתר"),
+  },
 
   relative: {
     justNow: "הרגע",

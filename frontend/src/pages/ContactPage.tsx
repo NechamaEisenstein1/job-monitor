@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-import { Card, PageHeader } from "../components/Layout";
+import { Card } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
 import { useUser } from "../hooks/useAuth";
 import { he } from "../i18n/he";
 import { api } from "../services/api";

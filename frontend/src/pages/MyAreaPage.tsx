@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { AppliedCheckbox } from "../components/AppliedCheckbox";
-import { Card, PageHeader } from "../components/Layout";
+import { Card } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
 import { Pagination } from "../components/Pagination";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { Icon, LevelBadge, RoleBadge, TenderBadge } from "../components/StatusBadge";

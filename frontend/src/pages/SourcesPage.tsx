@@ -1,4 +1,6 @@
-import { Card, PageHeader, td, th } from "../components/Layout";
+import { Card } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
+import { td, th } from "../components/ui/table";
 import { EmptyState, ErrorState, LoadingState } from "../components/States";
 import { Badge, StatusBadge } from "../components/StatusBadge";
 import { useApi } from "../hooks/useApi";

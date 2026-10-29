@@ -2,7 +2,7 @@ import type { ScraperRun } from "../types/api";
 import { he } from "../i18n/he";
 import { formatDuration } from "../services/format";
 import { StatusBadge } from "./StatusBadge";
-import { td, th } from "./Layout";
+import { td, th } from "./ui/table";
 
 const s = he.scrapers;
 
