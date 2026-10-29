@@ -4,8 +4,8 @@
 export const he = {
   appName: "מוניטור משרות",
   nav: { dashboard: "לוח בקרה", jobs: "משרות", runs: "ריצות", sources: "מקורות", myArea: "האזור שלי", admin: "ניהול",
-    recruiter: "פרסום משרות", billing: "נקודות ומנוי", contact: "צור קשר", forum: "פורום",
-    main: "ניווט ראשי", account: "החשבון שלי" },
+    billing: "נקודות ומנוי", contact: "צור קשר", forum: "פורום",
+    main: "ניווט ראשי", account: "החשבון שלי", postJob: "פרסום משרה" },
 
   auth: {
     title: "כניסה",

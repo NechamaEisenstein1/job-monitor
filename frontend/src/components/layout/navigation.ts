@@ -1,5 +1,5 @@
 import {
-  Briefcase, Coins, Database, History, LayoutDashboard, Mail, Megaphone, MessagesSquare, ShieldCheck, UserRound,
+  Briefcase, Coins, Database, History, LayoutDashboard, Mail, MessagesSquare, Plus, ShieldCheck, UserRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,9 +23,11 @@ export const PRIMARY_NAV: NavItem[] = [
   { to: "/forum", label: he.nav.forum, icon: MessagesSquare },
 ];
 
+/** The action the site most wants: a button always in the header (points reward it). */
+export const POST_JOB: NavItem = { to: "/recruiter", label: he.nav.postJob, icon: Plus };
+
 /** Everything else, in the account menu. */
 export const ACCOUNT_NAV: NavItem[] = [
-  { to: "/recruiter", label: he.nav.recruiter, icon: Megaphone },
   { to: "/billing", label: he.nav.billing, icon: Coins },
   { to: "/dashboard", label: he.nav.dashboard, icon: LayoutDashboard },
   { to: "/contact", label: he.nav.contact, icon: Mail },
