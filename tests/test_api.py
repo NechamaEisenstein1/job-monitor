@@ -97,6 +97,8 @@ def test_security_headers_and_healthz(world):
     client = world.client()
     health = client.get("/healthz")
     assert health.status_code == 200 and health.json() == {"status": "ok"}
+    ready = client.get("/readyz")
+    assert ready.status_code == 200 and ready.json() == {"status": "ok"}
     for header in ("X-Content-Type-Options", "X-Frame-Options", "Content-Security-Policy"):
         assert header in health.headers
     assert client.get("/api/auth/config").headers["Cache-Control"] == "no-store"

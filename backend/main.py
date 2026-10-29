@@ -63,7 +63,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/healthz", include_in_schema=False)
     def healthz() -> JSONResponse:
-        """Used by the hosting platform: the app is up and the database answers."""
+        """Liveness probe for the hosting platform: the process is up.
+
+        Deliberately does NOT touch the database. Render calls this every few seconds while
+        the service is awake; a `SELECT 1` here kept the Neon compute permanently awake and
+        burned the whole monthly compute allowance. Use /readyz to check the database."""
+        return JSONResponse({"status": "ok"})
+
+    @app.get("/readyz", include_in_schema=False)
+    def readyz() -> JSONResponse:
+        """Manual/diagnostic check: the app is up and the database answers."""
         try:
             with app.state.session_factory() as session:
                 session.execute(text("SELECT 1"))
