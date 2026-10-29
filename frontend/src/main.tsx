@@ -8,6 +8,8 @@ import { EmptyState, LoadingState } from "./components/States";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { he } from "./i18n/he";
 import { AdminPage } from "./pages/AdminPage";
+import { ArticlePage } from "./pages/articles/ArticlePage";
+import { ArticlesPage } from "./pages/articles/ArticlesPage";
 import { BillingPage } from "./pages/BillingPage";
 import { ContactPage } from "./pages/ContactPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -55,6 +57,8 @@ function App() {
         <Route element={<PublicLayout />}>
           <Route index element={<LandingPage />} />
           <Route path="tenders" element={<TendersPage />} />
+          <Route path="articles" element={<ArticlesPage />} />
+          <Route path="articles/:slug" element={<ArticlePage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="terms" element={<TermsPage />} />
           {PRIVATE_PATHS.map((p) => <Route key={p} path={p} element={<ToLogin />} />)}
@@ -82,6 +86,8 @@ function App() {
         <Route path="runs/:id" element={user.is_admin ? <RunDetailsPage /> : <Navigate to="/jobs" replace />} />
         <Route path="sources" element={user.is_admin ? <SourcesPage /> : <Navigate to="/jobs" replace />} />
         <Route path="tenders" element={<TendersPage />} />
+        <Route path="articles" element={<ArticlesPage />} />
+        <Route path="articles/:slug" element={<ArticlePage />} />
         <Route path="privacy" element={<PrivacyPage />} />
         <Route path="terms" element={<TermsPage />} />
         {/* The server enforces admin-only too; this just hides the page. */}

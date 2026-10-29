@@ -4,5 +4,6 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  server: { proxy: { "/api": "http://localhost:8000" } },
+  // The articles (../content) are shared with the backend, which renders their SEO pages.
+  server: { proxy: { "/api": "http://localhost:8000" }, fs: { allow: [".", "../content"] } },
 });

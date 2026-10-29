@@ -1,6 +1,6 @@
 """Search-engine plumbing: per-page <head>, robots.txt, sitemap.xml.
 
-Only the public pages (home, tenders, login, privacy, terms) are indexable. Everything behind
+Only the public pages (home, tenders, articles, login, privacy, terms) are indexable. Everything behind
 login - and the whole API - is marked noindex and disallowed, so no personal or
 member-only content can end up in search results."""
 from __future__ import annotations
@@ -12,6 +12,8 @@ from datetime import date
 from html import escape
 from pathlib import Path
 
+from backend.api.articles import (Article, article_body_html, article_links_html, article_structured_data,
+                                  load_articles)
 from backend.config.settings import Settings
 
 SITE_NAME = "מוניטור משרות"
@@ -28,6 +30,8 @@ class PublicPage:
     heading: str = ""
     intro: str = ""
     faq: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    body_html: str = ""  # more crawler text after the intro, already escaped
+    article: Article | None = None
 
 
 # Questions shown on /tenders (frontend he.ts: tenders.faq) and repeated as FAQPage structured data.
@@ -47,6 +51,15 @@ TENDERS_FAQ: tuple[tuple[str, str], ...] = (
 )
 
 TENDERS_TITLE = "מכרזים ממשלתיים בתכנות ובהנדסת תוכנה"
+ARTICLES_TITLE = "מדריכים וטיפים לחיפוש עבודה ולמכרזים ממשלתיים"
+ARTICLES = load_articles()
+
+
+def _article_page(article: Article) -> PublicPage:
+    return PublicPage(article.path, f"{article.title} | {SITE_NAME}", article.summary, "0.7",
+                      heading=article.title, intro=article.summary, body_html=article_body_html(article),
+                      article=article)
+
 
 PUBLIC_PAGES: dict[str, PublicPage] = {p.path: p for p in [
     PublicPage("/", "מכרזים ממשלתיים בתכנות ובהנדסת תוכנה ומשרות הייטק – מוניטור משרות",
@@ -64,6 +77,13 @@ PUBLIC_PAGES: dict[str, PublicPage] = {p.path: p for p in [
                      "סייבר ו-IT במשרדי ממשלה, ברשויות ובחברות ממשלתיות. האתר אוסף אותם כל יום מלוחות המשרות "
                      "של חברות ההשמה שמאיישות את המכרזים.",
                faq=TENDERS_FAQ),
+    PublicPage("/articles", f"{ARTICLES_TITLE} | {SITE_NAME}",
+               "מאמרים מעשיים למתכנתים ולמהנדסי תוכנה: איך ניגשים למכרז ממשלתי, איך פונים למגייסים, "
+               "קורות חיים שעוברים סינון, הכנה לראיון ומעקב אחרי הגשה.", "0.8",
+               heading=ARTICLES_TITLE,
+               intro="עצות מעשיות, עם מקורות, למי שמחפש משרה בהייטק או מתמודד במכרז ממשלתי בתחום התוכנה.",
+               body_html=article_links_html(ARTICLES)),
+    *map(_article_page, ARTICLES),
     PublicPage("/login", f"כניסה והרשמה – {SITE_NAME}",
                "כניסה או הרשמה חינם עם Google או עם אימייל וסיסמה.", "0.5"),
     PublicPage("/privacy", f"מדיניות פרטיות – {SITE_NAME}",
@@ -105,7 +125,7 @@ def head_tags(path: str, settings: Settings) -> str:
         f'<link rel="canonical" href="{escape(url)}" />',
         '<meta name="robots" content="index, follow" />',
         f'<meta property="og:site_name" content="{escape(SITE_NAME)}" />',
-        '<meta property="og:type" content="website" />',
+        f'<meta property="og:type" content="{"article" if page.article else "website"}" />',
         '<meta property="og:locale" content="he_IL" />',
         f'<meta property="og:title" content="{escape(page.title)}" />',
         f'<meta property="og:description" content="{escape(page.description)}" />',
@@ -128,6 +148,8 @@ def _json_ld(page: PublicPage, base: str) -> str:
         "description": page.description, "inLanguage": "he-IL", "isPartOf": {"@id": f"{base}/#website"},
         "about": {"@type": "Thing", "name": TENDERS_TITLE},
     }]
+    if page.article:
+        graph.append(article_structured_data(page.article, base, SITE_NAME))
     if page.faq:
         graph.append({"@type": "FAQPage", "mainEntity": [
             {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in page.faq
@@ -141,7 +163,7 @@ def body_fallback(path: str) -> str:
     if page is None or not page.heading:
         return ""
     faq = "".join(f"<h2>{escape(q)}</h2><p>{escape(a)}</p>" for q, a in page.faq)
-    return f"<h1>{escape(page.heading)}</h1><p>{escape(page.intro)}</p>{faq}"
+    return f"<h1>{escape(page.heading)}</h1><p>{escape(page.intro)}</p>{faq}{page.body_html}"
 
 
 class PageRenderer:
@@ -163,11 +185,16 @@ def robots_txt(settings: Settings) -> str:
     return "\n".join(lines)
 
 
-def sitemap_xml(settings: Settings, last_modified: date) -> str:
+def sitemap_xml(settings: Settings, site_updated: date) -> str:
     urls = "".join(
         f"  <url><loc>{escape(settings.public_base_url + page.path)}</loc>"
-        f"<lastmod>{last_modified.isoformat()}</lastmod><priority>{page.priority}</priority></url>\n"
+        f"<lastmod>{_last_modified(page, site_updated).isoformat()}</lastmod>"
+        f"<priority>{page.priority}</priority></url>\n"
         for page in PUBLIC_PAGES.values()
     )
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls + "</urlset>\n")
+
+
+def _last_modified(page: PublicPage, site_updated: date) -> date:
+    return page.article.published if page.article else site_updated

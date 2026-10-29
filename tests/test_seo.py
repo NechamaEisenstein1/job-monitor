@@ -9,7 +9,7 @@ import re
 
 import pytest
 
-from backend.api.seo import PUBLIC_PAGES, TENDERS_FAQ, PageRenderer, classify, robots_txt, sitemap_xml
+from backend.api.seo import ARTICLES, PUBLIC_PAGES, TENDERS_FAQ, PageRenderer, classify, robots_txt, sitemap_xml
 from backend.config.settings import PROJECT_ROOT, Settings
 
 TEMPLATE = """<!doctype html><html lang="he"><head>
@@ -125,3 +125,36 @@ def _ts_string(expr: str) -> str:
 
 def test_private_page_has_no_fallback_text(renderer):
     assert '<div id="root"></div>' in renderer.render("/me")
+
+
+def test_articles_page_lists_every_article_for_crawlers(renderer):
+    html = renderer.render("/articles")
+    assert classify("/articles") == "public"
+    assert all(f'<a href="/articles/{article.slug}">' in html for article in ARTICLES)
+
+
+def test_article_page_is_public_with_article_structured_data(renderer):
+    article = ARTICLES[0]
+    html = renderer.render(article.path)
+    assert classify(article.path) == "public" and classify("/articles/no-such-article") == "unknown"
+    assert '<meta property="og:type" content="article" />' in html
+    node = next(node for node in _json_ld(html)["@graph"] if node["@type"] == "Article")
+    assert node["headline"] == article.title and node["datePublished"] == article.published.isoformat()
+    assert all(f"<h2>{section.heading}</h2>" in html for section in article.sections)
+
+
+def test_sitemap_dates_articles_by_their_publication(settings):
+    from datetime import date
+    xml = sitemap_xml(settings, date(2026, 9, 24))
+    for article in ARTICLES:
+        assert (f"<loc>https://jobs.example.com{article.path}</loc>"
+                f"<lastmod>{article.published.isoformat()}</lastmod>") in xml
+
+
+def test_every_article_is_complete_and_cites_sources():
+    assert len(ARTICLES) >= 5
+    for article in ARTICLES:
+        assert re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", article.slug), article.slug
+        assert article.title and article.summary and article.sections
+        assert all(section.paragraphs or section.points for section in article.sections)
+        assert article.sources and all(source.url.startswith("https://") for source in article.sources)

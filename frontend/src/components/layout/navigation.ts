@@ -1,5 +1,5 @@
 import {
-  Briefcase, Coins, Database, History, LayoutDashboard, Mail, Megaphone, MessagesSquare, ShieldCheck, UserRound,
+  BookOpen, Briefcase, Coins, Database, History, LayoutDashboard, Mail, Megaphone, MessagesSquare, ShieldCheck, UserRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -21,6 +21,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { to: "/jobs", label: he.nav.jobs, icon: Briefcase },
   { to: "/me", label: he.nav.myArea, icon: UserRound },
   { to: "/forum", label: he.nav.forum, icon: MessagesSquare },
+  { to: "/articles", label: he.nav.articles, icon: BookOpen },
 ];
 
 /** Everything else, in the account menu. */

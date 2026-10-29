@@ -4,7 +4,7 @@
 export const he = {
   appName: "מוניטור משרות",
   nav: { dashboard: "לוח בקרה", jobs: "משרות", runs: "ריצות", sources: "מקורות", myArea: "האזור שלי", admin: "ניהול",
-    recruiter: "פרסום משרות", billing: "נקודות ומנוי", contact: "צור קשר", forum: "פורום",
+    recruiter: "פרסום משרות", billing: "נקודות ומנוי", contact: "צור קשר", forum: "פורום", articles: "מאמרים",
     main: "ניווט ראשי", account: "החשבון שלי" },
 
   auth: {
@@ -513,6 +513,20 @@ export const he = {
       ],
       cta: "הרשמה חינם וצפייה במכרזים",
       ctaLoggedIn: "למכרזים בלוח המשרות",
+    },
+    articlesNav: "מאמרים",
+    // Same title as ARTICLES_TITLE in backend/api/seo.py.
+    articles: {
+      title: "מדריכים וטיפים לחיפוש עבודה ולמכרזים ממשלתיים",
+      lead: "עצות מעשיות, עם מקורות, למי שמחפש משרה בהייטק או מתמודד במכרז ממשלתי בתחום התוכנה.",
+      readingTime: (minutes: number) => (minutes === 1 ? "דקת קריאה" : `${minutes} דקות קריאה`),
+      readArticle: "לקריאת המאמר",
+      sourcesTitle: "מקורות",
+      backToList: "לכל המאמרים",
+      ctaTitle: "מחפשים מכרז או משרה?",
+      ctaBody: "מוניטור משרות אוסף כל יום את המכרזים הממשלתיים ומשרות ההייטק מ-25 חברות השמה, ושולח התראה על כל משרה שמתאימה לך.",
+      cta: "הרשמה חינם",
+      ctaLoggedIn: "ללוח המשרות",
     },
     notFoundHint: "אולי הקישור שגוי. אפשר לחזור לעמוד הבית.",
     backHome: "לעמוד הבית",

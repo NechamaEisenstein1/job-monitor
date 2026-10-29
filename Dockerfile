@@ -4,6 +4,8 @@ WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+# The articles live outside frontend/ because the backend reads them too (SEO pages).
+COPY content/ /app/content/
 RUN npm run build
 
 # --- runtime: API + dashboard + pipeline CLI ---
@@ -29,6 +31,7 @@ RUN --mount=type=secret,id=extra_ca,required=false \
 COPY alembic.ini ./
 COPY backend/ backend/
 COPY config/ config/
+COPY content/ content/
 COPY fixtures/ fixtures/
 COPY --from=frontend /app/frontend/dist frontend/dist
 

@@ -17,7 +17,7 @@ from backend.infrastructure.db.session import make_engine, make_session_factory
 from backend.observability import configure_logging
 
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
-SITE_UPDATED = date(2026, 10, 18)  # <lastmod> of the public pages; bump when their content changes
+SITE_UPDATED = date(2026, 10, 29)  # <lastmod> of the public pages; bump when their content changes
 
 # Same-origin app: scripts/styles/API all come from our own host. Inline style attributes are
 # used by the UI (bar widths), hence 'unsafe-inline' for styles only.
