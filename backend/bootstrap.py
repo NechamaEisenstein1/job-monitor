@@ -20,6 +20,7 @@ from backend.application.use_cases.articles import ArticleService
 from backend.application.use_cases.forum import ForumService
 from backend.application.use_cases.outreach import OutreachService
 from backend.application.use_cases.run_pipeline import RunPipeline
+from backend.application.use_cases.salary_offers import SalaryOfferService
 from backend.application.use_cases.recruiting import BillingService, ManualJobService
 from backend.application.use_cases.user_alerts import UserAlertService
 from backend.config.settings import MatchingConfig, Settings, load_matching_config, load_sources_config
@@ -28,6 +29,7 @@ from backend.infrastructure.oauth.gmail import GmailClient, TokenCipher
 from backend.infrastructure.repositories.articles import SqlArticleRepository
 from backend.infrastructure.repositories.billing import SqlBillingRepository
 from backend.infrastructure.repositories.forum import SqlForumRepository
+from backend.infrastructure.repositories.salary_offers import SqlSalaryOfferRepository
 from backend.infrastructure.db.session import make_engine, make_session_factory
 from backend.infrastructure.email.senders import EmailSender, FileEmailSender, SmtpEmailSender
 from backend.infrastructure.repositories.sql import (
@@ -118,6 +120,10 @@ def forum_service(session: Session) -> ForumService:
 
 def article_service(session: Session) -> ArticleService:
     return ArticleService(SqlArticleRepository(session), utcnow)
+
+
+def salary_offer_service(session: Session, cfg: MatchingConfig) -> SalaryOfferService:
+    return SalaryOfferService(SqlSalaryOfferRepository(session), utcnow, role_types=cfg.roles.eligible_types)
 
 
 def outreach_service(session: Session, settings: Settings, cfg: MatchingConfig, sender: EmailSender,

@@ -5,6 +5,9 @@ import type {
   ScrapeRun, SourceHealth, Stats, SubscriptionState, User, UserRole, Wallet,
 } from "../types/api";
 import type { Article, ArticleInput, ArticleSummary, EditableArticle } from "../types/articles";
+import type {
+  LevelSummary, MySalaryOffer, SalaryOffer, SalaryOfferInput, SalaryOfferOptions, SalaryOfferQuery,
+} from "../types/salaryOffers";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string | undefined, message: string) {
@@ -134,7 +137,18 @@ export const api = {
   articles: () => get<ArticleSummary[]>("/articles"),
   article: (slug: string) => get<Article>(`/articles/${encodeURIComponent(slug)}`),
 
+  // shared salary offers
+  salaryOfferOptions: () => get<SalaryOfferOptions>("/salary-offers/options"),
+  salaryOffers: (q: SalaryOfferQuery) => get<SalaryOffer[]>("/salary-offers", { ...q }),
+  salaryOfferSummary: (q: SalaryOfferQuery) => get<LevelSummary>("/salary-offers/summary", { ...q }),
+  shareSalaryOffer: (offer: SalaryOfferInput) => post<{ id: number }>("/salary-offers", offer),
+  mySalaryOffers: () => get<MySalaryOffer[]>("/salary-offers/mine"),
+  withdrawSalaryOffer: (id: number) => del(`/salary-offers/${id}`),
+
   // admin
+  adminSalaryOffers: () => get<SalaryOffer[]>("/admin/salary-offers"),
+  adminReviewSalaryOffer: (id: number, approve: boolean) =>
+    post<void>(`/admin/salary-offers/${id}/${approve ? "approve" : "reject"}`),
   adminArticles: () => get<ArticleSummary[]>("/admin/articles"),
   adminArticle: (id: number) => get<EditableArticle>(`/admin/articles/${id}`),
   adminCreateArticle: (article: ArticleInput) => post<{ id: number }>("/admin/articles", article),
