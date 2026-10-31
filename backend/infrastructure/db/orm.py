@@ -476,3 +476,34 @@ class ArticleRow(Base):
     published_on: Mapped[date] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime)
     updated_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class SalaryOfferRow(Base):
+    """A salary offer a member shared. `extras` is a list of {"kind", "amount", "included_in_total"};
+    `details` holds the optional keys of domain/services/salary_offer_details.py."""
+    __tablename__ = "salary_offers"
+    __table_args__ = (
+        Index("ix_salary_offers_status_level_month", "status", "level", "offered_month"),
+        Index("ix_salary_offers_submitted_by", "submitted_by"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    submitted_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    status: Mapped[str] = mapped_column(String(16))
+    level: Mapped[str] = mapped_column(String(16))
+    role_type: Mapped[str] = mapped_column(String(32))
+    agency: Mapped[str] = mapped_column(String(80))
+    client_type: Mapped[str] = mapped_column(String(16))
+    offered_month: Mapped[date] = mapped_column(Date)
+    outcome: Mapped[str] = mapped_column(String(16))
+    base_salary: Mapped[int] = mapped_column(Integer)
+    extras: Mapped[list] = mapped_column(JSON, default=list)
+    hours_per_day: Mapped[float] = mapped_column(Float)
+    vacation_days: Mapped[int] = mapped_column(Integer)
+    sick_pay: Mapped[str] = mapped_column(String(32))
+    contribution_base: Mapped[str] = mapped_column(String(16))
+    contribution_percent: Mapped[int] = mapped_column(Integer)
+    study_fund_start: Mapped[str] = mapped_column(String(32))
+    details: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)

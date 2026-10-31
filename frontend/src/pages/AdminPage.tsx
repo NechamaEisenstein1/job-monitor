@@ -6,6 +6,7 @@ import { Card } from "../components/ui/Card";
 import { PageHeader } from "../components/ui/PageHeader";
 import { td, th } from "../components/ui/table";
 import { ErrorState, LoadingState } from "../components/States";
+import { SalaryOfferReviewCard } from "../components/salaryOffers/SalaryOfferReviewCard";
 import { SubmissionReviewCard } from "../components/SubmissionReview";
 import { Badge, StatusBadge } from "../components/StatusBadge";
 import { useApi } from "../hooks/useApi";
@@ -281,6 +282,7 @@ export function AdminPage() {
     <>
       <PageHeader title={a.title} subtitle={a.subtitle} />
       <div className="mb-6"><SubmissionReviewCard /></div>
+      <div className="mb-6"><SalaryOfferReviewCard /></div>
       {stats.error && <ErrorState error={stats.error} onRetry={stats.reload} />}
       {!s ? (!stats.error && <LoadingState rows={8} />) : (
         <div className="space-y-6">

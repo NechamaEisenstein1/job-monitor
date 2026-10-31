@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from backend.api import (
     account_routes, admin_routes, article_routes, forum_routes, gmail_routes, recruiter_routes, routes,
+    salary_offer_routes,
 )
 from backend.api.seo import PageRenderer, classify, find_public_page, robots_txt, sitemap_xml
 from backend.bootstrap import article_service, build_email_sender, gmail_client, google_oauth, token_cipher
@@ -89,6 +90,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(gmail_routes.router)
     app.include_router(forum_routes.router)
     app.include_router(article_routes.router)
+    app.include_router(salary_offer_routes.router)
     app.include_router(routes.router)
 
     @app.get("/robots.txt", include_in_schema=False)

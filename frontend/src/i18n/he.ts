@@ -1,10 +1,11 @@
 // All user-facing text. Backend codes (statuses, rule ids) are translated here for
 // display only - the backend stays the source of truth for their meaning.
+import { salaryOfferErrors } from "./salaryOffers/pages";
 
 export const he = {
   appName: "מוניטור משרות",
   nav: { dashboard: "לוח בקרה", jobs: "משרות", runs: "ריצות", sources: "מקורות", myArea: "האזור שלי", admin: "ניהול",
-    recruiter: "פרסום משרות", billing: "נקודות ומנוי", contact: "צור קשר", forum: "פורום", articles: "מאמרים", adminArticles: "ניהול מאמרים",
+    recruiter: "פרסום משרות", billing: "נקודות ומנוי", contact: "צור קשר", forum: "פורום", articles: "מאמרים", salaryOffers: "הצעות שכר", adminArticles: "ניהול מאמרים",
     main: "ניווט ראשי", account: "החשבון שלי" },
 
   auth: {
@@ -129,6 +130,7 @@ export const he = {
     invalid_review_note: "הערת הדחייה ארוכה מדי",
     own_posting: "אי אפשר לאמת משרה שפרסמת בעצמך",
     not_verifiable: "אפשר לאמת רק משרות שהועלו ידנית באתר",
+    ...salaryOfferErrors,
   } as Record<string, string>,
 
   myArea: {

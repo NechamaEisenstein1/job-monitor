@@ -28,6 +28,9 @@ import { PublicLayout } from "./pages/public/PublicLayout";
 import { TendersPage } from "./pages/public/TendersPage";
 import { RecruiterPage } from "./pages/RecruiterPage";
 import { RunDetailsPage, RunsPage } from "./pages/RunsPage";
+import { CheckSalaryOfferPage } from "./pages/salaryOffers/CheckSalaryOfferPage";
+import { SalaryOffersPage } from "./pages/salaryOffers/SalaryOffersPage";
+import { ShareSalaryOfferPage } from "./pages/salaryOffers/ShareSalaryOfferPage";
 import { SourcesPage } from "./pages/SourcesPage";
 
 function NotFound() {
@@ -47,7 +50,7 @@ function ToLogin() {
 
 const PRIVATE_PATHS = ["dashboard", "contact", "me", "jobs", "jobs/:id", "runs", "runs/:id", "sources", "admin", "recruiter", "billing",
   "admin/articles", "admin/articles/new", "admin/articles/:id",
-  "forum", "forum/new", "forum/c/:code", "forum/t/:id"];
+  "forum", "forum/new", "forum/c/:code", "forum/t/:id", "salary-offers", "salary-offers/new", "salary-offers/check"];
 
 function App() {
   const { user, loading } = useAuth();
@@ -106,6 +109,9 @@ function App() {
         <Route path="forum/new" element={<ForumNewThreadPage />} />
         <Route path="forum/c/:code" element={<ForumCategoryPage />} />
         <Route path="forum/t/:id" element={<ForumThreadPage />} />
+        <Route path="salary-offers" element={<SalaryOffersPage />} />
+        <Route path="salary-offers/new" element={<ShareSalaryOfferPage />} />
+        <Route path="salary-offers/check" element={<CheckSalaryOfferPage />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

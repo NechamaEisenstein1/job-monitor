@@ -70,8 +70,10 @@ PRIVATE_PATTERNS = [re.compile(p) for p in (
     r"^/me/?$", r"^/jobs/?$", r"^/jobs/\d+/?$", r"^/runs/?$", r"^/runs/[0-9a-fA-F-]{36}/?$",
     r"^/sources/?$", r"^/admin/?$", r"^/admin/articles(/new|/\d+)?/?$", r"^/recruiter/?$", r"^/billing/?$",
     r"^/forum/?$", r"^/forum/new/?$", r"^/forum/c/[a-z]+/?$", r"^/forum/t/\d+/?$",
+    r"^/salary-offers(/new|/check)?/?$",
 )]
-DISALLOWED_PREFIXES = ["/api/", "/me", "/jobs", "/runs", "/sources", "/admin", "/recruiter", "/billing", "/forum"]
+DISALLOWED_PREFIXES = ["/api/", "/me", "/jobs", "/runs", "/sources", "/admin", "/recruiter", "/billing", "/forum",
+                       "/salary-offers"]
 
 _SEO_BLOCK = re.compile(r"<!--SEO-->.*?<!--/SEO-->", re.S)
 
